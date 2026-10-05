@@ -20,6 +20,9 @@ Explanation: Core business domains are strictly separated into autonomous servic
 **R3: The system must provide an API Gateway for request routing.**  
 Explanation: The API Gateway serves as the single entry point for external client traffic, routing requests to downstream microservices and handling cross-cutting concerns.
 
+**R3.1: The system must implement robust Authentication and Authorization.**  
+Explanation: Implement stateless authentication (e.g., JWT). The API Gateway must validate tokens, and a dedicated Auth/User Service should handle user registration and credential verification to ensure tickets are securely tied to user identities.
+
 **R4: The system must use PostgreSQL as a database system for data storage.**  
 Explanation: Relational database instances ensure ACID transactions and persistent state for event, seat, and booking records.
 
@@ -56,6 +59,9 @@ Explanation: The Booking Service creates a pending booking record linked to the 
 
 **R14: The system must enforce idempotent API requests for financial transactions.**  
 Explanation: The payment endpoint must require an idempotency key to prevent double-charging a user in the event of network retries or dropped connections.
+
+**R14.1: The system must provide standardized API Documentation.**  
+Explanation: All microservice APIs must be documented using the OpenAPI Specification (Swagger) to facilitate contract-driven development and frontend integration.
 
 **R15: The system must implement the Saga Pattern for distributed transaction orchestration.**  
 Explanation: Multi-service workflows (e.g., deducting inventory and capturing payment) must emit compensating transactions if any downstream step fails.
