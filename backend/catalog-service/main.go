@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	_ "github.com/lib/pq"
 )
 
@@ -68,8 +70,11 @@ type CreateEventRequest struct {
 	} `json:"tiers"`
 }
 
+const CacheTTL = 30 * time.Second
+
 type Server struct {
-	db *sql.DB
+	db  *sql.DB
+	rdb *redis.Client
 }
 
 func initDB() (*sql.DB, error) {
@@ -103,6 +108,25 @@ func initDB() (*sql.DB, error) {
 	}
 
 	return nil, fmt.Errorf("could not connect to database after 30 attempts: %w", err)
+}
+
+func initRedis() (*redis.Client, error) {
+	redisHost := getEnv("REDIS_HOST", "redis")
+	redisPort := getEnv("REDIS_PORT", "6379")
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr: fmt.Sprintf("%s:%s", redisHost, redisPort),
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		return nil, fmt.Errorf("could not connect to redis: %w", err)
+	}
+
+	log.Printf("Catalog Service connected to redis successfully at %s:%s", redisHost, redisPort)
+	return rdb, nil
 }
 
 func getEnv(key, defaultVal string) string {
@@ -152,6 +176,19 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 	category := r.URL.Query().Get("category")
 	search := r.URL.Query().Get("search")
+
+	ctx := r.Context()
+	cacheKey := fmt.Sprintf("events_list:cat=%s:search=%s", category, search)
+
+	if s.rdb != nil {
+		cachedData, err := s.rdb.Get(ctx, cacheKey).Result()
+		if err == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-Cache", "HIT")
+			w.Write([]byte(cachedData))
+			return
+		}
+	}
 
 	query := `SELECT id, title, description, category, venue_name, venue_location, start_time, end_time, status, image_url, created_at, updated_at FROM events WHERE 1=1`
 	var args []interface{}
@@ -217,7 +254,14 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(events)
+	w.Header().Set("X-Cache", "MISS")
+
+	jsonData, err := json.Marshal(events)
+	if err == nil && s.rdb != nil {
+		s.rdb.Set(ctx, cacheKey, jsonData, CacheTTL)
+	}
+
+	w.Write(jsonData)
 }
 
 func (s *Server) fetchTiersForEvent(eventID string) []TicketTier {
@@ -261,6 +305,19 @@ func (s *Server) handleEventByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx := r.Context()
+	cacheKey := fmt.Sprintf("event_id:%s", eventID)
+
+	if s.rdb != nil {
+		cachedData, err := s.rdb.Get(ctx, cacheKey).Result()
+		if err == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-Cache", "HIT")
+			w.Write([]byte(cachedData))
+			return
+		}
+	}
+
 	var e Event
 	var desc, img sql.NullString
 	err := s.db.QueryRow(
@@ -300,7 +357,14 @@ func (s *Server) handleEventByID(w http.ResponseWriter, r *http.Request) {
 	e.Tiers = s.fetchTiersForEvent(e.ID)
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(e)
+	w.Header().Set("X-Cache", "MISS")
+
+	jsonData, err := json.Marshal(e)
+	if err == nil && s.rdb != nil {
+		s.rdb.Set(ctx, cacheKey, jsonData, CacheTTL)
+	}
+
+	w.Write(jsonData)
 }
 
 func (s *Server) createEvent(w http.ResponseWriter, r *http.Request) {
@@ -409,7 +473,14 @@ func main() {
 	}
 	defer db.Close()
 
-	srv := &Server{db: db}
+	rdb, err := initRedis()
+	if err != nil {
+		log.Printf("Warning: Failed to connect to Redis. Caching disabled. Error: %v", err)
+	} else {
+		defer rdb.Close()
+	}
+
+	srv := &Server{db: db, rdb: rdb}
 
 	mux := http.NewServeMux()
 
