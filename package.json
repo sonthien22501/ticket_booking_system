@@ -1,0 +1,15 @@
+{
+  "name": "ticket_booking_system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Distributed Ticket Booking System",
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "start": "make up",
+    "stop": "make down",
+    "build": "make build",
+    "test": "make test"
+  }
+}
