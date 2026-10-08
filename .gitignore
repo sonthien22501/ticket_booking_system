@@ -3,3 +3,8 @@ frontend/dist/
 .DS_Store
 *.log
 explain.md
+
+.clj-kondo/
+.lsp/
+agents/
+.agent/
