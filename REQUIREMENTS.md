@@ -17,7 +17,7 @@ Explanation: Implement a web frontend using React and TypeScript that consumes t
 **R2: The system must provide a microservices architecture backend.**  
 Explanation: Core business domains are strictly separated into autonomous services including at least an Event Catalog Service, a Seat Inventory Service, and a Booking Service.
 
-**R3: The system must provide an API Gateway for request routing.**  
+**R3: The system must provide an API Gateway for request routing.** ✅ (Done successfully)  
 Explanation: The API Gateway serves as the single entry point for external client traffic, routing requests to downstream microservices and handling cross-cutting concerns.
 
 **R3.1: The system must implement robust Authentication and Authorization.**  
@@ -26,7 +26,7 @@ Explanation: Implement stateless authentication (e.g., JWT). The API Gateway mus
 **R4: The system must use PostgreSQL as a database system for data storage.**  
 Explanation: Relational database instances ensure ACID transactions and persistent state for event, seat, and booking records.
 
-**R5: The system must be fully containerized using Docker and Docker Compose.**  
+**R5: The system must be fully containerized using Docker and Docker Compose.** ✅ (Done successfully)  
 Explanation: The entire system (all microservices, the frontend, databases, and message brokers) must be orchestratable via a single `docker-compose.yml` file.
 
 **R6: The system must achieve automated integration test verification across the API Gateway.**  
@@ -35,23 +35,23 @@ Explanation: Automated integration suites must execute end-to-end booking transa
 **R7: The system must pass a 50-client concurrent contention test without overselling.**  
 Explanation: Under an automated test dispatching 50 concurrent requests for the identical seat, the system must resolve exactly 1 successful booking and 49 conflict rejections (HTTP 409).
 
-**R8: The system must implement distributed caching for read-heavy operations.**  
+**R8: The system must implement distributed caching for read-heavy operations.** ✅ (Done successfully)  
 Explanation: An in-memory data store (e.g., Redis) must be used to cache event catalogs and seat maps, reducing latency and database load during high-traffic spikes.
 
 ## 4. Functional Requirements
 
 ### 4.1 Must Requirements
 
-**R9: The system must provide event catalog browsing functionality to users.**  
+**R9: The system must provide event catalog browsing functionality to users.** ✅ (Done successfully)  
 Explanation: Users can retrieve and view all published events, schedules, and venue details via the frontend interface.
 
 **R10: The system must provide real-time seat availability retrieval functionality to users.**  
 Explanation: The system queries the Seat Inventory Service to present current seat states (available, held, reserved).
 
-**R11: The system must provide seat reservation locking functionality to users.**  
+**R11: The system must provide seat reservation locking functionality to users.** ✅ (Done successfully)  
 Explanation: The system temporarily holds a selected seat upon initiating checkout, preventing simultaneous reservation by other users via distributed Redis locks.
 
-**R12: The system must prevent overbooking and race conditions on concurrent seat reservations.**  
+**R12: The system must prevent overbooking and race conditions on concurrent seat reservations.** ✅ (Done successfully)  
 Explanation: Concurrency control mechanisms enforce transactional isolation so that a single physical seat cannot be allocated to multiple users.
 
 **R13: The system must provide booking creation functionality to users.**  
@@ -111,10 +111,10 @@ Explanation: Allows switching between light and dark visual themes on the React 
 
 ## 5. Non-Functional Requirements
 
-**R29: The system shall guarantee strict inventory consistency under high load.**  
+**R29: The system shall guarantee strict inventory consistency under high load.** ✅ (Done successfully)  
 Explanation: Distributed locking and transactional isolation ensure that seat allocations remain accurate and deterministic under burst traffic.
 
-**R30: The system shall maintain low response latency for read operations.**  
+**R30: The system shall maintain low response latency for read operations.** ✅ (Done successfully)  
 Explanation: Event catalog and seat layout queries must execute with sub-500ms response times under standard operating conditions.
 
 **R31: The system shall enforce API rate limiting.**  

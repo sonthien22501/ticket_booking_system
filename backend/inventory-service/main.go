@@ -9,33 +9,36 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/lib/pq"
 )
 
-// EventLockManager manages per-event in-memory mutexes for process-level serialization
-type EventLockManager struct {
-	mu    sync.Mutex
-	locks map[string]*sync.Mutex
+// DistributedLockManager manages distributed locks via Redis
+type DistributedLockManager struct {
+	rdb *redis.Client
 }
 
-func NewEventLockManager() *EventLockManager {
-	return &EventLockManager{
-		locks: make(map[string]*sync.Mutex),
+func NewDistributedLockManager(rdb *redis.Client) *DistributedLockManager {
+	return &DistributedLockManager{
+		rdb: rdb,
 	}
 }
 
-func (elm *EventLockManager) GetLock(eventID string) *sync.Mutex {
-	elm.mu.Lock()
-	defer elm.mu.Unlock()
-	lock, exists := elm.locks[eventID]
-	if !exists {
-		lock = &sync.Mutex{}
-		elm.locks[eventID] = lock
+// AcquireLock attempts to acquire a lock for a specific key. Returns true if acquired.
+func (dlm *DistributedLockManager) AcquireLock(ctx context.Context, key string, expiration time.Duration) bool {
+	locked, err := dlm.rdb.SetNX(ctx, "lock:"+key, "1", expiration).Result()
+	if err != nil {
+		log.Printf("Redis lock error: %v", err)
+		return false
 	}
-	return lock
+	return locked
+}
+
+// ReleaseLock releases the distributed lock
+func (dlm *DistributedLockManager) ReleaseLock(ctx context.Context, key string) {
+	dlm.rdb.Del(ctx, "lock:"+key)
 }
 
 type SeatItem struct {
@@ -114,8 +117,28 @@ type ReleaseRequest struct {
 
 type Server struct {
 	db       *sql.DB
-	lockMgr  *EventLockManager
+	rdb      *redis.Client
+	lockMgr  *DistributedLockManager
 	stopChan chan struct{}
+}
+
+func initRedis() (*redis.Client, error) {
+	redisHost := getEnv("REDIS_HOST", "redis")
+	redisPort := getEnv("REDIS_PORT", "6379")
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr: fmt.Sprintf("%s:%s", redisHost, redisPort),
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		return nil, fmt.Errorf("could not connect to redis: %w", err)
+	}
+
+	log.Printf("Inventory Service connected to redis successfully at %s:%s", redisHost, redisPort)
+	return rdb, nil
 }
 
 func initDB() (*sql.DB, error) {
@@ -228,8 +251,9 @@ func (s *Server) sweepExpiredHolds() {
 
 	for _, exp := range expiredList {
 		// Acquire event lock to avoid racing with active reservations
-		lock := s.lockMgr.GetLock(exp.eventID)
-		lock.Lock()
+		if !s.lockMgr.AcquireLock(ctx, exp.eventID, 5*time.Second) {
+			continue // Skip if another node is processing this event
+		}
 
 		tx, err := s.db.BeginTx(ctx, nil)
 		if err == nil {
@@ -256,7 +280,7 @@ func (s *Server) sweepExpiredHolds() {
 			_ = tx.Commit()
 			log.Printf("[Janitor] Reclaimed expired reservation %s for event %s (qty: %d)", exp.resID, exp.eventID, exp.qty)
 		}
-		lock.Unlock()
+		s.lockMgr.ReleaseLock(ctx, exp.eventID)
 	}
 
 	// 2. Also sweep any orphan seat items that expired without reservation linkage
@@ -491,13 +515,29 @@ func (s *Server) handleReserve(w http.ResponseWriter, r *http.Request) {
 		tierID = req.TierIDAlt
 	}
 
-	// 1. Process-level serialization via per-event Mutex
-	eventLock := s.lockMgr.GetLock(eventID)
-	eventLock.Lock()
-	defer eventLock.Unlock()
-
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
+
+	// 1. Distributed serialization via Redis Mutex
+	lockAcquired := false
+	for i := 0; i < 20; i++ { // Retry for up to 2 seconds
+		if s.lockMgr.AcquireLock(ctx, eventID, 5*time.Second) {
+			lockAcquired = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if !lockAcquired {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":   "SYSTEM_BUSY",
+			"message": "The system is currently experiencing high traffic for this event. Please try again.",
+		})
+		return
+	}
+	defer s.lockMgr.ReleaseLock(context.Background(), eventID)
 
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
@@ -760,9 +800,19 @@ func (s *Server) handleCommit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Acquire event lock
-	eventLock := s.lockMgr.GetLock(eventID)
-	eventLock.Lock()
-	defer eventLock.Unlock()
+	lockAcquired := false
+	for i := 0; i < 20; i++ {
+		if s.lockMgr.AcquireLock(ctx, eventID, 5*time.Second) {
+			lockAcquired = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !lockAcquired {
+		http.Error(w, `{"error":"SYSTEM_BUSY", "message":"Could not acquire lock"}`, http.StatusConflict)
+		return
+	}
+	defer s.lockMgr.ReleaseLock(context.Background(), eventID)
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -875,9 +925,19 @@ func (s *Server) handleRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	eventLock := s.lockMgr.GetLock(eventID)
-	eventLock.Lock()
-	defer eventLock.Unlock()
+	lockAcquired := false
+	for i := 0; i < 20; i++ {
+		if s.lockMgr.AcquireLock(ctx, eventID, 5*time.Second) {
+			lockAcquired = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !lockAcquired {
+		http.Error(w, `{"error":"SYSTEM_BUSY", "message":"Could not acquire lock"}`, http.StatusConflict)
+		return
+	}
+	defer s.lockMgr.ReleaseLock(context.Background(), eventID)
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -939,9 +999,16 @@ func main() {
 	}
 	defer db.Close()
 
+	rdb, err := initRedis()
+	if err != nil {
+		log.Fatalf("Fatal redis initialization error: %v", err)
+	}
+	defer rdb.Close()
+
 	srv := &Server{
 		db:       db,
-		lockMgr:  NewEventLockManager(),
+		rdb:      rdb,
+		lockMgr:  NewDistributedLockManager(rdb),
 		stopChan: make(chan struct{}),
 	}
 

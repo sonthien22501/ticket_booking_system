@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
-	"time"
 )
 
 func TestHandleHealth(t *testing.T) {
@@ -34,39 +32,12 @@ func TestHandleHealth(t *testing.T) {
 	}
 }
 
-func TestEventLockManager(t *testing.T) {
-	elm := NewEventLockManager()
-	eventID := "evt-test-99"
 
-	var counter int
-	var wg sync.WaitGroup
-	numWorkers := 20
-
-	for i := 0; i < numWorkers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			lock := elm.GetLock(eventID)
-			lock.Lock()
-			// Critical section
-			current := counter
-			time.Sleep(1 * time.Millisecond)
-			counter = current + 1
-			lock.Unlock()
-		}()
-	}
-
-	wg.Wait()
-
-	if counter != numWorkers {
-		t.Errorf("expected counter %d under event mutex serialization, got %d", numWorkers, counter)
-	}
-}
 
 func TestReserveRequestMissingEventID(t *testing.T) {
 	s := &Server{
 		db:      nil,
-		lockMgr: NewEventLockManager(),
+		lockMgr: nil,
 	}
 
 	body := map[string]interface{}{
@@ -87,7 +58,7 @@ func TestReserveRequestMissingEventID(t *testing.T) {
 func TestCommitRequestMissingReservationID(t *testing.T) {
 	s := &Server{
 		db:      nil,
-		lockMgr: NewEventLockManager(),
+		lockMgr: nil,
 	}
 
 	body := map[string]interface{}{
