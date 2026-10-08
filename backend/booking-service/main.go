@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -80,6 +79,7 @@ type Server struct {
 	httpClient          *http.Client
 	catalogServiceURL   string
 	inventoryServiceURL string
+	sagaOrchestrator    *SagaOrchestrator
 }
 
 func initDB() (*sql.DB, error) {
@@ -191,7 +191,6 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Boundary check: large overbooking requests
 	if ticketCount > 500 {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
@@ -231,169 +230,39 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		tierID = req.TierIDAlt
 	}
 
-	// 1. Validate Event & Fetch Event Details from Catalog Service (or fallback to DB)
 	eventTitle, tierPrice := s.fetchEventInfo(eventID, tierID)
 
-	// 2. SAGA STEP 1: Hold Seats in Inventory Service
-	reservePayload := map[string]interface{}{
-		"eventId":     eventID,
-		"tierId":      tierID,
-		"seats":       seats,
-		"ticketCount": ticketCount,
-		"holdSeconds": 600,
-	}
-	payloadBytes, _ := json.Marshal(reservePayload)
-
-	reserveURL := fmt.Sprintf("%s/inventory/reserve", s.inventoryServiceURL)
-	reserveReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, reserveURL, bytes.NewReader(payloadBytes))
-	if err != nil {
-		http.Error(w, `{"error":"Internal error creating reserve request"}`, http.StatusInternalServerError)
-		return
-	}
-	reserveReq.Header.Set("Content-Type", "application/json")
-
-	reserveResp, err := s.httpClient.Do(reserveReq)
-	if err != nil {
-		log.Printf("Call to inventory reserve failed: %v", err)
-		http.Error(w, fmt.Sprintf(`{"error":"Inventory service communication error: %v"}`, err), http.StatusServiceUnavailable)
-		return
-	}
-	defer reserveResp.Body.Close()
-
-	if reserveResp.StatusCode == http.StatusConflict {
-		// Propagation of seat unavailable / conflict
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusConflict)
-		_, _ = io.Copy(w, reserveResp.Body)
-		return
-	}
-
-	if reserveResp.StatusCode != http.StatusOK {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(reserveResp.StatusCode)
-		_, _ = io.Copy(w, reserveResp.Body)
-		return
-	}
-
-	var reserveResult struct {
-		ReservationID string   `json:"reservationId"`
-		Seats         []string `json:"seats"`
-		Quantity      int      `json:"quantity"`
-	}
-	if err := json.NewDecoder(reserveResp.Body).Decode(&reserveResult); err != nil {
-		http.Error(w, `{"error":"Invalid response from inventory service"}`, http.StatusInternalServerError)
-		return
-	}
-
-	reservationID := reserveResult.ReservationID
-	confirmedSeats := reserveResult.Seats
-	if len(confirmedSeats) == 0 {
-		confirmedSeats = seats
-	}
-
-	// 3. SAGA STEP 2: Payment Simulation
-	paymentSuccess := true
-	if req.PaymentInfo != nil && (req.PaymentInfo.CardToken == "tok_fail" || req.PaymentInfo.CardTokenAlt == "tok_fail") {
-		paymentSuccess = false
-	} else if req.PaymentInfoAlt != nil && (req.PaymentInfoAlt.CardToken == "tok_fail" || req.PaymentInfoAlt.CardTokenAlt == "tok_fail") {
-		paymentSuccess = false
-	}
-
-	if !paymentSuccess {
-		// Compensating transaction: Release hold
-		s.releaseInventory(r.Context(), reservationID)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusPaymentRequired)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error":   "PAYMENT_FAILED",
-			"message": "Payment simulation was declined",
-		})
-		return
-	}
-
-	// 4. SAGA STEP 3: Commit Inventory Reservation
 	bookingID := fmt.Sprintf("bk-%d", time.Now().UnixNano())
-	commitPayload := map[string]string{
-		"reservationId": reservationID,
-		"bookingId":     bookingID,
-	}
-	commitBytes, _ := json.Marshal(commitPayload)
-	commitURL := fmt.Sprintf("%s/inventory/commit", s.inventoryServiceURL)
-	commitReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, commitURL, bytes.NewReader(commitBytes))
-	if err == nil {
-		commitReq.Header.Set("Content-Type", "application/json")
-		commitResp, commitErr := s.httpClient.Do(commitReq)
-		if commitErr != nil || commitResp.StatusCode != http.StatusOK {
-			log.Printf("Commit failed, attempting release compensation: %v", commitErr)
-			s.releaseInventory(r.Context(), reservationID)
-			http.Error(w, `{"error":"Inventory commit failed"}`, http.StatusInternalServerError)
-			return
-		}
-		commitResp.Body.Close()
-	}
-
-	// 5. Persist Booking & Tickets
 	bookingRef := fmt.Sprintf("REF-%s-%d", strings.ToUpper(strings.ReplaceAll(eventID, "-", "")), time.Now().UnixNano())
 	totalAmount := tierPrice * float64(ticketCount)
 	if totalAmount <= 0 {
 		totalAmount = 60.00 * float64(ticketCount)
 	}
 
-	seatJSON, _ := json.Marshal(confirmedSeats)
-
-	tx, err := s.db.BeginTx(r.Context(), nil)
-	if err != nil {
-		http.Error(w, `{"error":"Database error persisting booking"}`, http.StatusInternalServerError)
-		return
+	paymentStatus := "PENDING"
+	if req.PaymentInfo != nil && (req.PaymentInfo.CardToken == "tok_fail" || req.PaymentInfo.CardTokenAlt == "tok_fail") {
+		paymentStatus = "PENDING_tok_fail"
+	} else if req.PaymentInfoAlt != nil && (req.PaymentInfoAlt.CardToken == "tok_fail" || req.PaymentInfoAlt.CardTokenAlt == "tok_fail") {
+		paymentStatus = "PENDING_tok_fail"
 	}
-	defer tx.Rollback()
+
+	seatJSON, _ := json.Marshal(seats)
+	if len(seats) == 0 {
+		seatJSON = []byte("[]")
+	}
 
 	now := time.Now()
-	_, err = tx.ExecContext(r.Context(),
-		`INSERT INTO bookings (id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, created_at, updated_at) 
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'CONFIRMED', $12, 'SUCCESS', $13, $13)`,
-		bookingID, bookingRef, userID, customerName, customerEmail, eventID, eventTitle, tierID, ticketCount, string(seatJSON), totalAmount, reservationID, now,
+	_, err := s.db.ExecContext(r.Context(),
+		`INSERT INTO bookings (id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, payment_status, created_at, updated_at) 
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING', $12, $13, $13)`,
+		bookingID, bookingRef, userID, customerName, customerEmail, eventID, eventTitle, tierID, ticketCount, string(seatJSON), totalAmount, paymentStatus, now,
 	)
 	if err != nil {
-		log.Printf("Insert booking error: %v", err)
-		s.releaseInventory(r.Context(), reservationID)
-		http.Error(w, fmt.Sprintf(`{"error":"Failed to save booking: %v"}`, err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf(`{"error":"Failed to create pending booking: %v"}`, err), http.StatusInternalServerError)
 		return
 	}
 
-	var tickets []Ticket
-	for i, seat := range confirmedSeats {
-		ticketID := fmt.Sprintf("tkt-%d-%d", time.Now().UnixNano(), i+1)
-		ticketCode := fmt.Sprintf("TKT-%s-%s-%d", eventID, seat, time.Now().UnixNano())
-		seatLabel := fmt.Sprintf("Seat %s", seat)
-
-		_, err = tx.ExecContext(r.Context(),
-			`INSERT INTO tickets (id, booking_id, seat_id, seat_label, ticket_code, status, created_at) 
-			 VALUES ($1, $2, $3, $4, $5, 'VALID', $6)`,
-			ticketID, bookingID, seat, seatLabel, ticketCode, now,
-		)
-		if err != nil {
-			log.Printf("Insert ticket error: %v", err)
-		}
-
-		tickets = append(tickets, Ticket{
-			ID:         ticketID,
-			TicketID:   ticketID,
-			BookingID:  bookingID,
-			SeatID:     seat,
-			SeatLabel:  seatLabel,
-			TicketCode: ticketCode,
-			Status:     "VALID",
-			CreatedAt:  now,
-		})
-	}
-
-	if err := tx.Commit(); err != nil {
-		http.Error(w, `{"error":"Transaction commit error"}`, http.StatusInternalServerError)
-		return
-	}
-
-	resp := Booking{
+	booking := &Booking{
 		ID:               bookingID,
 		BookingID:        bookingID,
 		BookingReference: bookingRef,
@@ -404,21 +273,78 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		EventTitle:       eventTitle,
 		TierID:           tierID,
 		Quantity:         ticketCount,
-		SeatIDs:          confirmedSeats,
+		SeatIDs:          seats,
 		TotalAmount:      totalAmount,
 		TotalAmountAlt:   totalAmount,
-		Status:           "CONFIRMED",
-		ReservationID:    reservationID,
-		PaymentStatus:    "SUCCESS",
-		Tickets:          tickets,
+		Status:           "PENDING",
+		PaymentStatus:    paymentStatus,
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
 
+	reservePayload := map[string]interface{}{
+		"eventId":     eventID,
+		"tierId":      tierID,
+		"seats":       seats,
+		"ticketCount": ticketCount,
+		"holdSeconds": 600,
+	}
+
+	// Wait for Saga to complete
+	sagaRes := s.sagaOrchestrator.ExecuteSaga(r.Context(), booking, reservePayload)
+
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(resp)
+	if sagaRes.Status == "SUCCESS" {
+		
+		// generate tickets
+		tx, _ := s.db.Begin()
+		var tickets []Ticket
+		for i, seat := range sagaRes.Booking.SeatIDs {
+			ticketID := fmt.Sprintf("tkt-%d-%d", time.Now().UnixNano(), i+1)
+			ticketCode := fmt.Sprintf("TKT-%s-%s-%d", eventID, seat, time.Now().UnixNano())
+			seatLabel := fmt.Sprintf("Seat %s", seat)
+
+			tx.Exec(
+				`INSERT INTO tickets (id, booking_id, seat_id, seat_label, ticket_code, status, created_at) 
+				 VALUES ($1, $2, $3, $4, $5, 'VALID', $6)`,
+				ticketID, bookingID, seat, seatLabel, ticketCode, now,
+			)
+
+			tickets = append(tickets, Ticket{
+				ID:         ticketID,
+				TicketID:   ticketID,
+				BookingID:  bookingID,
+				SeatID:     seat,
+				SeatLabel:  seatLabel,
+				TicketCode: ticketCode,
+				Status:     "VALID",
+				CreatedAt:  now,
+			})
+		}
+		tx.Commit()
+
+		// refetch final booking
+		b, _ := s.getBookingTx(bookingID)
+		sagaRes.Booking.Tickets = tickets
+		sagaRes.Booking.PaymentStatus = b.PaymentStatus
+		sagaRes.Booking.Status = "CONFIRMED"
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(sagaRes.Booking)
+	} else if sagaRes.Status == "FAILED" {
+		w.WriteHeader(http.StatusConflict) // Or 402 Payment Required depending on error, keep simple
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "BOOKING_FAILED",
+			"message": sagaRes.Error,
+		})
+	} else {
+		w.WriteHeader(http.StatusAccepted)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "PROCESSING",
+			"bookingId": bookingID,
+		})
+	}
 }
+
 
 func (s *Server) releaseInventory(ctx context.Context, reservationID string) {
 	if reservationID == "" {
@@ -658,6 +584,15 @@ func main() {
 		},
 		catalogServiceURL:   catalogURL,
 		inventoryServiceURL: inventoryURL,
+	}
+
+	rmq, err := InitRabbitMQ("amqp://guest:guest@rabbitmq:5672/")
+	if err != nil {
+		log.Printf("Warning: RabbitMQ init failed: %v", err)
+	} else {
+		defer rmq.Close()
+		srv.sagaOrchestrator = NewSagaOrchestrator(rmq, srv)
+	
 	}
 
 	mux := http.NewServeMux()

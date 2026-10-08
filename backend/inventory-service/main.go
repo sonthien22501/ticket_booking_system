@@ -1036,6 +1036,14 @@ func main() {
 	mux.HandleFunc("/inventory/", srv.handleGetInventory)
 	mux.HandleFunc("/api/inventory/", srv.handleGetInventory)
 
+	rmq, err := InitRabbitMQ("amqp://guest:guest@rabbitmq:5672/")
+	if err != nil {
+		log.Printf("Warning: RabbitMQ init failed: %v", err)
+	} else {
+		defer rmq.Close()
+		srv.startSagaWorker(rmq)
+	}
+
 	serverAddr := ":" + port
 	log.Printf("Seat Inventory Service starting on %s", serverAddr)
 	if err := http.ListenAndServe(serverAddr, mux); err != nil {
