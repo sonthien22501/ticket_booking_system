@@ -29,10 +29,10 @@ Explanation: Relational database instances ensure ACID transactions and persiste
 **R5: The system must be fully containerized using Docker and Docker Compose.** ✅ (Done successfully)  
 Explanation: The entire system (all microservices, the frontend, databases, and message brokers) must be orchestratable via a single `docker-compose.yml` file.
 
-**R6: The system must achieve automated integration test verification across the API Gateway.**  
+**R6: The system must achieve automated integration test verification across the API Gateway.** ✅ (Done successfully)  
 Explanation: Automated integration suites must execute end-to-end booking transactions via the gateway and assert that persistent seat inventory decrements accurately.
 
-**R7: The system must pass a 50-client concurrent contention test without overselling.**  
+**R7: The system must pass a 50-client concurrent contention test without overselling.** ✅ (Done successfully)  
 Explanation: Under an automated test dispatching 50 concurrent requests for the identical seat, the system must resolve exactly 1 successful booking and 49 conflict rejections (HTTP 409).
 
 **R8: The system must implement distributed caching for read-heavy operations.** ✅ (Done successfully)  

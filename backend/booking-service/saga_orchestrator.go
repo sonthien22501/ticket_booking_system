@@ -185,5 +185,6 @@ func (s *Server) getBookingTx(bookingID string) (*Booking, error) {
 		return nil, err
 	}
 	json.Unmarshal([]byte(seatsRaw), &b.SeatIDs)
+	b.BookingID = b.ID
 	return &b, nil
 }
