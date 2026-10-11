@@ -12,8 +12,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	_ "github.com/lib/pq"
 )
+
+type Claims struct {
+	UserID string `json:"userId"`
+	Email  string `json:"email"`
+	Name   string `json:"name"`
+	Role   string `json:"role"`
+	jwt.RegisteredClaims
+}
 
 type PaymentInfo struct {
 	Method    string `json:"method"`
@@ -80,6 +89,27 @@ type Server struct {
 	catalogServiceURL   string
 	inventoryServiceURL string
 	sagaOrchestrator    *SagaOrchestrator
+	jwtSecret           []byte
+}
+
+func (s *Server) validateJWT(tokenString string) (*Claims, error) {
+	tokenString = strings.TrimSpace(tokenString)
+	if strings.HasPrefix(strings.ToLower(tokenString), "bearer ") {
+		tokenString = strings.TrimSpace(tokenString[7:])
+	}
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return s.jwtSecret, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		return claims, nil
+	}
+	return nil, fmt.Errorf("invalid token")
 }
 
 func initDB() (*sql.DB, error) {
@@ -205,21 +235,52 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 	if customerName == "" {
 		customerName = req.CustomerNameAlt
 	}
-	if customerName == "" {
-		customerName = "Valued Guest"
-	}
 
 	customerEmail := req.CustomerEmail
 	if customerEmail == "" {
 		customerEmail = req.CustomerEmailAlt
 	}
-	if customerEmail == "" {
-		customerEmail = "guest@example.com"
-	}
 
 	userID := req.UserID
 	if userID == "" {
 		userID = req.UserIDAlt
+	}
+
+	// Extract authentication context if provided
+	authHeader := r.Header.Get("Authorization")
+	xUserID := r.Header.Get("X-User-ID")
+	xUserEmail := r.Header.Get("X-User-Email")
+	xUserName := r.Header.Get("X-User-Name")
+
+	if xUserID != "" {
+		if userID == "" || userID == "usr-guest" {
+			userID = xUserID
+		}
+		if (customerEmail == "" || customerEmail == "guest@example.com") && xUserEmail != "" {
+			customerEmail = xUserEmail
+		}
+		if (customerName == "" || customerName == "Valued Guest") && xUserName != "" {
+			customerName = xUserName
+		}
+	} else if authHeader != "" {
+		if claims, err := s.validateJWT(authHeader); err == nil && claims != nil {
+			if userID == "" || userID == "usr-guest" {
+				userID = claims.UserID
+			}
+			if (customerEmail == "" || customerEmail == "guest@example.com") && claims.Email != "" {
+				customerEmail = claims.Email
+			}
+			if (customerName == "" || customerName == "Valued Guest") && claims.Name != "" {
+				customerName = claims.Name
+			}
+		}
+	}
+
+	if customerName == "" {
+		customerName = "Valued Guest"
+	}
+	if customerEmail == "" {
+		customerEmail = "guest@example.com"
 	}
 	if userID == "" {
 		userID = "usr-guest"
@@ -324,12 +385,20 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		tx.Commit()
 
 		// refetch final booking
-		b, _ := s.getBookingTx(bookingID)
-		sagaRes.Booking.Tickets = tickets
-		sagaRes.Booking.PaymentStatus = b.PaymentStatus
-		sagaRes.Booking.Status = "CONFIRMED"
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(sagaRes.Booking)
+		b, err := s.getBookingTx(bookingID)
+		if err == nil && b != nil {
+			b.Tickets = tickets
+			b.Status = "CONFIRMED"
+			b.BookingID = b.ID
+			b.TotalAmountAlt = b.TotalAmount
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(b)
+		} else {
+			sagaRes.Booking.Tickets = tickets
+			sagaRes.Booking.Status = "CONFIRMED"
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(sagaRes.Booking)
+		}
 	} else if sagaRes.Status == "FAILED" {
 		w.WriteHeader(http.StatusConflict) // Or 402 Payment Required depending on error, keep simple
 		json.NewEncoder(w).Encode(map[string]string{
@@ -483,10 +552,32 @@ func (s *Server) listBookings(w http.ResponseWriter, r *http.Request) {
 		eventID = r.URL.Query().Get("event_id")
 	}
 
+	userID := r.URL.Query().Get("userId")
+	if userID == "" {
+		userID = r.URL.Query().Get("user_id")
+	}
+
+	if userID == "" && email == "" {
+		authHeader := r.Header.Get("Authorization")
+		xUserID := r.Header.Get("X-User-ID")
+		if xUserID != "" {
+			userID = xUserID
+		} else if authHeader != "" {
+			if claims, err := s.validateJWT(authHeader); err == nil && claims != nil {
+				userID = claims.UserID
+			}
+		}
+	}
+
 	query := `SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, created_at, updated_at FROM bookings WHERE 1=1`
 	var args []interface{}
 	idx := 1
 
+	if userID != "" {
+		query += fmt.Sprintf(" AND user_id = $%d", idx)
+		args = append(args, userID)
+		idx++
+	}
 	if email != "" {
 		query += fmt.Sprintf(" AND customer_email ILIKE $%d", idx)
 		args = append(args, email)
@@ -570,6 +661,7 @@ func main() {
 	port := getEnv("PORT", "8083")
 	catalogURL := getEnv("CATALOG_SERVICE_URL", "http://catalog-service:8081")
 	inventoryURL := getEnv("INVENTORY_SERVICE_URL", "http://inventory-service:8082")
+	jwtSecretKey := getEnv("JWT_SECRET", "ticket-booking-jwt-secret-key-2026")
 
 	db, err := initDB()
 	if err != nil {
@@ -584,6 +676,7 @@ func main() {
 		},
 		catalogServiceURL:   catalogURL,
 		inventoryServiceURL: inventoryURL,
+		jwtSecret:           []byte(jwtSecretKey),
 	}
 
 	rmq, err := InitRabbitMQ("amqp://guest:guest@rabbitmq:5672/")
