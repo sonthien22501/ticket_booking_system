@@ -2,20 +2,25 @@ FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
 
-COPY go.mod ./
-# COPY go.sum ./
-RUN go mod download
+COPY go.mod go.sum* ./
+RUN go mod download || true
 
-COPY *.go ./
+COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /auth-service
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/auth-service .
 
-FROM alpine:latest
+FROM alpine:3.19
 
-WORKDIR /
+RUN apk --no-cache add ca-certificates tzdata wget
+WORKDIR /app
 
-COPY --from=builder /auth-service /auth-service
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+COPY --from=builder /app/auth-service /app/auth-service
 
+USER appuser
 EXPOSE 8084
 
-ENTRYPOINT ["/auth-service"]
+HEALTHCHECK --interval=5s --timeout=3s --retries=5 --start-period=5s \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8084/health || exit 1
+
+ENTRYPOINT ["/app/auth-service"]

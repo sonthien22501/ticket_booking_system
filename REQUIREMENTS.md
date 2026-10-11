@@ -20,7 +20,7 @@ Explanation: Core business domains are strictly separated into autonomous servic
 **R3: The system must provide an API Gateway for request routing.** ✅ (Done successfully)  
 Explanation: The API Gateway serves as the single entry point for external client traffic, routing requests to downstream microservices and handling cross-cutting concerns.
 
-**R3.1: The system must implement robust Authentication and Authorization.**  
+**R3.1: The system must implement robust Authentication and Authorization.** ✅ (Done successfully)  
 Explanation: Implement stateless authentication (e.g., JWT). The API Gateway must validate tokens, and a dedicated Auth/User Service should handle user registration and credential verification to ensure tickets are securely tied to user identities.
 
 **R4: The system must use PostgreSQL as a database system for data storage.**  
@@ -29,10 +29,10 @@ Explanation: Relational database instances ensure ACID transactions and persiste
 **R5: The system must be fully containerized using Docker and Docker Compose.** ✅ (Done successfully)  
 Explanation: The entire system (all microservices, the frontend, databases, and message brokers) must be orchestratable via a single `docker-compose.yml` file.
 
-**R6: The system must achieve automated integration test verification across the API Gateway.**  
+**R6: The system must achieve automated integration test verification across the API Gateway.** ✅ (Done successfully)  
 Explanation: Automated integration suites must execute end-to-end booking transactions via the gateway and assert that persistent seat inventory decrements accurately.
 
-**R7: The system must pass a 50-client concurrent contention test without overselling.**  
+**R7: The system must pass a 50-client concurrent contention test without overselling.** ✅ (Done successfully)  
 Explanation: Under an automated test dispatching 50 concurrent requests for the identical seat, the system must resolve exactly 1 successful booking and 49 conflict rejections (HTTP 409).
 
 **R8: The system must implement distributed caching for read-heavy operations.** ✅ (Done successfully)  
@@ -54,7 +54,7 @@ Explanation: The system temporarily holds a selected seat upon initiating checko
 **R12: The system must prevent overbooking and race conditions on concurrent seat reservations.** ✅ (Done successfully)  
 Explanation: Concurrency control mechanisms enforce transactional isolation so that a single physical seat cannot be allocated to multiple users.
 
-**R13: The system must provide booking creation functionality to users.**  
+**R13: The system must provide booking creation functionality to users.** ✅ (Done successfully)  
 Explanation: The Booking Service creates a pending booking record linked to the reserved seat and user identity.
 
 **R14: The system must enforce idempotent API requests for financial transactions.**  
@@ -63,10 +63,10 @@ Explanation: The payment endpoint must require an idempotency key to prevent dou
 **R14.1: The system must provide standardized API Documentation.**  
 Explanation: All microservice APIs must be documented using the OpenAPI Specification (Swagger) to facilitate contract-driven development and frontend integration.
 
-**R15: The system must implement the Saga Pattern for distributed transaction orchestration.**  
+**R15: The system must implement the Saga Pattern for distributed transaction orchestration.** ✅ (Done successfully)  
 Explanation: Multi-service workflows (e.g., deducting inventory and capturing payment) must emit compensating transactions if any downstream step fails.
 
-**R16: The system must provide booking confirmation status information to users.**  
+**R16: The system must provide booking confirmation status information to users.** ✅ (Done successfully)  
 Explanation: Displays definitive reservation results, unique booking reference identifiers, and payment status upon transaction completion.
 
 **R17: The system must provide structured backend logging and distributed tracing.**  

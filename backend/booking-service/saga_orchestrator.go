@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"log"
 	"sync"
@@ -180,10 +181,27 @@ func (so *SagaOrchestrator) completeSaga(sagaID string, res SagaResult) {
 func (s *Server) getBookingTx(bookingID string) (*Booking, error) {
 	var b Booking
 	var seatsRaw string
-	err := s.db.QueryRow(`SELECT id, payment_status, seat_ids FROM bookings WHERE id = $1`, bookingID).Scan(&b.ID, &b.PaymentStatus, &seatsRaw)
+	var tierID, resID sql.NullString
+	err := s.db.QueryRow(
+		`SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, created_at, updated_at 
+		 FROM bookings WHERE id = $1`,
+		bookingID,
+	).Scan(
+		&b.ID, &b.BookingReference, &b.UserID, &b.CustomerName, &b.CustomerEmail,
+		&b.EventID, &b.EventTitle, &tierID, &b.Quantity, &seatsRaw, &b.TotalAmount,
+		&b.Status, &resID, &b.PaymentStatus, &b.CreatedAt, &b.UpdatedAt,
+	)
 	if err != nil {
 		return nil, err
 	}
+	if tierID.Valid {
+		b.TierID = tierID.String
+	}
+	if resID.Valid {
+		b.ReservationID = resID.String
+	}
 	json.Unmarshal([]byte(seatsRaw), &b.SeatIDs)
+	b.BookingID = b.ID
+	b.TotalAmountAlt = b.TotalAmount
 	return &b, nil
 }

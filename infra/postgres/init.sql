@@ -2,6 +2,16 @@
 
 -- 1. Schema Definition
 
+CREATE TABLE IF NOT EXISTS users (
+    id VARCHAR(64) PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    role VARCHAR(32) NOT NULL DEFAULT 'customer',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS events (
     id VARCHAR(64) PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
@@ -97,10 +107,12 @@ CREATE INDEX IF NOT EXISTS idx_seat_items_hold_expires ON seat_items(status, hol
 CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_email ON bookings(customer_email);
 CREATE INDEX IF NOT EXISTS idx_reservations_status_expires ON reservations(status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- 2. Seed Data
 
 -- Clear existing data if re-running
+TRUNCATE TABLE users CASCADE;
 TRUNCATE TABLE tickets CASCADE;
 TRUNCATE TABLE bookings CASCADE;
 TRUNCATE TABLE reservations CASCADE;
