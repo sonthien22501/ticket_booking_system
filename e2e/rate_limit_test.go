@@ -19,7 +19,7 @@ func TestBookingRateLimitingAntiBot(t *testing.T) {
 	// Give previous tests a brief moment to settle any burst tokens
 	time.Sleep(1500 * time.Millisecond)
 
-	const totalRequests = 25
+	const totalRequests = 45
 	var wg sync.WaitGroup
 	wg.Add(totalRequests)
 
@@ -95,7 +95,7 @@ func TestAuthRateLimiting(t *testing.T) {
 	}
 	body, _ := json.Marshal(payload)
 
-	const totalRequests = 30
+	const totalRequests = 45
 	var wg sync.WaitGroup
 	wg.Add(totalRequests)
 
