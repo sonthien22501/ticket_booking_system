@@ -57,7 +57,7 @@ Explanation: Concurrency control mechanisms enforce transactional isolation so t
 **R13: The system must provide booking creation functionality to users.** ✅ (Done successfully)  
 Explanation: The Booking Service creates a pending booking record linked to the reserved seat and user identity.
 
-**R14: The system must enforce idempotent API requests for financial transactions.**  
+**R14: The system must enforce idempotent API requests for financial transactions.** ✅ (Done successfully)  
 Explanation: The payment endpoint must require an idempotency key to prevent double-charging a user in the event of network retries or dropped connections.
 
 **R14.1: The system must provide standardized API Documentation.**  

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v5"
 	_ "github.com/lib/pq"
 )
@@ -46,8 +47,9 @@ type CreateBookingRequest struct {
 	TicketCount    int          `json:"ticketCount"`
 	QuantityAlt    int          `json:"quantity"`
 	PaymentInfo    *PaymentInfo `json:"paymentInfo"`
-	PaymentInfoAlt *PaymentInfo `json:"payment_info"`
-	IdempotencyKey string       `json:"idempotencyKey"`
+	PaymentInfoAlt    *PaymentInfo `json:"payment_info"`
+	IdempotencyKey    string       `json:"idempotencyKey"`
+	IdempotencyKeyAlt string       `json:"idempotency_key"`
 }
 
 type Ticket struct {
@@ -78,6 +80,7 @@ type Booking struct {
 	Status           string    `json:"status"` // CONFIRMED, PENDING, CANCELLED
 	ReservationID    string    `json:"reservationId"`
 	PaymentStatus    string    `json:"paymentStatus"`
+	IdempotencyKey   string    `json:"idempotencyKey,omitempty"`
 	Tickets          []Ticket  `json:"tickets"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
@@ -85,6 +88,7 @@ type Booking struct {
 
 type Server struct {
 	db                  *sql.DB
+	rdb                 *redis.Client
 	httpClient          *http.Client
 	catalogServiceURL   string
 	inventoryServiceURL string
@@ -134,6 +138,13 @@ func initDB() (*sql.DB, error) {
 				db.SetMaxOpenConns(50)
 				db.SetMaxIdleConns(20)
 				db.SetConnMaxLifetime(5 * time.Minute)
+
+				// Ensure idempotency column and unique index exist
+				_, _ = db.Exec(`
+					ALTER TABLE bookings ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(128);
+					CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_idempotency ON bookings(idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key != '';
+				`)
+
 				return db, nil
 			}
 		}
@@ -142,6 +153,26 @@ func initDB() (*sql.DB, error) {
 	}
 
 	return nil, fmt.Errorf("could not connect to database after 30 attempts: %w", err)
+}
+
+func initRedis() (*redis.Client, error) {
+	redisHost := getEnv("REDIS_HOST", "redis")
+	redisPort := getEnv("REDIS_PORT", "6379")
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr: fmt.Sprintf("%s:%s", redisHost, redisPort),
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Printf("Warning: booking-service could not connect to redis at %s:%s: %v", redisHost, redisPort, err)
+		return rdb, err
+	}
+
+	log.Printf("Booking Service connected to redis successfully at %s:%s", redisHost, redisPort)
+	return rdb, nil
 }
 
 func getEnv(key, defaultVal string) string {
@@ -291,6 +322,72 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		tierID = req.TierIDAlt
 	}
 
+	// Extract idempotency key from headers or request payload
+	idempotencyKey := strings.TrimSpace(r.Header.Get("Idempotency-Key"))
+	if idempotencyKey == "" {
+		idempotencyKey = strings.TrimSpace(r.Header.Get("X-Idempotency-Key"))
+	}
+	if idempotencyKey == "" {
+		idempotencyKey = strings.TrimSpace(req.IdempotencyKey)
+	}
+	if idempotencyKey == "" {
+		idempotencyKey = strings.TrimSpace(req.IdempotencyKeyAlt)
+	}
+
+	var redisIdemKey string
+	if idempotencyKey != "" {
+		redisIdemKey = "idempotency:booking:" + idempotencyKey
+
+		// Step 1: Check Redis cache for completed or in-progress transaction
+		if s.rdb != nil {
+			cachedVal, err := s.rdb.Get(r.Context(), redisIdemKey).Result()
+			if err == nil {
+				if cachedVal == "IN_PROGRESS" {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusConflict)
+					_ = json.NewEncoder(w).Encode(map[string]string{
+						"error":   "IDEMPOTENCY_IN_PROGRESS",
+						"message": "A request with this idempotency key is currently being processed. Please retry shortly.",
+					})
+					return
+				}
+				// Replay cached booking response
+				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("X-Idempotent-Replay", "true")
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(cachedVal))
+				return
+			}
+		}
+
+		// Step 2: Check Postgres fallback if Redis cache expired or missed
+		if existing, err := s.getBookingByIdempotencyKey(idempotencyKey); err == nil && existing != nil {
+			respBytes, _ := json.Marshal(existing)
+			if s.rdb != nil {
+				_ = s.rdb.Set(context.Background(), redisIdemKey, string(respBytes), 24*time.Hour).Err()
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-Idempotent-Replay", "true")
+			w.WriteHeader(http.StatusOK)
+			w.Write(respBytes)
+			return
+		}
+
+		// Step 3: Atomic distributed lock to prevent concurrent duplicate execution
+		if s.rdb != nil {
+			locked, err := s.rdb.SetNX(r.Context(), redisIdemKey, "IN_PROGRESS", 60*time.Second).Result()
+			if err == nil && !locked {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusConflict)
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"error":   "IDEMPOTENCY_IN_PROGRESS",
+					"message": "A request with this idempotency key is currently being processed. Please retry shortly.",
+				})
+				return
+			}
+		}
+	}
+
 	eventTitle, tierPrice := s.fetchEventInfo(eventID, tierID)
 
 	bookingID := fmt.Sprintf("bk-%d", time.Now().UnixNano())
@@ -312,13 +409,33 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		seatJSON = []byte("[]")
 	}
 
+	var dbIdemKey interface{} = nil
+	if idempotencyKey != "" {
+		dbIdemKey = idempotencyKey
+	}
+
 	now := time.Now()
 	_, err := s.db.ExecContext(r.Context(),
-		`INSERT INTO bookings (id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, payment_status, created_at, updated_at) 
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING', $12, $13, $13)`,
-		bookingID, bookingRef, userID, customerName, customerEmail, eventID, eventTitle, tierID, ticketCount, string(seatJSON), totalAmount, paymentStatus, now,
+		`INSERT INTO bookings (id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, payment_status, idempotency_key, created_at, updated_at) 
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING', $12, $13, $14, $14)`,
+		bookingID, bookingRef, userID, customerName, customerEmail, eventID, eventTitle, tierID, ticketCount, string(seatJSON), totalAmount, paymentStatus, dbIdemKey, now,
 	)
 	if err != nil {
+		if redisIdemKey != "" && s.rdb != nil {
+			s.rdb.Del(context.Background(), redisIdemKey)
+		}
+		if strings.Contains(err.Error(), "idx_bookings_idempotency") || strings.Contains(err.Error(), "unique constraint") {
+			if existing, gErr := s.getBookingByIdempotencyKey(idempotencyKey); gErr == nil && existing != nil {
+				respBytes, _ := json.Marshal(existing)
+				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("X-Idempotent-Replay", "true")
+				w.WriteHeader(http.StatusOK)
+				w.Write(respBytes)
+				return
+			}
+			http.Error(w, `{"error":"IDEMPOTENCY_CONFLICT","message":"Duplicate idempotency key"}`, http.StatusConflict)
+			return
+		}
 		http.Error(w, fmt.Sprintf(`{"error":"Failed to create pending booking: %v"}`, err), http.StatusInternalServerError)
 		return
 	}
@@ -339,6 +456,7 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		TotalAmountAlt:   totalAmount,
 		Status:           "PENDING",
 		PaymentStatus:    paymentStatus,
+		IdempotencyKey:   idempotencyKey,
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
@@ -385,33 +503,81 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		tx.Commit()
 
 		// refetch final booking
+		var finalBooking *Booking
 		b, err := s.getBookingTx(bookingID)
 		if err == nil && b != nil {
 			b.Tickets = tickets
 			b.Status = "CONFIRMED"
 			b.BookingID = b.ID
 			b.TotalAmountAlt = b.TotalAmount
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(b)
+			b.IdempotencyKey = idempotencyKey
+			finalBooking = b
 		} else {
 			sagaRes.Booking.Tickets = tickets
 			sagaRes.Booking.Status = "CONFIRMED"
-			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(sagaRes.Booking)
+			sagaRes.Booking.IdempotencyKey = idempotencyKey
+			finalBooking = sagaRes.Booking
 		}
+
+		// Cache completed booking in Redis
+		if redisIdemKey != "" && s.rdb != nil {
+			finalJSON, _ := json.Marshal(finalBooking)
+			_ = s.rdb.Set(context.Background(), redisIdemKey, string(finalJSON), 24*time.Hour).Err()
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(finalBooking)
 	} else if sagaRes.Status == "FAILED" {
+		if redisIdemKey != "" && s.rdb != nil {
+			s.rdb.Del(context.Background(), redisIdemKey)
+		}
 		w.WriteHeader(http.StatusConflict) // Or 402 Payment Required depending on error, keep simple
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "BOOKING_FAILED",
 			"message": sagaRes.Error,
 		})
 	} else {
+		if redisIdemKey != "" && s.rdb != nil {
+			s.rdb.Del(context.Background(), redisIdemKey)
+		}
 		w.WriteHeader(http.StatusAccepted)
 		json.NewEncoder(w).Encode(map[string]string{
 			"status": "PROCESSING",
 			"bookingId": bookingID,
 		})
 	}
+}
+
+func (s *Server) getBookingByIdempotencyKey(key string) (*Booking, error) {
+	var b Booking
+	var seatsRaw string
+	var tierID, resID, idemKey sql.NullString
+	err := s.db.QueryRow(
+		`SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, idempotency_key, created_at, updated_at 
+		 FROM bookings WHERE idempotency_key = $1`,
+		key,
+	).Scan(
+		&b.ID, &b.BookingReference, &b.UserID, &b.CustomerName, &b.CustomerEmail,
+		&b.EventID, &b.EventTitle, &tierID, &b.Quantity, &seatsRaw, &b.TotalAmount,
+		&b.Status, &resID, &b.PaymentStatus, &idemKey, &b.CreatedAt, &b.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	b.BookingID = b.ID
+	b.TotalAmountAlt = b.TotalAmount
+	if tierID.Valid {
+		b.TierID = tierID.String
+	}
+	if resID.Valid {
+		b.ReservationID = resID.String
+	}
+	if idemKey.Valid {
+		b.IdempotencyKey = idemKey.String
+	}
+	_ = json.Unmarshal([]byte(seatsRaw), &b.SeatIDs)
+	b.Tickets = s.fetchTicketsForBooking(b.ID)
+	return &b, nil
 }
 
 
@@ -669,8 +835,16 @@ func main() {
 	}
 	defer db.Close()
 
+	rdb, err := initRedis()
+	if err != nil {
+		log.Printf("Warning: Redis initialization error: %v", err)
+	} else if rdb != nil {
+		defer rdb.Close()
+	}
+
 	srv := &Server{
-		db: db,
+		db:  db,
+		rdb: rdb,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
