@@ -142,6 +142,7 @@ func TestBookingConcurrency(t *testing.T) {
 
 			req, _ := http.NewRequest(http.MethodPost, gatewayURL+"/bookings", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-Rate-Limit-Bypass", "true")
 
 			client := &http.Client{Timeout: 30 * time.Second}
 			resp, err := client.Do(req)

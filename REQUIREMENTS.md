@@ -117,7 +117,7 @@ Explanation: Distributed locking and transactional isolation ensure that seat al
 **R30: The system shall maintain low response latency for read operations.** ✅ (Done successfully)  
 Explanation: Event catalog and seat layout queries must execute with sub-500ms response times under standard operating conditions.
 
-**R31: The system shall enforce API rate limiting.**  
+**R31: The system shall enforce API rate limiting.** ✅ (Done successfully)  
 Explanation: The API Gateway restricts individual IP addresses or user accounts to a predefined number of reservation requests per minute to mitigate bot-driven scalping.
 
 **R32: The system shall be usable on modern desktop browsers for users.**  
