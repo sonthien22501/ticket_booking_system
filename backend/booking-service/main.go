@@ -9,12 +9,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v5"
 	_ "github.com/lib/pq"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type Claims struct {
@@ -89,6 +91,7 @@ type Booking struct {
 type Server struct {
 	db                  *sql.DB
 	rdb                 *redis.Client
+	rmq                 *RabbitMQ
 	httpClient          *http.Client
 	catalogServiceURL   string
 	inventoryServiceURL string
@@ -823,6 +826,205 @@ func (s *Server) fetchTicketsForBooking(bookingID string) []Ticket {
 	return tickets
 }
 
+func (s *Server) handleDLQMessages(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if s.rmq == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "RabbitMQ is not connected"})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case http.MethodGet:
+		limit := 100
+		if lStr := r.URL.Query().Get("limit"); lStr != "" {
+			if l, err := strconv.Atoi(lStr); err == nil && l > 0 {
+				limit = l
+			}
+		}
+		messages, err := s.rmq.PeekDLQ(limit)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Failed to peek DLQ: %v", err)})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"queueName": SagaDLQ,
+			"count":     len(messages),
+			"messages":  messages,
+		})
+	case http.MethodDelete:
+		purged, err := s.rmq.PurgeDLQ()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Failed to purge DLQ: %v", err)})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "PURGED",
+			"purged": purged,
+		})
+	default:
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleDLQStats(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if s.rmq == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "RabbitMQ is not connected"})
+		return
+	}
+	stats, err := s.rmq.GetDLQStats()
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Failed to get DLQ stats: %v", err)})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(stats)
+}
+
+func (s *Server) handleDLQRetry(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+	if s.rmq == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "RabbitMQ is not connected"})
+		return
+	}
+	reprocessed, err := s.rmq.ReprocessDLQ()
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Failed to reprocess DLQ: %v", err)})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":      "REPROCESSED",
+		"reprocessed": reprocessed,
+	})
+}
+
+type DLQSimulateRequest struct {
+	Type         string      `json:"type"` // poison, retry_fail, direct_dlq
+	RoutingKey   string      `json:"routingKey"`
+	Payload      interface{} `json:"payload"`
+	ErrorMessage string      `json:"errorMessage"`
+}
+
+func (s *Server) handleDLQSimulate(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+	if s.rmq == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "RabbitMQ is not connected"})
+		return
+	}
+
+	var req DLQSimulateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid payload"})
+		return
+	}
+
+	routingKey := req.RoutingKey
+	if routingKey == "" {
+		routingKey = "inventory.reserve"
+	}
+
+	var body []byte
+	switch p := req.Payload.(type) {
+	case string:
+		body = []byte(p)
+	default:
+		body, _ = json.Marshal(p)
+	}
+	if len(body) == 0 {
+		body = []byte(`{"invalid":true}`)
+	}
+
+	switch req.Type {
+	case "poison":
+		err := s.rmq.Publish(routingKey, body)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Failed to publish: %v", err)})
+			return
+		}
+	case "retry_fail":
+		headers := amqp.Table{
+			"x-simulate-error": req.ErrorMessage,
+		}
+		if req.ErrorMessage == "" {
+			headers["x-simulate-error"] = "Simulated transient failure for DLQ retry test"
+		}
+		err := s.rmq.PublishWithHeaders(SagaExchange, routingKey, body, headers)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Failed to publish: %v", err)})
+			return
+		}
+	case "direct_dlq":
+		err := s.rmq.PublishToDLQ(routingKey, body, "MANUAL_SIMULATION", req.ErrorMessage, 0)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Failed to publish to DLQ: %v", err)})
+			return
+		}
+	default:
+		err := s.rmq.Publish(routingKey, body)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Failed to publish: %v", err)})
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     "SIMULATED",
+		"type":       req.Type,
+		"routingKey": routingKey,
+	})
+}
+
 func main() {
 	port := getEnv("PORT", "8083")
 	catalogURL := getEnv("CATALOG_SERVICE_URL", "http://catalog-service:8081")
@@ -858,8 +1060,8 @@ func main() {
 		log.Printf("Warning: RabbitMQ init failed: %v", err)
 	} else {
 		defer rmq.Close()
+		srv.rmq = rmq
 		srv.sagaOrchestrator = NewSagaOrchestrator(rmq, srv)
-	
 	}
 
 	mux := http.NewServeMux()
@@ -876,6 +1078,16 @@ func main() {
 	// Single booking routes
 	mux.HandleFunc("/bookings/", srv.handleBookingByID)
 	mux.HandleFunc("/api/bookings/", srv.handleBookingByID)
+
+	// Dead Letter Queue (DLQ) management routes
+	mux.HandleFunc("/dlq/messages", srv.handleDLQMessages)
+	mux.HandleFunc("/api/dlq/messages", srv.handleDLQMessages)
+	mux.HandleFunc("/dlq/stats", srv.handleDLQStats)
+	mux.HandleFunc("/api/dlq/stats", srv.handleDLQStats)
+	mux.HandleFunc("/dlq/retry", srv.handleDLQRetry)
+	mux.HandleFunc("/api/dlq/retry", srv.handleDLQRetry)
+	mux.HandleFunc("/dlq/simulate", srv.handleDLQSimulate)
+	mux.HandleFunc("/api/dlq/simulate", srv.handleDLQSimulate)
 
 	serverAddr := ":" + port
 	log.Printf("Booking Service starting on %s", serverAddr)

@@ -3,21 +3,38 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func (s *Server) startSagaWorker(rmq *RabbitMQ) {
-	// Consume Reserve commands
-	rmq.Consume("inventory_reserve_queue", "inventory.reserve", func(body []byte) {
+	// 1. Consume Reserve commands
+	rmq.ConsumeWithRetry("inventory_reserve_queue", "inventory.reserve", 3, func(body []byte, headers amqp.Table) error {
 		log.Printf("Received inventory.reserve command")
-		
-		var msg map[string]interface{}
-		json.Unmarshal(body, &msg)
-		sagaID, _ := msg["saga_id"].(string)
 
-		// Create a mock HTTP request
+		var msg map[string]interface{}
+		if err := json.Unmarshal(body, &msg); err != nil {
+			log.Printf("Unprocessable reserve message: invalid JSON: %v", err)
+			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
+		}
+
+		sagaID, _ := msg["saga_id"].(string)
+		if sagaID == "" {
+			log.Printf("Unprocessable reserve message: missing saga_id")
+			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
+		}
+
+		// Support test simulation of worker errors for retry & DLQ verification
+		if simErr, ok := headers["x-simulate-error"].(string); ok && simErr != "" {
+			log.Printf("Simulating inventory worker failure: %s", simErr)
+			return fmt.Errorf("simulated error: %s", simErr)
+		}
+
+		// Create a mock HTTP request to internal handler
 		req := httptest.NewRequest(http.MethodPost, "/inventory/reserve", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
@@ -35,21 +52,31 @@ func (s *Server) startSagaWorker(rmq *RabbitMQ) {
 			rmq.Publish("inventory.reserved", out)
 			log.Printf("Published inventory.reserved for saga %s", sagaID)
 		} else {
-			// Failed
+			// Failed (e.g. seat taken)
 			resp["saga_id"] = sagaID
 			out, _ := json.Marshal(resp)
 			rmq.Publish("inventory.reserve_failed", out)
 			log.Printf("Published inventory.reserve_failed for saga %s: %s", sagaID, rr.Body.String())
 		}
+		return nil
 	})
 
-	// Consume Commit commands
-	rmq.Consume("inventory_commit_queue", "inventory.commit", func(body []byte) {
+	// 2. Consume Commit commands
+	rmq.ConsumeWithRetry("inventory_commit_queue", "inventory.commit", 3, func(body []byte, headers amqp.Table) error {
 		log.Printf("Received inventory.commit command")
-		
+
 		var msg map[string]interface{}
-		json.Unmarshal(body, &msg)
+		if err := json.Unmarshal(body, &msg); err != nil {
+			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
+		}
 		sagaID, _ := msg["saga_id"].(string)
+		if sagaID == "" {
+			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
+		}
+
+		if simErr, ok := headers["x-simulate-error"].(string); ok && simErr != "" {
+			return fmt.Errorf("simulated error: %s", simErr)
+		}
 
 		req := httptest.NewRequest(http.MethodPost, "/inventory/commit", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
@@ -68,15 +95,25 @@ func (s *Server) startSagaWorker(rmq *RabbitMQ) {
 			rmq.Publish("inventory.commit_failed", out)
 			log.Printf("Published inventory.commit_failed for saga %s", sagaID)
 		}
+		return nil
 	})
 
-	// Consume Release commands
-	rmq.Consume("inventory_release_queue", "inventory.release", func(body []byte) {
+	// 3. Consume Release commands
+	rmq.ConsumeWithRetry("inventory_release_queue", "inventory.release", 3, func(body []byte, headers amqp.Table) error {
 		log.Printf("Received inventory.release command")
-		
+
 		var msg map[string]interface{}
-		json.Unmarshal(body, &msg)
+		if err := json.Unmarshal(body, &msg); err != nil {
+			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
+		}
 		sagaID, _ := msg["saga_id"].(string)
+		if sagaID == "" {
+			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
+		}
+
+		if simErr, ok := headers["x-simulate-error"].(string); ok && simErr != "" {
+			return fmt.Errorf("simulated error: %s", simErr)
+		}
 
 		req := httptest.NewRequest(http.MethodPost, "/inventory/release", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
@@ -88,5 +125,6 @@ func (s *Server) startSagaWorker(rmq *RabbitMQ) {
 		out, _ := json.Marshal(msg)
 		rmq.Publish("inventory.released", out)
 		log.Printf("Published inventory.released for saga %s", sagaID)
+		return nil
 	})
 }
