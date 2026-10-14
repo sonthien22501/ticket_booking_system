@@ -129,10 +129,14 @@ services:
       INVENTORY_SERVICE_URL: http://inventory-service:8082
       AUTH_SERVICE_URL: http://auth-service:8084
       JWT_SECRET: ticket-booking-jwt-secret-key-2026
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     ports:
       - "8083:8083"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       catalog-service:
         condition: service_healthy

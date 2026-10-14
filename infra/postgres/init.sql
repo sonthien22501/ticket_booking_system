@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     status VARCHAR(32) NOT NULL DEFAULT 'PENDING', -- PENDING, CONFIRMED, CANCELLED, EXPIRED
     reservation_id VARCHAR(64),
     payment_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    idempotency_key VARCHAR(128),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -108,6 +109,7 @@ CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_email ON bookings(customer_email);
 CREATE INDEX IF NOT EXISTS idx_reservations_status_expires ON reservations(status, expires_at);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_bookings_idempotency ON bookings(idempotency_key) WHERE idempotency_key IS NOT NULL;
 
 -- 2. Seed Data
 
