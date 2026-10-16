@@ -52,6 +52,8 @@ type CreateBookingRequest struct {
 	PaymentInfoAlt    *PaymentInfo `json:"payment_info"`
 	IdempotencyKey    string       `json:"idempotencyKey"`
 	IdempotencyKeyAlt string       `json:"idempotency_key"`
+	HoldSeconds       int          `json:"holdSeconds"`
+	HoldSecondsAlt    int          `json:"hold_seconds"`
 }
 
 type Ticket struct {
@@ -464,12 +466,20 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:        now,
 	}
 
+	holdSeconds := req.HoldSeconds
+	if holdSeconds <= 0 {
+		holdSeconds = req.HoldSecondsAlt
+	}
+	if holdSeconds <= 0 {
+		holdSeconds = 600
+	}
+
 	reservePayload := map[string]interface{}{
 		"eventId":     eventID,
 		"tierId":      tierID,
 		"seats":       seats,
 		"ticketCount": ticketCount,
-		"holdSeconds": 600,
+		"holdSeconds": holdSeconds,
 	}
 
 	// Wait for Saga to complete
@@ -1204,6 +1214,23 @@ func (s *Server) handleDLQSimulate(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) startBookingJanitor() {
+	ticker := time.NewTicker(10 * time.Second)
+	go func() {
+		for range ticker.C {
+			if s.db == nil {
+				continue
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			_, _ = s.db.ExecContext(ctx,
+				`UPDATE bookings 
+				 SET status = 'EXPIRED', updated_at = NOW() 
+				 WHERE status = 'PENDING' AND created_at < NOW() - INTERVAL '15 minutes'`)
+			cancel()
+		}
+	}()
+}
+
 func main() {
 	port := getEnv("PORT", "8083")
 	catalogURL := getEnv("CATALOG_SERVICE_URL", "http://catalog-service:8081")
@@ -1242,6 +1269,8 @@ func main() {
 		srv.rmq = rmq
 		srv.sagaOrchestrator = NewSagaOrchestrator(rmq, srv)
 	}
+
+	srv.startBookingJanitor()
 
 	mux := http.NewServeMux()
 

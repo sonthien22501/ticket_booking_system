@@ -133,6 +133,7 @@ type CancelRequest struct {
 type Server struct {
 	db       *sql.DB
 	rdb      *redis.Client
+	rmq      *RabbitMQ
 	lockMgr  *DistributedLockManager
 	stopChan chan struct{}
 }
@@ -231,9 +232,9 @@ func (s *Server) startJanitor() {
 	}()
 }
 
-func (s *Server) sweepExpiredHolds() {
+func (s *Server) sweepExpiredHolds() int {
 	if s.db == nil {
-		return
+		return 0
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -245,7 +246,7 @@ func (s *Server) sweepExpiredHolds() {
 		 FROM reservations 
 		 WHERE status = 'HOLD' AND expires_at < NOW()`)
 	if err != nil {
-		return
+		return 0
 	}
 	defer rows.Close()
 
@@ -264,6 +265,7 @@ func (s *Server) sweepExpiredHolds() {
 		}
 	}
 
+	reclaimedCount := 0
 	for _, exp := range expiredList {
 		// Acquire event lock to avoid racing with active reservations
 		if !s.lockMgr.AcquireLock(ctx, exp.eventID, 5*time.Second) {
@@ -293,7 +295,23 @@ func (s *Server) sweepExpiredHolds() {
 					exp.qty, exp.eventID, exp.tierID.String)
 			}
 			_ = tx.Commit()
+			reclaimedCount++
 			log.Printf("[Janitor] Reclaimed expired reservation %s for event %s (qty: %d)", exp.resID, exp.eventID, exp.qty)
+
+			// Publish event across message broker
+			if s.rmq != nil {
+				evtPayload := map[string]interface{}{
+					"reservationId": exp.resID,
+					"eventId":       exp.eventID,
+					"tierId":        exp.tierID.String,
+					"quantity":      exp.qty,
+					"status":        "EXPIRED",
+					"reason":        "HOLD_TIMEOUT",
+				}
+				if out, errMarshal := json.Marshal(evtPayload); errMarshal == nil {
+					_ = s.rmq.Publish("inventory.reservation_expired", out)
+				}
+			}
 		}
 		s.lockMgr.ReleaseLock(ctx, exp.eventID)
 	}
@@ -303,6 +321,94 @@ func (s *Server) sweepExpiredHolds() {
 		`UPDATE seat_items 
 		 SET status = 'AVAILABLE', reservation_id = NULL, hold_expires_at = NULL, updated_at = NOW() 
 		 WHERE status = 'HOLD' AND hold_expires_at < NOW()`)
+
+	return reclaimedCount
+}
+
+func (s *Server) handleGetReservation(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	path := r.URL.Path
+	path = strings.TrimPrefix(path, "/api/inventory/reservations/")
+	path = strings.TrimPrefix(path, "/inventory/reservations/")
+	resID := strings.TrimSpace(path)
+
+	if resID == "" {
+		http.Error(w, `{"error":"Reservation ID is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var eventID, status, seatsRaw string
+	var tierID sql.NullString
+	var qty int
+	var expiresAt, createdAt time.Time
+
+	err := s.db.QueryRowContext(ctx,
+		`SELECT reservation_id, event_id, tier_id, seat_ids, quantity, status, expires_at, created_at 
+		 FROM reservations 
+		 WHERE reservation_id = $1`,
+		resID,
+	).Scan(&resID, &eventID, &tierID, &seatsRaw, &qty, &status, &expiresAt, &createdAt)
+
+	if err == sql.ErrNoRows {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error":   "RESERVATION_NOT_FOUND",
+			"message": "Reservation not found",
+		})
+		return
+	} else if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"Database error: %v"}`, err), http.StatusInternalServerError)
+		return
+	}
+
+	var seatIDs []string
+	_ = json.Unmarshal([]byte(seatsRaw), &seatIDs)
+
+	now := time.Now()
+	remaining := int(expiresAt.Sub(now).Seconds())
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"reservationId":    resID,
+		"eventId":          eventID,
+		"tierId":           tierID.String,
+		"seatIds":          seatIDs,
+		"quantity":         qty,
+		"status":           status,
+		"expiresAt":        expiresAt.Format(time.RFC3339),
+		"createdAt":        createdAt.Format(time.RFC3339),
+		"remainingSeconds": remaining,
+		"isExpired":        now.After(expiresAt) && status == "HOLD",
+	})
+}
+
+func (s *Server) handleJanitorSweep(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	reclaimed := s.sweepExpiredHolds()
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":         "SUCCESS",
+		"reclaimedCount": reclaimed,
+		"message":        fmt.Sprintf("Sweep complete. Reclaimed %d expired reservations", reclaimed),
+	})
 }
 
 // GET /inventory/{eventId} or /inventory/events/{eventId}
@@ -1219,6 +1325,14 @@ func main() {
 	mux.HandleFunc("/inventory/cancel", srv.handleCancel)
 	mux.HandleFunc("/api/inventory/cancel", srv.handleCancel)
 
+	// Janitor manual sweep routes
+	mux.HandleFunc("/inventory/janitor/sweep", srv.handleJanitorSweep)
+	mux.HandleFunc("/api/inventory/janitor/sweep", srv.handleJanitorSweep)
+
+	// Reservation inspection routes
+	mux.HandleFunc("/inventory/reservations/", srv.handleGetReservation)
+	mux.HandleFunc("/api/inventory/reservations/", srv.handleGetReservation)
+
 	// Query routes
 	mux.HandleFunc("/inventory/", srv.handleGetInventory)
 	mux.HandleFunc("/api/inventory/", srv.handleGetInventory)
@@ -1228,6 +1342,7 @@ func main() {
 		log.Printf("Warning: RabbitMQ init failed: %v", err)
 	} else {
 		defer rmq.Close()
+		srv.rmq = rmq
 		srv.startSagaWorker(rmq)
 	}
 
