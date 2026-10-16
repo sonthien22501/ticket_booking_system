@@ -1348,7 +1348,7 @@ func main() {
 
 	serverAddr := ":" + port
 	log.Printf("Seat Inventory Service starting on %s", serverAddr)
-	if err := http.ListenAndServe(serverAddr, mux); err != nil {
+	if err := http.ListenAndServe(serverAddr, TracingMiddleware("inventory-service", mux)); err != nil {
 		log.Fatalf("Server terminated: %v", err)
 	}
 }

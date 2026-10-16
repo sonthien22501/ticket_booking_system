@@ -619,7 +619,7 @@ func main() {
 
 	serverAddr := ":" + port
 	log.Printf("Auth Service starting on %s", serverAddr)
-	if err := http.ListenAndServe(serverAddr, mux); err != nil {
+	if err := http.ListenAndServe(serverAddr, TracingMiddleware("auth-service", mux)); err != nil {
 		log.Fatalf("Server terminated: %v", err)
 	}
 }
