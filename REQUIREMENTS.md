@@ -83,7 +83,7 @@ Explanation: If payment is not completed within a designated time window (e.g., 
 **R20: The system should provide automatic waitlist promotion functionality.**  
 Explanation: When a user cancels a confirmed ticket or abandons a checkout, the system automatically reserves the seat for the next user in a FIFO waitlist queue.
 
-**R21: The system should provide booking cancellation functionality to users.**  
+**R21: The system should provide booking cancellation functionality to users.** ✅ (Done successfully)  
 Explanation: Users may cancel pending or completed reservations, triggering inventory compensation workflows.
 
 **R22: The system should provide asynchronous event messaging between microservices.**  

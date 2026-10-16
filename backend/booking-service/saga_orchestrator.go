@@ -168,6 +168,46 @@ func (so *SagaOrchestrator) startConsumers() {
 		log.Printf("Saga %s: Inventory Released (Compensated)", sagaID)
 		return nil
 	})
+
+	// Listen for inventory.cancelled
+	so.rmq.ConsumeWithRetry("booking_inventory_cancelled", "inventory.cancelled", 3, func(body []byte, headers amqp.Table) error {
+		var msg map[string]interface{}
+		if err := json.Unmarshal(body, &msg); err != nil {
+			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
+		}
+		sagaID, _ := msg["saga_id"].(string)
+		if sagaID == "" {
+			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
+		}
+		log.Printf("Saga %s: Inventory Cancelled (Seats Restored)", sagaID)
+
+		so.srv.db.Exec("UPDATE bookings SET status = 'CANCELLED', updated_at = NOW() WHERE id = $1", sagaID)
+		so.srv.db.Exec("UPDATE tickets SET status = 'CANCELLED' WHERE booking_id = $1", sagaID)
+
+		booking, _ := so.srv.getBookingTx(sagaID)
+		so.completeSaga(sagaID, SagaResult{Status: "CANCELLED", Booking: booking})
+		return nil
+	})
+
+	// Listen for inventory.cancel_failed
+	so.rmq.ConsumeWithRetry("booking_inventory_cancel_failed", "inventory.cancel_failed", 3, func(body []byte, headers amqp.Table) error {
+		var msg map[string]interface{}
+		if err := json.Unmarshal(body, &msg); err != nil {
+			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
+		}
+		sagaID, _ := msg["saga_id"].(string)
+		if sagaID == "" {
+			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
+		}
+		log.Printf("Saga %s: Inventory Cancel Failed", sagaID)
+
+		errMsg, _ := msg["error"].(string)
+		if errMsg == "" {
+			errMsg = "Inventory Cancellation Failed"
+		}
+		so.completeSaga(sagaID, SagaResult{Status: "FAILED", Error: errMsg})
+		return nil
+	})
 }
 
 func (so *SagaOrchestrator) ExecuteSaga(ctx context.Context, booking *Booking, reservePayload map[string]interface{}) SagaResult {
@@ -197,6 +237,32 @@ func (so *SagaOrchestrator) ExecuteSaga(ctx context.Context, booking *Booking, r
 	}
 }
 
+func (so *SagaOrchestrator) ExecuteCancellationSaga(ctx context.Context, booking *Booking, cancelPayload map[string]interface{}) SagaResult {
+	so.mu.Lock()
+	ch := make(chan SagaResult, 1)
+	so.activeSagas[booking.ID] = ch
+	so.mu.Unlock()
+
+	defer func() {
+		so.mu.Lock()
+		delete(so.activeSagas, booking.ID)
+		so.mu.Unlock()
+	}()
+
+	cancelPayload["saga_id"] = booking.ID
+	out, _ := json.Marshal(cancelPayload)
+	so.rmq.Publish("inventory.cancel", out)
+
+	select {
+	case res := <-ch:
+		return res
+	case <-ctx.Done():
+		return SagaResult{Status: "TIMEOUT", Error: "Cancellation saga timed out"}
+	case <-time.After(30 * time.Second):
+		return SagaResult{Status: "TIMEOUT", Error: "Cancellation saga timed out"}
+	}
+}
+
 func (so *SagaOrchestrator) completeSaga(sagaID string, res SagaResult) {
 	so.mu.RLock()
 	ch, exists := so.activeSagas[sagaID]
@@ -210,15 +276,15 @@ func (so *SagaOrchestrator) completeSaga(sagaID string, res SagaResult) {
 func (s *Server) getBookingTx(bookingID string) (*Booking, error) {
 	var b Booking
 	var seatsRaw string
-	var tierID, resID sql.NullString
+	var tierID, resID, idemKey sql.NullString
 	err := s.db.QueryRow(
-		`SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, created_at, updated_at 
+		`SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, idempotency_key, created_at, updated_at 
 		 FROM bookings WHERE id = $1`,
 		bookingID,
 	).Scan(
 		&b.ID, &b.BookingReference, &b.UserID, &b.CustomerName, &b.CustomerEmail,
 		&b.EventID, &b.EventTitle, &tierID, &b.Quantity, &seatsRaw, &b.TotalAmount,
-		&b.Status, &resID, &b.PaymentStatus, &b.CreatedAt, &b.UpdatedAt,
+		&b.Status, &resID, &b.PaymentStatus, &idemKey, &b.CreatedAt, &b.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -228,6 +294,9 @@ func (s *Server) getBookingTx(bookingID string) (*Booking, error) {
 	}
 	if resID.Valid {
 		b.ReservationID = resID.String
+	}
+	if idemKey.Valid {
+		b.IdempotencyKey = idemKey.String
 	}
 	json.Unmarshal([]byte(seatsRaw), &b.SeatIDs)
 	b.BookingID = b.ID
