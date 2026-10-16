@@ -72,7 +72,7 @@ Explanation: Displays definitive reservation results, unique booking reference i
 **R17: The system must provide structured backend logging and distributed tracing.**  
 Explanation: Centralized log output tracks transaction execution, correlation IDs, and distributed errors across all microservice instances.
 
-**R18: The system must provide Dead Letter Queue (DLQ) functionality for asynchronous messaging.**  
+**R18: The system must provide Dead Letter Queue (DLQ) functionality for asynchronous messaging.** ✅ (Done successfully)  
 Explanation: Unprocessable Kafka messages or failed compensating events must be routed to a DLQ for manual inspection and retry.
 
 ### 4.2 Should Requirements

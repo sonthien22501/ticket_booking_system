@@ -4,9 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"sync"
 	"time"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type SagaOrchestrator struct {
@@ -34,17 +37,22 @@ func NewSagaOrchestrator(rmq *RabbitMQ, srv *Server) *SagaOrchestrator {
 
 func (so *SagaOrchestrator) startConsumers() {
 	// Listen for inventory.reserved
-	so.rmq.Consume("booking_inventory_reserved", "inventory.reserved", func(body []byte) {
+	so.rmq.ConsumeWithRetry("booking_inventory_reserved", "inventory.reserved", 3, func(body []byte, headers amqp.Table) error {
 		var msg map[string]interface{}
-		json.Unmarshal(body, &msg)
+		if err := json.Unmarshal(body, &msg); err != nil {
+			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
+		}
 		sagaID, _ := msg["saga_id"].(string)
+		if sagaID == "" {
+			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
+		}
 		log.Printf("Saga %s: Inventory Reserved", sagaID)
 
 		// Move to next step: Payment Simulation
 		booking, err := so.srv.getBookingTx(sagaID)
 		if err != nil {
 			log.Printf("Saga %s error: %v", sagaID, err)
-			return
+			return err
 		}
 
 		resID, _ := msg["reservationId"].(string)
@@ -84,37 +92,55 @@ func (so *SagaOrchestrator) startConsumers() {
 			so.rmq.Publish("inventory.release", out)
 			so.completeSaga(sagaID, SagaResult{Status: "FAILED", Error: "Payment Failed"})
 		}
+		return nil
 	})
 
 	// Listen for inventory.reserve_failed
-	so.rmq.Consume("booking_inventory_reserve_failed", "inventory.reserve_failed", func(body []byte) {
+	so.rmq.ConsumeWithRetry("booking_inventory_reserve_failed", "inventory.reserve_failed", 3, func(body []byte, headers amqp.Table) error {
 		var msg map[string]interface{}
-		json.Unmarshal(body, &msg)
+		if err := json.Unmarshal(body, &msg); err != nil {
+			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
+		}
 		sagaID, _ := msg["saga_id"].(string)
+		if sagaID == "" {
+			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
+		}
 		log.Printf("Saga %s: Inventory Reserve Failed", sagaID)
 
 		so.srv.db.Exec("UPDATE bookings SET status = 'CANCELLED' WHERE id = $1", sagaID)
 		so.completeSaga(sagaID, SagaResult{Status: "FAILED", Error: "Inventory Conflict or Unavailable"})
+		return nil
 	})
 
 	// Listen for inventory.committed
-	so.rmq.Consume("booking_inventory_committed", "inventory.committed", func(body []byte) {
+	so.rmq.ConsumeWithRetry("booking_inventory_committed", "inventory.committed", 3, func(body []byte, headers amqp.Table) error {
 		var msg map[string]interface{}
-		json.Unmarshal(body, &msg)
+		if err := json.Unmarshal(body, &msg); err != nil {
+			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
+		}
 		sagaID, _ := msg["saga_id"].(string)
+		if sagaID == "" {
+			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
+		}
 		log.Printf("Saga %s: Inventory Committed", sagaID)
 
 		so.srv.db.Exec("UPDATE bookings SET status = 'CONFIRMED' WHERE id = $1", sagaID)
 		
 		booking, _ := so.srv.getBookingTx(sagaID)
 		so.completeSaga(sagaID, SagaResult{Status: "SUCCESS", Booking: booking})
+		return nil
 	})
 
 	// Listen for inventory.commit_failed
-	so.rmq.Consume("booking_inventory_commit_failed", "inventory.commit_failed", func(body []byte) {
+	so.rmq.ConsumeWithRetry("booking_inventory_commit_failed", "inventory.commit_failed", 3, func(body []byte, headers amqp.Table) error {
 		var msg map[string]interface{}
-		json.Unmarshal(body, &msg)
+		if err := json.Unmarshal(body, &msg); err != nil {
+			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
+		}
 		sagaID, _ := msg["saga_id"].(string)
+		if sagaID == "" {
+			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
+		}
 		resID, _ := msg["reservationId"].(string)
 		log.Printf("Saga %s: Inventory Commit Failed", sagaID)
 
@@ -129,15 +155,18 @@ func (so *SagaOrchestrator) startConsumers() {
 		so.rmq.Publish("inventory.release", out)
 		
 		so.completeSaga(sagaID, SagaResult{Status: "FAILED", Error: "Inventory Commit Failed"})
+		return nil
 	})
 	
 	// Listen for inventory.released
-	so.rmq.Consume("booking_inventory_released", "inventory.released", func(body []byte) {
+	so.rmq.ConsumeWithRetry("booking_inventory_released", "inventory.released", 3, func(body []byte, headers amqp.Table) error {
 		var msg map[string]interface{}
-		json.Unmarshal(body, &msg)
+		if err := json.Unmarshal(body, &msg); err != nil {
+			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
+		}
 		sagaID, _ := msg["saga_id"].(string)
 		log.Printf("Saga %s: Inventory Released (Compensated)", sagaID)
-		// Compensation complete
+		return nil
 	})
 }
 
