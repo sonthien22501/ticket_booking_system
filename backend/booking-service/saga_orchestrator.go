@@ -208,6 +208,20 @@ func (so *SagaOrchestrator) startConsumers() {
 		so.completeSaga(sagaID, SagaResult{Status: "FAILED", Error: errMsg})
 		return nil
 	})
+
+	// Listen for inventory.reservation_expired
+	so.rmq.ConsumeWithRetry("booking_inventory_expired", "inventory.reservation_expired", 3, func(body []byte, headers amqp.Table) error {
+		var msg map[string]interface{}
+		if err := json.Unmarshal(body, &msg); err != nil {
+			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
+		}
+		resID, _ := msg["reservationId"].(string)
+		if resID != "" {
+			log.Printf("Marking booking expired for reservation %s", resID)
+			so.srv.db.Exec("UPDATE bookings SET status = 'EXPIRED', updated_at = NOW() WHERE reservation_id = $1 AND status = 'PENDING'", resID)
+		}
+		return nil
+	})
 }
 
 func (so *SagaOrchestrator) ExecuteSaga(ctx context.Context, booking *Booking, reservePayload map[string]interface{}) SagaResult {
