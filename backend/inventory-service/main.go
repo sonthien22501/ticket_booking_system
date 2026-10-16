@@ -115,6 +115,21 @@ type ReleaseRequest struct {
 	Reason           string `json:"reason,omitempty"`
 }
 
+type CancelRequest struct {
+	ReservationID    string   `json:"reservationId"`
+	ReservationIDAlt string   `json:"reservation_id"`
+	BookingID        string   `json:"bookingId"`
+	BookingIDAlt     string   `json:"booking_id"`
+	EventID          string   `json:"eventId"`
+	EventIDAlt       string   `json:"event_id"`
+	TierID           string   `json:"tierId"`
+	TierIDAlt        string   `json:"tier_id"`
+	Quantity         int      `json:"quantity"`
+	SeatIDs          []string `json:"seatIds"`
+	SeatIDsAlt       []string `json:"seat_ids"`
+	Reason           string   `json:"reason,omitempty"`
+}
+
 type Server struct {
 	db       *sql.DB
 	rdb      *redis.Client
@@ -990,6 +1005,175 @@ func (s *Server) handleRelease(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleCancel(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	var req CancelRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"Invalid request payload: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	resID := req.ReservationID
+	if resID == "" {
+		resID = req.ReservationIDAlt
+	}
+	eventID := req.EventID
+	if eventID == "" {
+		eventID = req.EventIDAlt
+	}
+	tierIDStr := req.TierID
+	if tierIDStr == "" {
+		tierIDStr = req.TierIDAlt
+	}
+	qty := req.Quantity
+	seatIDs := req.SeatIDs
+	if len(seatIDs) == 0 {
+		seatIDs = req.SeatIDsAlt
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	var dbEventID, dbStatus string
+	var dbTierID sql.NullString
+	var dbQty int
+
+	hasRes := false
+	if resID != "" {
+		err := s.db.QueryRowContext(ctx,
+			`SELECT event_id, tier_id, quantity, status FROM reservations WHERE reservation_id = $1`,
+			resID,
+		).Scan(&dbEventID, &dbTierID, &dbQty, &dbStatus)
+		if err == nil {
+			hasRes = true
+			if eventID == "" {
+				eventID = dbEventID
+			}
+			if tierIDStr == "" && dbTierID.Valid {
+				tierIDStr = dbTierID.String
+			}
+			if qty == 0 {
+				qty = dbQty
+			}
+		}
+	}
+
+	// Idempotency: If already cancelled or released
+	if hasRes && (dbStatus == "CANCELLED" || dbStatus == "RELEASED") {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":        "CANCELLED",
+			"reservationId": resID,
+			"message":       "Reservation already cancelled",
+		})
+		return
+	}
+
+	if eventID == "" {
+		http.Error(w, `{"error":"MISSING_EVENT_ID", "message":"eventId or valid reservationId is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Acquire event lock to prevent race conditions during seat restoration
+	lockAcquired := false
+	for i := 0; i < 20; i++ {
+		if s.lockMgr.AcquireLock(ctx, eventID, 5*time.Second) {
+			lockAcquired = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !lockAcquired {
+		http.Error(w, `{"error":"SYSTEM_BUSY", "message":"Could not acquire lock"}`, http.StatusConflict)
+		return
+	}
+	defer s.lockMgr.ReleaseLock(context.Background(), eventID)
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		http.Error(w, `{"error":"Transaction begin error"}`, http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	if hasRes {
+		_, err = tx.ExecContext(ctx,
+			`UPDATE reservations SET status = 'CANCELLED' WHERE reservation_id = $1`,
+			resID)
+		if err != nil {
+			http.Error(w, `{"error":"Failed to update reservation"}`, http.StatusInternalServerError)
+			return
+		}
+
+		// Revert seats by reservation_id
+		_, err = tx.ExecContext(ctx,
+			`UPDATE seat_items 
+			 SET status = 'AVAILABLE', reservation_id = NULL, hold_expires_at = NULL, updated_at = NOW() 
+			 WHERE reservation_id = $1`,
+			resID)
+		if err != nil {
+			http.Error(w, `{"error":"Failed to revert seat items"}`, http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Also revert seats by explicit seat IDs if supplied
+	if len(seatIDs) > 0 {
+		for _, seat := range seatIDs {
+			_, _ = tx.ExecContext(ctx,
+				`UPDATE seat_items 
+				 SET status = 'AVAILABLE', reservation_id = NULL, hold_expires_at = NULL, updated_at = NOW() 
+				 WHERE event_id = $1 AND (id = $2 OR seat_row || seat_number::text = $2 OR seat_number::text = $2)`,
+				eventID, seat)
+		}
+	}
+
+	// Restore event_inventory
+	if tierIDStr != "" && qty > 0 {
+		if dbStatus == "HOLD" {
+			_, err = tx.ExecContext(ctx,
+				`UPDATE event_inventory 
+				 SET available_seats = available_seats + $1, 
+				     reserved_seats = GREATEST(0, reserved_seats - $1), 
+				     version = version + 1, 
+				     updated_at = NOW() 
+				 WHERE event_id = $2 AND tier_id = $3`,
+				qty, eventID, tierIDStr)
+		} else {
+			// Committed or directly booked
+			_, err = tx.ExecContext(ctx,
+				`UPDATE event_inventory 
+				 SET available_seats = available_seats + $1, 
+				     booked_seats = GREATEST(0, booked_seats - $1), 
+				     version = version + 1, 
+				     updated_at = NOW() 
+				 WHERE event_id = $2 AND tier_id = $3`,
+				qty, eventID, tierIDStr)
+		}
+		if err != nil {
+			log.Printf("Error restoring inventory counts during cancellation: %v", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		http.Error(w, `{"error":"Failed to commit transaction"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":        "CANCELLED",
+		"reservationId": resID,
+		"eventId":       eventID,
+		"message":       "Reservation and seats cancelled successfully",
+	})
+}
+
 func main() {
 	port := getEnv("PORT", "8082")
 
@@ -1031,6 +1215,9 @@ func main() {
 
 	mux.HandleFunc("/inventory/release", srv.handleRelease)
 	mux.HandleFunc("/api/inventory/release", srv.handleRelease)
+
+	mux.HandleFunc("/inventory/cancel", srv.handleCancel)
+	mux.HandleFunc("/api/inventory/cancel", srv.handleCancel)
 
 	// Query routes
 	mux.HandleFunc("/inventory/", srv.handleGetInventory)

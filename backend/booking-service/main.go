@@ -188,7 +188,7 @@ func getEnv(key, defaultVal string) string {
 func enableCORS(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key, X-Idempotency-Key, X-User-ID, X-User-Role")
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -663,24 +663,39 @@ func (s *Server) handleBookingByID(w http.ResponseWriter, r *http.Request) {
 
 	path := strings.TrimPrefix(r.URL.Path, "/api/bookings/")
 	path = strings.TrimPrefix(path, "/bookings/")
-	bookingID := strings.TrimSpace(path)
+	path = strings.TrimPrefix(path, "/")
 
+	isCancel := false
+	if strings.HasSuffix(path, "/cancel") {
+		isCancel = true
+		path = strings.TrimSuffix(path, "/cancel")
+		path = strings.TrimSuffix(path, "/")
+	} else if r.Method == http.MethodDelete {
+		isCancel = true
+	}
+
+	bookingID := strings.TrimSpace(path)
 	if bookingID == "" {
 		http.Error(w, `{"error":"Booking ID is required"}`, http.StatusBadRequest)
 		return
 	}
 
+	if isCancel {
+		s.handleCancelBooking(w, r, bookingID)
+		return
+	}
+
 	var b Booking
 	var seatsRaw string
-	var tierID, resID sql.NullString
+	var tierID, resID, idemKey sql.NullString
 	err := s.db.QueryRow(
-		`SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, created_at, updated_at 
+		`SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, idempotency_key, created_at, updated_at 
 		 FROM bookings WHERE id = $1 OR booking_reference = $1`,
 		bookingID,
 	).Scan(
 		&b.ID, &b.BookingReference, &b.UserID, &b.CustomerName, &b.CustomerEmail,
 		&b.EventID, &b.EventTitle, &tierID, &b.Quantity, &seatsRaw, &b.TotalAmount,
-		&b.Status, &resID, &b.PaymentStatus, &b.CreatedAt, &b.UpdatedAt,
+		&b.Status, &resID, &b.PaymentStatus, &idemKey, &b.CreatedAt, &b.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -702,6 +717,9 @@ func (s *Server) handleBookingByID(w http.ResponseWriter, r *http.Request) {
 	if resID.Valid {
 		b.ReservationID = resID.String
 	}
+	if idemKey.Valid {
+		b.IdempotencyKey = idemKey.String
+	}
 	_ = json.Unmarshal([]byte(seatsRaw), &b.SeatIDs)
 
 	// Fetch tickets
@@ -709,6 +727,167 @@ func (s *Server) handleBookingByID(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(b)
+}
+
+func (s *Server) handleCancelBooking(w http.ResponseWriter, r *http.Request, bookingID string) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// 1. Fetch booking
+	var b Booking
+	var seatsRaw string
+	var tierID, resID, idemKey sql.NullString
+	err := s.db.QueryRow(
+		`SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, idempotency_key, created_at, updated_at 
+		 FROM bookings WHERE id = $1 OR booking_reference = $1`,
+		bookingID,
+	).Scan(
+		&b.ID, &b.BookingReference, &b.UserID, &b.CustomerName, &b.CustomerEmail,
+		&b.EventID, &b.EventTitle, &tierID, &b.Quantity, &seatsRaw, &b.TotalAmount,
+		&b.Status, &resID, &b.PaymentStatus, &idemKey, &b.CreatedAt, &b.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error":   "BOOKING_NOT_FOUND",
+			"message": "Booking not found",
+		})
+		return
+	} else if err != nil {
+		log.Printf("Query error for booking during cancellation: %v", err)
+		http.Error(w, fmt.Sprintf(`{"error":"Database error: %v"}`, err), http.StatusInternalServerError)
+		return
+	}
+
+	b.BookingID = b.ID
+	b.TotalAmountAlt = b.TotalAmount
+	if tierID.Valid {
+		b.TierID = tierID.String
+	}
+	if resID.Valid {
+		b.ReservationID = resID.String
+	}
+	if idemKey.Valid {
+		b.IdempotencyKey = idemKey.String
+	}
+	_ = json.Unmarshal([]byte(seatsRaw), &b.SeatIDs)
+
+	// 2. Authorization verification
+	requesterID := r.Header.Get("X-User-ID")
+	requesterRole := r.Header.Get("X-User-Role")
+	authHeader := r.Header.Get("Authorization")
+	if (requesterID == "" || requesterRole == "") && authHeader != "" {
+		if claims, errJwt := s.validateJWT(authHeader); errJwt == nil && claims != nil {
+			requesterID = claims.UserID
+			requesterRole = claims.Role
+		}
+	}
+
+	if b.UserID != "" && b.UserID != "usr-guest" && requesterID != "" {
+		if requesterRole != "admin" && b.UserID != requesterID {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"error":   "FORBIDDEN",
+				"message": "You do not have permission to cancel this booking",
+			})
+			return
+		}
+	}
+
+	// 3. Idempotency check: If already cancelled
+	if b.Status == "CANCELLED" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"bookingId":        b.ID,
+			"bookingReference": b.BookingReference,
+			"status":           "CANCELLED",
+			"message":          "Booking is already cancelled",
+		})
+		return
+	}
+
+	if b.Status != "CONFIRMED" && b.Status != "PENDING" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":   "INVALID_STATE",
+			"message": fmt.Sprintf("Cannot cancel booking with status '%s'", b.Status),
+		})
+		return
+	}
+
+	// 4. Execute Cancellation Saga
+	cancelPayload := map[string]interface{}{
+		"bookingId":     b.ID,
+		"reservationId": b.ReservationID,
+		"eventId":       b.EventID,
+		"tierId":        b.TierID,
+		"quantity":      b.Quantity,
+		"seatIds":       b.SeatIDs,
+		"reason":        "USER_CANCELLATION",
+	}
+
+	if s.sagaOrchestrator != nil {
+		res := s.sagaOrchestrator.ExecuteCancellationSaga(r.Context(), &b, cancelPayload)
+		if res.Status == "CANCELLED" {
+			if b.IdempotencyKey != "" && s.rdb != nil {
+				_ = s.rdb.Del(context.Background(), "idempotency:booking:"+b.IdempotencyKey).Err()
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"bookingId":        b.ID,
+				"bookingReference": b.BookingReference,
+				"status":           "CANCELLED",
+				"message":          "Booking cancelled and seats released successfully",
+			})
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"error":   "CANCELLATION_FAILED",
+			"message": res.Error,
+		})
+		return
+	}
+
+	// Fallback direct HTTP cancellation
+	body, _ := json.Marshal(cancelPayload)
+	resp, errHttp := s.httpClient.Post(s.inventoryServiceURL+"/inventory/cancel", "application/json", bytes.NewReader(body))
+	if errHttp == nil && resp.StatusCode == http.StatusOK {
+		s.db.Exec("UPDATE bookings SET status = 'CANCELLED', updated_at = NOW() WHERE id = $1", b.ID)
+		s.db.Exec("UPDATE tickets SET status = 'CANCELLED' WHERE booking_id = $1", b.ID)
+		if b.IdempotencyKey != "" && s.rdb != nil {
+			_ = s.rdb.Del(context.Background(), "idempotency:booking:"+b.IdempotencyKey).Err()
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"bookingId":        b.ID,
+			"bookingReference": b.BookingReference,
+			"status":           "CANCELLED",
+			"message":          "Booking cancelled and seats released successfully",
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusInternalServerError)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"error":   "CANCELLATION_FAILED",
+		"message": "Failed to cancel booking via inventory service",
+	})
 }
 
 func (s *Server) listBookings(w http.ResponseWriter, r *http.Request) {

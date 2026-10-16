@@ -127,4 +127,41 @@ func (s *Server) startSagaWorker(rmq *RabbitMQ) {
 		log.Printf("Published inventory.released for saga %s", sagaID)
 		return nil
 	})
+
+	// 4. Consume Cancel commands
+	rmq.ConsumeWithRetry("inventory_cancel_queue", "inventory.cancel", 3, func(body []byte, headers amqp.Table) error {
+		log.Printf("Received inventory.cancel command")
+
+		var msg map[string]interface{}
+		if err := json.Unmarshal(body, &msg); err != nil {
+			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
+		}
+		sagaID, _ := msg["saga_id"].(string)
+		if sagaID == "" {
+			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
+		}
+
+		if simErr, ok := headers["x-simulate-error"].(string); ok && simErr != "" {
+			return fmt.Errorf("simulated error: %s", simErr)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/inventory/cancel", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+
+		s.handleCancel(rr, req)
+
+		if rr.Code == http.StatusOK {
+			msg["status"] = "CANCELLED"
+			out, _ := json.Marshal(msg)
+			rmq.Publish("inventory.cancelled", out)
+			log.Printf("Published inventory.cancelled for saga %s", sagaID)
+		} else {
+			msg["error"] = rr.Body.String()
+			out, _ := json.Marshal(msg)
+			rmq.Publish("inventory.cancel_failed", out)
+			log.Printf("Published inventory.cancel_failed for saga %s: %s", sagaID, rr.Body.String())
+		}
+		return nil
+	})
 }
