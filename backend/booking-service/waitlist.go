@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -409,3 +412,491 @@ func (s *Server) ListWaitlistEntries(ctx context.Context, eventID, userID, statu
 
 	return entries, nil
 }
+
+type CreateWaitlistRequest struct {
+	EventID          string `json:"eventId"`
+	EventIDAlt       string `json:"event_id"`
+	TierID           string `json:"tierId"`
+	TierIDAlt        string `json:"tier_id"`
+	SeatID           string `json:"seatId"`
+	SeatIDAlt        string `json:"seat_id"`
+	UserID           string `json:"userId"`
+	UserIDAlt        string `json:"user_id"`
+	CustomerName     string `json:"customerName"`
+	CustomerNameAlt  string `json:"customer_name"`
+	CustomerEmail    string `json:"customerEmail"`
+	CustomerEmailAlt string `json:"customer_email"`
+	Quantity         int    `json:"quantity"`
+}
+
+func (s *Server) handleWaitlist(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodPost:
+		s.createWaitlist(w, r)
+	case http.MethodGet:
+		s.listWaitlists(w, r)
+	default:
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) createWaitlist(w http.ResponseWriter, r *http.Request) {
+	var req CreateWaitlistRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"Invalid request payload: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	eventID := req.EventID
+	if eventID == "" {
+		eventID = req.EventIDAlt
+	}
+	if eventID == "" {
+		http.Error(w, `{"error":"eventId is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	tierID := req.TierID
+	if tierID == "" {
+		tierID = req.TierIDAlt
+	}
+
+	seatID := req.SeatID
+	if seatID == "" {
+		seatID = req.SeatIDAlt
+	}
+
+	userID := req.UserID
+	if userID == "" {
+		userID = req.UserIDAlt
+	}
+
+	customerName := req.CustomerName
+	if customerName == "" {
+		customerName = req.CustomerNameAlt
+	}
+
+	customerEmail := req.CustomerEmail
+	if customerEmail == "" {
+		customerEmail = req.CustomerEmailAlt
+	}
+
+	authHeader := r.Header.Get("Authorization")
+	if authHeader != "" {
+		if claims, err := s.validateJWT(authHeader); err == nil && claims != nil {
+			if userID == "" || userID == "usr-guest" {
+				userID = claims.UserID
+			}
+			if customerName == "" || customerName == "Valued Guest" {
+				customerName = claims.Name
+			}
+			if customerEmail == "" || customerEmail == "guest@example.com" {
+				customerEmail = claims.Email
+			}
+		}
+	}
+	if xUID := r.Header.Get("X-User-ID"); xUID != "" && (userID == "" || userID == "usr-guest") {
+		userID = xUID
+	}
+	if xEmail := r.Header.Get("X-User-Email"); xEmail != "" && (customerEmail == "" || customerEmail == "guest@example.com") {
+		customerEmail = xEmail
+	}
+	if xName := r.Header.Get("X-User-Name"); xName != "" && (customerName == "" || customerName == "Valued Guest") {
+		customerName = xName
+	}
+
+	if userID == "" {
+		userID = "usr-guest"
+	}
+	if customerName == "" {
+		customerName = "Valued Customer"
+	}
+	if customerEmail == "" {
+		customerEmail = "guest@example.com"
+	}
+
+	qty := req.Quantity
+	if qty <= 0 {
+		qty = 1
+	}
+
+	entry := &WaitlistEntry{
+		EventID:       eventID,
+		TierID:        tierID,
+		SeatID:        seatID,
+		UserID:        userID,
+		CustomerName:  customerName,
+		CustomerEmail: customerEmail,
+		Quantity:      qty,
+		Status:        WaitlistStatusPending,
+	}
+
+	created, err := s.CreateWaitlistEntry(r.Context(), entry)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
+}
+
+func (s *Server) listWaitlists(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	eventID := q.Get("eventId")
+	if eventID == "" {
+		eventID = q.Get("event_id")
+	}
+	userID := q.Get("userId")
+	if userID == "" {
+		userID = q.Get("user_id")
+	}
+	status := q.Get("status")
+
+	entries, err := s.ListWaitlistEntries(r.Context(), eventID, userID, status)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	if entries == nil {
+		entries = []*WaitlistEntry{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(entries)
+}
+
+func (s *Server) handleWaitlistByID(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	path := r.URL.Path
+	path = strings.TrimPrefix(path, "/api/waitlist/")
+	path = strings.TrimPrefix(path, "/waitlist/")
+
+	if strings.HasSuffix(path, "/claim") {
+		s.handleWaitlistClaim(w, r)
+		return
+	}
+
+	if strings.HasSuffix(path, "/cancel") {
+		id := strings.TrimSuffix(path, "/cancel")
+		s.cancelWaitlistByID(w, r, strings.TrimSpace(id))
+		return
+	}
+
+	id := strings.TrimSpace(path)
+	if id == "" {
+		http.Error(w, `{"error":"Waitlist ID is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		entry, err := s.GetWaitlistEntry(r.Context(), id)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(entry)
+
+	case http.MethodDelete:
+		s.cancelWaitlistByID(w, r, id)
+
+	default:
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) cancelWaitlistByID(w http.ResponseWriter, r *http.Request, id string) {
+	userID := ""
+	authHeader := r.Header.Get("Authorization")
+	if authHeader != "" {
+		if claims, err := s.validateJWT(authHeader); err == nil && claims != nil {
+			userID = claims.UserID
+		}
+	}
+	if xUID := r.Header.Get("X-User-ID"); xUID != "" {
+		userID = xUID
+	}
+
+	err := s.CancelWaitlistEntry(r.Context(), id, userID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"message": "Waitlist entry cancelled",
+		"status":  "CANCELLED",
+	})
+}
+
+func (s *Server) handleWaitlistClaim(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	path := r.URL.Path
+	path = strings.TrimPrefix(path, "/api/waitlist/")
+	path = strings.TrimPrefix(path, "/waitlist/")
+	id := strings.TrimSuffix(path, "/claim")
+	id = strings.TrimSpace(id)
+
+	if id == "" {
+		http.Error(w, `{"error":"Waitlist ID is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	entry, err := s.GetWaitlistEntry(r.Context(), id)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Waitlist entry not found"})
+		return
+	}
+
+	if entry.Status == WaitlistStatusClaimed {
+		booking, bErr := s.getBookingByWaitlistID(entry.ID, entry.ReservationID)
+		if bErr == nil && booking != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-Idempotent-Replay", "true")
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(booking)
+			return
+		}
+	}
+
+	if entry.Status != WaitlistStatusPromoted {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error":   "NOT_PROMOTED",
+			"message": fmt.Sprintf("Waitlist entry is not eligible for claim (status: %s)", entry.Status),
+		})
+		return
+	}
+
+	if entry.ExpiresAt != nil && time.Now().After(*entry.ExpiresAt) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error":   "HOLD_EXPIRED",
+			"message": "Waitlist promotion hold has expired",
+		})
+		return
+	}
+
+	// Atomically mark entry CLAIMED to avoid double claiming
+	res, err := s.db.ExecContext(r.Context(),
+		`UPDATE waitlist SET status = 'CLAIMED', updated_at = NOW() WHERE id = $1 AND status = 'PROMOTED'`,
+		entry.ID)
+	if err != nil || res == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update waitlist entry status"})
+		return
+	}
+	rowsAff, _ := res.RowsAffected()
+	if rowsAff == 0 {
+		booking, bErr := s.getBookingByWaitlistID(entry.ID, entry.ReservationID)
+		if bErr == nil && booking != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-Idempotent-Replay", "true")
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(booking)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Waitlist entry already claimed"})
+		return
+	}
+
+	var seats []string
+	if entry.ReservationID != "" {
+		var seatJSON string
+		_ = s.db.QueryRowContext(r.Context(),
+			`SELECT seat_ids FROM reservations WHERE reservation_id = $1`,
+			entry.ReservationID).Scan(&seatJSON)
+		if seatJSON != "" {
+			_ = json.Unmarshal([]byte(seatJSON), &seats)
+		}
+	}
+	if len(seats) == 0 && entry.SeatID != "" {
+		seats = []string{entry.SeatID}
+	}
+	if len(seats) == 0 {
+		seats = []string{"A1"}
+	}
+
+	eventTitle := entry.EventID
+	var title string
+	if err := s.db.QueryRowContext(r.Context(), "SELECT title FROM events WHERE id = $1", entry.EventID).Scan(&title); err == nil && title != "" {
+		eventTitle = title
+	}
+
+	var price float64 = 60.0
+	if entry.TierID != "" {
+		var p float64
+		if err := s.db.QueryRowContext(r.Context(), "SELECT price FROM ticket_tiers WHERE id = $1", entry.TierID).Scan(&p); err == nil && p > 0 {
+			price = p
+		}
+	}
+	totalAmount := price * float64(entry.Quantity)
+
+	bookingID := fmt.Sprintf("bkg-wl-%d", time.Now().UnixNano())
+	bookingRef := fmt.Sprintf("REF-WL-%d", time.Now().UnixNano())
+	seatJSONBytes, _ := json.Marshal(seats)
+	idempotencyKey := "waitlist-claim-" + entry.ID
+
+	now := time.Now()
+	_, err = s.db.ExecContext(r.Context(),
+		`INSERT INTO bookings (
+			id, booking_reference, user_id, customer_name, customer_email,
+			event_id, event_title, tier_id, quantity, seat_ids, total_amount,
+			status, reservation_id, payment_status, idempotency_key, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'CONFIRMED', $12, 'SUCCESS', $13, $14, $14)`,
+		bookingID, bookingRef, entry.UserID, entry.CustomerName, entry.CustomerEmail,
+		entry.EventID, eventTitle, entry.TierID, entry.Quantity, string(seatJSONBytes),
+		totalAmount, entry.ReservationID, idempotencyKey, now,
+	)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Failed to create booking: %v", err)})
+		return
+	}
+
+	var tickets []Ticket
+	for i, seat := range seats {
+		ticketID := fmt.Sprintf("tkt-%d-%d", time.Now().UnixNano(), i+1)
+		ticketCode := fmt.Sprintf("TKT-%s-%s-%d", entry.EventID, seat, time.Now().UnixNano())
+		seatLabel := fmt.Sprintf("Seat %s", seat)
+
+		_, _ = s.db.ExecContext(r.Context(),
+			`INSERT INTO tickets (id, booking_id, seat_id, seat_label, ticket_code, status, created_at)
+			 VALUES ($1, $2, $3, $4, $5, 'VALID', $6)`,
+			ticketID, bookingID, seat, seatLabel, ticketCode, now,
+		)
+		tickets = append(tickets, Ticket{
+			ID:         ticketID,
+			TicketID:   ticketID,
+			BookingID:  bookingID,
+			SeatID:     seat,
+			SeatLabel:  seatLabel,
+			TicketCode: ticketCode,
+			Status:     "VALID",
+			CreatedAt:  now,
+		})
+	}
+
+	if entry.ReservationID != "" {
+		_, _ = s.db.ExecContext(r.Context(), "UPDATE reservations SET status = 'COMMITTED' WHERE reservation_id = $1", entry.ReservationID)
+		_, _ = s.db.ExecContext(r.Context(), "UPDATE seat_items SET status = 'BOOKED' WHERE reservation_id = $1", entry.ReservationID)
+
+		if s.httpClient != nil && s.inventoryServiceURL != "" {
+			cPayload, _ := json.Marshal(map[string]string{"reservationId": entry.ReservationID})
+			cReq, _ := http.NewRequestWithContext(r.Context(), http.MethodPost, s.inventoryServiceURL+"/inventory/commit", bytes.NewReader(cPayload))
+			cReq.Header.Set("Content-Type", "application/json")
+			_, _ = s.httpClient.Do(cReq)
+		}
+	}
+
+	finalBooking, bErr := s.getBookingTx(bookingID)
+	if bErr == nil && finalBooking != nil {
+		finalBooking.Tickets = tickets
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(finalBooking)
+		return
+	}
+
+	b := &Booking{
+		ID:               bookingID,
+		BookingID:        bookingID,
+		BookingReference: bookingRef,
+		UserID:           entry.UserID,
+		CustomerName:     entry.CustomerName,
+		CustomerEmail:    entry.CustomerEmail,
+		EventID:          entry.EventID,
+		EventTitle:       eventTitle,
+		TierID:           entry.TierID,
+		Quantity:         entry.Quantity,
+		SeatIDs:          seats,
+		TotalAmount:      totalAmount,
+		TotalAmountAlt:   totalAmount,
+		Status:           "CONFIRMED",
+		ReservationID:    entry.ReservationID,
+		PaymentStatus:    "SUCCESS",
+		IdempotencyKey:   idempotencyKey,
+		Tickets:          tickets,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(b)
+}
+
+func (s *Server) getBookingByWaitlistID(waitlistID, resID string) (*Booking, error) {
+	var b Booking
+	var seatsRaw string
+	var tierID, rID, idemKey sql.NullString
+	err := s.db.QueryRow(
+		`SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, idempotency_key, created_at, updated_at 
+		 FROM bookings WHERE idempotency_key = $1 OR (reservation_id = $2 AND reservation_id != '') LIMIT 1`,
+		"waitlist-claim-"+waitlistID, resID,
+	).Scan(
+		&b.ID, &b.BookingReference, &b.UserID, &b.CustomerName, &b.CustomerEmail,
+		&b.EventID, &b.EventTitle, &tierID, &b.Quantity, &seatsRaw, &b.TotalAmount,
+		&b.Status, &rID, &b.PaymentStatus, &idemKey, &b.CreatedAt, &b.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if tierID.Valid {
+		b.TierID = tierID.String
+	}
+	if rID.Valid {
+		b.ReservationID = rID.String
+	}
+	if idemKey.Valid {
+		b.IdempotencyKey = idemKey.String
+	}
+	json.Unmarshal([]byte(seatsRaw), &b.SeatIDs)
+	b.BookingID = b.ID
+	b.TotalAmountAlt = b.TotalAmount
+	return &b, nil
+}
+

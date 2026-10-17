@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -175,3 +179,103 @@ func TestWaitlistRepositoryFIFOAndStatusProgression(t *testing.T) {
 		t.Errorf("Expected e2 (%s) to be next for promotion, got %s", e2.ID, nextEntry2.ID)
 	}
 }
+
+func TestWaitlistHTTP(t *testing.T) {
+	db := getTestDB(t)
+	if db == nil {
+		return
+	}
+	defer db.Close()
+
+	srv := &Server{
+		db:         db,
+		httpClient: &http.Client{},
+	}
+	ctx := context.Background()
+	_ = srv.initWaitlistSchema(ctx)
+
+	// Clean up any test users
+	_, _ = db.Exec("DELETE FROM waitlist WHERE user_id LIKE 'user-http-%'")
+	defer func() {
+		_, _ = db.Exec("DELETE FROM waitlist WHERE user_id LIKE 'user-http-%'")
+	}()
+
+	// 1. Test POST /waitlist
+	payload := map[string]interface{}{
+		"eventId":       "evt-101",
+		"tierId":        "tier-vip",
+		"userId":        "user-http-1",
+		"customerName":  "HTTP Tester",
+		"customerEmail": "http@test.com",
+		"quantity":      1,
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/waitlist", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	srv.handleWaitlist(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("Expected status 201 Created on POST /waitlist, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var created WaitlistEntry
+	if err := json.NewDecoder(rr.Body).Decode(&created); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if created.ID == "" || created.Position < 1 || created.Status != WaitlistStatusPending {
+		t.Errorf("Unexpected created entry: %+v", created)
+	}
+
+	// 2. Test GET /waitlist?eventId=evt-101
+	getReq := httptest.NewRequest(http.MethodGet, "/waitlist?eventId=evt-101&userId=user-http-1", nil)
+	getRR := httptest.NewRecorder()
+	srv.handleWaitlist(getRR, getReq)
+
+	if getRR.Code != http.StatusOK {
+		t.Fatalf("Expected status 200 on GET /waitlist, got %d: %s", getRR.Code, getRR.Body.String())
+	}
+	var list []WaitlistEntry
+	if err := json.NewDecoder(getRR.Body).Decode(&list); err != nil {
+		t.Fatalf("Failed to parse list response: %v", err)
+	}
+	if len(list) == 0 {
+		t.Fatalf("Expected at least 1 entry in list, got 0")
+	}
+
+	// 3. Test GET /waitlist/{id}
+	getOneReq := httptest.NewRequest(http.MethodGet, "/waitlist/"+created.ID, nil)
+	getOneRR := httptest.NewRecorder()
+	srv.handleWaitlistByID(getOneRR, getOneReq)
+
+	if getOneRR.Code != http.StatusOK {
+		t.Fatalf("Expected status 200 on GET /waitlist/{id}, got %d: %s", getOneRR.Code, getOneRR.Body.String())
+	}
+	var fetched WaitlistEntry
+	if err := json.NewDecoder(getOneRR.Body).Decode(&fetched); err != nil {
+		t.Fatalf("Failed to parse getOne response: %v", err)
+	}
+	if fetched.ID != created.ID || fetched.Position < 1 {
+		t.Errorf("Unexpected fetched entry: %+v", fetched)
+	}
+
+	// 4. Test Claiming unpromoted entry -> 400 Bad Request
+	claimReq := httptest.NewRequest(http.MethodPost, "/waitlist/"+created.ID+"/claim", nil)
+	claimRR := httptest.NewRecorder()
+	srv.handleWaitlistClaim(claimRR, claimReq)
+
+	if claimRR.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400 when claiming unpromoted entry, got %d", claimRR.Code)
+	}
+
+	// 5. Test DELETE /waitlist/{id}
+	delReq := httptest.NewRequest(http.MethodDelete, "/waitlist/"+created.ID, nil)
+	delRR := httptest.NewRecorder()
+	srv.handleWaitlistByID(delRR, delReq)
+
+	if delRR.Code != http.StatusOK {
+		t.Fatalf("Expected status 200 on DELETE /waitlist/{id}, got %d: %s", delRR.Code, delRR.Body.String())
+	}
+}
+
