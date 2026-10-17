@@ -69,7 +69,7 @@ Explanation: Multi-service workflows (e.g., deducting inventory and capturing pa
 **R16: The system must provide booking confirmation status information to users.** ✅ (Done successfully)  
 Explanation: Displays definitive reservation results, unique booking reference identifiers, and payment status upon transaction completion.
 
-**R17: The system must provide structured backend logging and distributed tracing.**  
+**R17: The system must provide structured backend logging and distributed tracing.** ✅ (Done successfully)  
 Explanation: Centralized log output tracks transaction execution, correlation IDs, and distributed errors across all microservice instances.
 
 **R18: The system must provide Dead Letter Queue (DLQ) functionality for asynchronous messaging.** ✅ (Done successfully)  

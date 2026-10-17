@@ -84,17 +84,19 @@ func TestReservationTimeoutAutomaticRelease(t *testing.T) {
 	}
 
 	// 4. Wait for the lease window to expire and the background janitor to sweep (runs every 3s)
-	t.Logf("Waiting 3.5s for lease expiration and automatic background janitor sweep...")
-	time.Sleep(3500 * time.Millisecond)
-
-	// 5. Query reservation status after timeout: must be EXPIRED
-	respAfter, err := http.Get(fmt.Sprintf("%s/inventory/reservations/%s", gatewayURL, resID))
-	if err != nil {
-		t.Fatalf("Failed to query reservation after sweep: %v", err)
-	}
+	t.Logf("Waiting up to 5s for lease expiration and automatic background janitor sweep...")
 	var detailsAfter ReservationDetailsResponse
-	json.NewDecoder(respAfter.Body).Decode(&detailsAfter)
-	respAfter.Body.Close()
+	for i := 0; i < 20; i++ {
+		time.Sleep(250 * time.Millisecond)
+		respAfter, err := http.Get(fmt.Sprintf("%s/inventory/reservations/%s", gatewayURL, resID))
+		if err == nil {
+			json.NewDecoder(respAfter.Body).Decode(&detailsAfter)
+			respAfter.Body.Close()
+			if detailsAfter.Status == "EXPIRED" {
+				break
+			}
+		}
+	}
 
 	if detailsAfter.Status != "EXPIRED" {
 		t.Fatalf("Expected reservation status to be EXPIRED, got %s", detailsAfter.Status)
@@ -128,7 +130,18 @@ func TestExpiredSeatCanBeReservedByAnotherUser(t *testing.T) {
 	resID1 := res1["reservationId"].(string)
 
 	// 2. Wait for expiration and sweep
-	time.Sleep(3500 * time.Millisecond)
+	for i := 0; i < 20; i++ {
+		time.Sleep(250 * time.Millisecond)
+		rCheck, err := http.Get(fmt.Sprintf("%s/inventory/reservations/%s", gatewayURL, resID1))
+		if err == nil {
+			var dt ReservationDetailsResponse
+			json.NewDecoder(rCheck.Body).Decode(&dt)
+			rCheck.Body.Close()
+			if dt.Status == "EXPIRED" {
+				break
+			}
+		}
+	}
 
 	// 3. User 2 immediately reserves the expired seat
 	res2 := createShortHoldReservation(t, seat, 600)
@@ -159,7 +172,18 @@ func TestExpiredReservationCannotBeCommitted(t *testing.T) {
 	resID := res["reservationId"].(string)
 
 	// 2. Wait for lease expiration
-	time.Sleep(3500 * time.Millisecond)
+	for i := 0; i < 20; i++ {
+		time.Sleep(250 * time.Millisecond)
+		rCheck, err := http.Get(fmt.Sprintf("%s/inventory/reservations/%s", gatewayURL, resID))
+		if err == nil {
+			var dt ReservationDetailsResponse
+			json.NewDecoder(rCheck.Body).Decode(&dt)
+			rCheck.Body.Close()
+			if dt.Status == "EXPIRED" {
+				break
+			}
+		}
+	}
 
 	// 3. Attempt to commit the expired reservation
 	commitPayload := map[string]string{

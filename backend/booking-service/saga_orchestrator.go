@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -38,6 +37,11 @@ func NewSagaOrchestrator(rmq *RabbitMQ, srv *Server) *SagaOrchestrator {
 func (so *SagaOrchestrator) startConsumers() {
 	// Listen for inventory.reserved
 	so.rmq.ConsumeWithRetry("booking_inventory_reserved", "inventory.reserved", 3, func(body []byte, headers amqp.Table) error {
+		corrID, _ := headers["x-correlation-id"].(string)
+		if corrID == "" {
+			corrID = GenerateCorrelationID()
+		}
+
 		var msg map[string]interface{}
 		if err := json.Unmarshal(body, &msg); err != nil {
 			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
@@ -46,50 +50,48 @@ func (so *SagaOrchestrator) startConsumers() {
 		if sagaID == "" {
 			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
 		}
-		log.Printf("Saga %s: Inventory Reserved", sagaID)
+		StructuredLog("INFO", "booking-service", corrID, fmt.Sprintf("Saga %s: Inventory Reserved", sagaID), nil)
 
 		// Move to next step: Payment Simulation
 		booking, err := so.srv.getBookingTx(sagaID)
 		if err != nil {
-			log.Printf("Saga %s error: %v", sagaID, err)
+			StructuredLog("ERROR", "booking-service", corrID, fmt.Sprintf("Saga %s error: %v", sagaID, err), nil)
 			return err
 		}
 
 		resID, _ := msg["reservationId"].(string)
-		
+
 		// Update booking with reservationId
 		so.srv.db.Exec("UPDATE bookings SET reservation_id = $1 WHERE id = $2", resID, sagaID)
 
 		paymentSuccess := true
-		// Hack to extract original payment request for simulation - in real world this is stored in state
-		// We will simulate payment failure if the payment status is marked as 'FAILED' in db, or we pass it via AMQP...
-		// For simplicity, we check if customer name contains "tok_fail" as a hack since we don't have payment table.
 		if booking.PaymentStatus == "PENDING_tok_fail" {
 			paymentSuccess = false
 		}
 
+		outHeaders := amqp.Table{"x-correlation-id": corrID}
 		if paymentSuccess {
 			// Payment success! Commit inventory.
 			so.srv.db.Exec("UPDATE bookings SET payment_status = 'SUCCESS' WHERE id = $1", sagaID)
-			
+
 			commitPayload := map[string]interface{}{
-				"saga_id": sagaID,
+				"saga_id":       sagaID,
 				"reservationId": resID,
-				"bookingId": sagaID,
+				"bookingId":     sagaID,
 			}
 			out, _ := json.Marshal(commitPayload)
-			so.rmq.Publish("inventory.commit", out)
+			_ = so.rmq.PublishWithHeaders(SagaExchange, "inventory.commit", out, outHeaders)
 		} else {
 			// Payment failed! Compensate: release inventory.
 			so.srv.db.Exec("UPDATE bookings SET payment_status = 'FAILED', status = 'CANCELLED' WHERE id = $1", sagaID)
-			
+
 			releasePayload := map[string]interface{}{
-				"saga_id": sagaID,
+				"saga_id":       sagaID,
 				"reservationId": resID,
-				"reason": "PAYMENT_FAILED",
+				"reason":        "PAYMENT_FAILED",
 			}
 			out, _ := json.Marshal(releasePayload)
-			so.rmq.Publish("inventory.release", out)
+			_ = so.rmq.PublishWithHeaders(SagaExchange, "inventory.release", out, outHeaders)
 			so.completeSaga(sagaID, SagaResult{Status: "FAILED", Error: "Payment Failed"})
 		}
 		return nil
@@ -97,6 +99,11 @@ func (so *SagaOrchestrator) startConsumers() {
 
 	// Listen for inventory.reserve_failed
 	so.rmq.ConsumeWithRetry("booking_inventory_reserve_failed", "inventory.reserve_failed", 3, func(body []byte, headers amqp.Table) error {
+		corrID, _ := headers["x-correlation-id"].(string)
+		if corrID == "" {
+			corrID = GenerateCorrelationID()
+		}
+
 		var msg map[string]interface{}
 		if err := json.Unmarshal(body, &msg); err != nil {
 			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
@@ -105,7 +112,7 @@ func (so *SagaOrchestrator) startConsumers() {
 		if sagaID == "" {
 			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
 		}
-		log.Printf("Saga %s: Inventory Reserve Failed", sagaID)
+		StructuredLog("WARN", "booking-service", corrID, fmt.Sprintf("Saga %s: Inventory Reserve Failed", sagaID), nil)
 
 		so.srv.db.Exec("UPDATE bookings SET status = 'CANCELLED' WHERE id = $1", sagaID)
 		so.completeSaga(sagaID, SagaResult{Status: "FAILED", Error: "Inventory Conflict or Unavailable"})
@@ -114,6 +121,11 @@ func (so *SagaOrchestrator) startConsumers() {
 
 	// Listen for inventory.committed
 	so.rmq.ConsumeWithRetry("booking_inventory_committed", "inventory.committed", 3, func(body []byte, headers amqp.Table) error {
+		corrID, _ := headers["x-correlation-id"].(string)
+		if corrID == "" {
+			corrID = GenerateCorrelationID()
+		}
+
 		var msg map[string]interface{}
 		if err := json.Unmarshal(body, &msg); err != nil {
 			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
@@ -122,10 +134,10 @@ func (so *SagaOrchestrator) startConsumers() {
 		if sagaID == "" {
 			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
 		}
-		log.Printf("Saga %s: Inventory Committed", sagaID)
+		StructuredLog("INFO", "booking-service", corrID, fmt.Sprintf("Saga %s: Inventory Committed", sagaID), nil)
 
 		so.srv.db.Exec("UPDATE bookings SET status = 'CONFIRMED' WHERE id = $1", sagaID)
-		
+
 		booking, _ := so.srv.getBookingTx(sagaID)
 		so.completeSaga(sagaID, SagaResult{Status: "SUCCESS", Booking: booking})
 		return nil
@@ -133,6 +145,11 @@ func (so *SagaOrchestrator) startConsumers() {
 
 	// Listen for inventory.commit_failed
 	so.rmq.ConsumeWithRetry("booking_inventory_commit_failed", "inventory.commit_failed", 3, func(body []byte, headers amqp.Table) error {
+		corrID, _ := headers["x-correlation-id"].(string)
+		if corrID == "" {
+			corrID = GenerateCorrelationID()
+		}
+
 		var msg map[string]interface{}
 		if err := json.Unmarshal(body, &msg); err != nil {
 			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
@@ -142,35 +159,46 @@ func (so *SagaOrchestrator) startConsumers() {
 			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
 		}
 		resID, _ := msg["reservationId"].(string)
-		log.Printf("Saga %s: Inventory Commit Failed", sagaID)
+		StructuredLog("ERROR", "booking-service", corrID, fmt.Sprintf("Saga %s: Inventory Commit Failed", sagaID), nil)
 
 		so.srv.db.Exec("UPDATE bookings SET status = 'CANCELLED' WHERE id = $1", sagaID)
-		
+
 		releasePayload := map[string]interface{}{
-			"saga_id": sagaID,
+			"saga_id":       sagaID,
 			"reservationId": resID,
-			"reason": "COMMIT_FAILED",
+			"reason":        "COMMIT_FAILED",
 		}
 		out, _ := json.Marshal(releasePayload)
-		so.rmq.Publish("inventory.release", out)
-		
+		outHeaders := amqp.Table{"x-correlation-id": corrID}
+		_ = so.rmq.PublishWithHeaders(SagaExchange, "inventory.release", out, outHeaders)
+
 		so.completeSaga(sagaID, SagaResult{Status: "FAILED", Error: "Inventory Commit Failed"})
 		return nil
 	})
-	
+
 	// Listen for inventory.released
 	so.rmq.ConsumeWithRetry("booking_inventory_released", "inventory.released", 3, func(body []byte, headers amqp.Table) error {
+		corrID, _ := headers["x-correlation-id"].(string)
+		if corrID == "" {
+			corrID = GenerateCorrelationID()
+		}
+
 		var msg map[string]interface{}
 		if err := json.Unmarshal(body, &msg); err != nil {
 			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
 		}
 		sagaID, _ := msg["saga_id"].(string)
-		log.Printf("Saga %s: Inventory Released (Compensated)", sagaID)
+		StructuredLog("INFO", "booking-service", corrID, fmt.Sprintf("Saga %s: Inventory Released (Compensated)", sagaID), nil)
 		return nil
 	})
 
 	// Listen for inventory.cancelled
 	so.rmq.ConsumeWithRetry("booking_inventory_cancelled", "inventory.cancelled", 3, func(body []byte, headers amqp.Table) error {
+		corrID, _ := headers["x-correlation-id"].(string)
+		if corrID == "" {
+			corrID = GenerateCorrelationID()
+		}
+
 		var msg map[string]interface{}
 		if err := json.Unmarshal(body, &msg); err != nil {
 			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
@@ -179,7 +207,7 @@ func (so *SagaOrchestrator) startConsumers() {
 		if sagaID == "" {
 			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
 		}
-		log.Printf("Saga %s: Inventory Cancelled (Seats Restored)", sagaID)
+		StructuredLog("INFO", "booking-service", corrID, fmt.Sprintf("Saga %s: Inventory Cancelled (Seats Restored)", sagaID), nil)
 
 		so.srv.db.Exec("UPDATE bookings SET status = 'CANCELLED', updated_at = NOW() WHERE id = $1", sagaID)
 		so.srv.db.Exec("UPDATE tickets SET status = 'CANCELLED' WHERE booking_id = $1", sagaID)
@@ -191,6 +219,11 @@ func (so *SagaOrchestrator) startConsumers() {
 
 	// Listen for inventory.cancel_failed
 	so.rmq.ConsumeWithRetry("booking_inventory_cancel_failed", "inventory.cancel_failed", 3, func(body []byte, headers amqp.Table) error {
+		corrID, _ := headers["x-correlation-id"].(string)
+		if corrID == "" {
+			corrID = GenerateCorrelationID()
+		}
+
 		var msg map[string]interface{}
 		if err := json.Unmarshal(body, &msg); err != nil {
 			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
@@ -199,7 +232,7 @@ func (so *SagaOrchestrator) startConsumers() {
 		if sagaID == "" {
 			return &UnprocessableError{Err: fmt.Errorf("missing saga_id"), Reason: "MISSING_SAGA_ID"}
 		}
-		log.Printf("Saga %s: Inventory Cancel Failed", sagaID)
+		StructuredLog("WARN", "booking-service", corrID, fmt.Sprintf("Saga %s: Inventory Cancel Failed", sagaID), nil)
 
 		errMsg, _ := msg["error"].(string)
 		if errMsg == "" {
@@ -211,13 +244,18 @@ func (so *SagaOrchestrator) startConsumers() {
 
 	// Listen for inventory.reservation_expired
 	so.rmq.ConsumeWithRetry("booking_inventory_expired", "inventory.reservation_expired", 3, func(body []byte, headers amqp.Table) error {
+		corrID, _ := headers["x-correlation-id"].(string)
+		if corrID == "" {
+			corrID = GenerateCorrelationID()
+		}
+
 		var msg map[string]interface{}
 		if err := json.Unmarshal(body, &msg); err != nil {
 			return &UnprocessableError{Err: err, Reason: "MALFORMED_JSON"}
 		}
 		resID, _ := msg["reservationId"].(string)
 		if resID != "" {
-			log.Printf("Marking booking expired for reservation %s", resID)
+			StructuredLog("INFO", "booking-service", corrID, fmt.Sprintf("Marking booking expired for reservation %s", resID), nil)
 			so.srv.db.Exec("UPDATE bookings SET status = 'EXPIRED', updated_at = NOW() WHERE reservation_id = $1 AND status = 'PENDING'", resID)
 		}
 		return nil
@@ -236,10 +274,16 @@ func (so *SagaOrchestrator) ExecuteSaga(ctx context.Context, booking *Booking, r
 		so.mu.Unlock()
 	}()
 
-	// Trigger step 1
+	corrID := CorrelationIDFromContext(ctx)
+	if corrID == "" {
+		corrID = GenerateCorrelationID()
+	}
+
+	// Trigger step 1 with correlation ID preserved
 	reservePayload["saga_id"] = booking.ID
 	out, _ := json.Marshal(reservePayload)
-	so.rmq.Publish("inventory.reserve", out)
+	headers := amqp.Table{"x-correlation-id": corrID}
+	_ = so.rmq.PublishWithHeaders(SagaExchange, "inventory.reserve", out, headers)
 
 	select {
 	case res := <-ch:
@@ -263,9 +307,15 @@ func (so *SagaOrchestrator) ExecuteCancellationSaga(ctx context.Context, booking
 		so.mu.Unlock()
 	}()
 
+	corrID := CorrelationIDFromContext(ctx)
+	if corrID == "" {
+		corrID = GenerateCorrelationID()
+	}
+
 	cancelPayload["saga_id"] = booking.ID
 	out, _ := json.Marshal(cancelPayload)
-	so.rmq.Publish("inventory.cancel", out)
+	headers := amqp.Table{"x-correlation-id": corrID}
+	_ = so.rmq.PublishWithHeaders(SagaExchange, "inventory.cancel", out, headers)
 
 	select {
 	case res := <-ch:

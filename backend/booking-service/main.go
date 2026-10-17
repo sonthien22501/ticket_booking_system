@@ -607,6 +607,10 @@ func (s *Server) releaseInventory(ctx context.Context, reservationID string) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, releaseURL, bytes.NewReader(body))
 	if err == nil {
 		req.Header.Set("Content-Type", "application/json")
+		if corrID := CorrelationIDFromContext(ctx); corrID != "" {
+			req.Header.Set("X-Correlation-ID", corrID)
+			req.Header.Set("X-Request-ID", corrID)
+		}
 		resp, doErr := s.httpClient.Do(req)
 		if doErr == nil {
 			resp.Body.Close()
@@ -873,23 +877,32 @@ func (s *Server) handleCancelBooking(w http.ResponseWriter, r *http.Request, boo
 
 	// Fallback direct HTTP cancellation
 	body, _ := json.Marshal(cancelPayload)
-	resp, errHttp := s.httpClient.Post(s.inventoryServiceURL+"/inventory/cancel", "application/json", bytes.NewReader(body))
-	if errHttp == nil && resp.StatusCode == http.StatusOK {
-		s.db.Exec("UPDATE bookings SET status = 'CANCELLED', updated_at = NOW() WHERE id = $1", b.ID)
-		s.db.Exec("UPDATE tickets SET status = 'CANCELLED' WHERE booking_id = $1", b.ID)
-		if b.IdempotencyKey != "" && s.rdb != nil {
-			_ = s.rdb.Del(context.Background(), "idempotency:booking:"+b.IdempotencyKey).Err()
+	reqCancel, reqErr := http.NewRequestWithContext(r.Context(), http.MethodPost, s.inventoryServiceURL+"/inventory/cancel", bytes.NewReader(body))
+	if reqErr == nil {
+		reqCancel.Header.Set("Content-Type", "application/json")
+		if corrID := CorrelationIDFromContext(r.Context()); corrID != "" {
+			reqCancel.Header.Set("X-Correlation-ID", corrID)
+			reqCancel.Header.Set("X-Request-ID", corrID)
 		}
+		resp, errHttp := s.httpClient.Do(reqCancel)
+		if errHttp == nil && resp.StatusCode == http.StatusOK {
+			defer resp.Body.Close()
+			s.db.Exec("UPDATE bookings SET status = 'CANCELLED', updated_at = NOW() WHERE id = $1", b.ID)
+			s.db.Exec("UPDATE tickets SET status = 'CANCELLED' WHERE booking_id = $1", b.ID)
+			if b.IdempotencyKey != "" && s.rdb != nil {
+				_ = s.rdb.Del(context.Background(), "idempotency:booking:"+b.IdempotencyKey).Err()
+			}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"bookingId":        b.ID,
-			"bookingReference": b.BookingReference,
-			"status":           "CANCELLED",
-			"message":          "Booking cancelled and seats released successfully",
-		})
-		return
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"bookingId":        b.ID,
+				"bookingReference": b.BookingReference,
+				"status":           "CANCELLED",
+				"message":          "Booking cancelled and seats released successfully",
+			})
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1299,7 +1312,7 @@ func main() {
 
 	serverAddr := ":" + port
 	log.Printf("Booking Service starting on %s", serverAddr)
-	if err := http.ListenAndServe(serverAddr, mux); err != nil {
+	if err := http.ListenAndServe(serverAddr, TracingMiddleware("booking-service", mux)); err != nil {
 		log.Fatalf("Server terminated: %v", err)
 	}
 }

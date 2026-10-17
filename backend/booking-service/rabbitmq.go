@@ -206,17 +206,35 @@ func (r *RabbitMQ) PublishWithHeaders(exchange, routingKey string, body []byte, 
 	if headers == nil {
 		headers = amqp.Table{}
 	}
+
+	corrID := ""
+	if cid, ok := headers["x-correlation-id"].(string); ok && cid != "" {
+		corrID = cid
+	} else if tid, ok := headers["x-trace-id"].(string); ok && tid != "" {
+		corrID = tid
+	} else {
+		corrID = GenerateCorrelationID()
+	}
+	headers["x-correlation-id"] = corrID
+
+	StructuredLog("INFO", "booking-service", corrID, fmt.Sprintf("RabbitMQ Published to %s [%s]", exchange, routingKey), map[string]interface{}{
+		"exchange":   exchange,
+		"routingKey": routingKey,
+		"bodyBytes":  len(body),
+	})
+
 	return r.channel.Publish(
 		exchange,
 		routingKey,
 		false, // mandatory
 		false, // immediate
 		amqp.Publishing{
-			ContentType:  "application/json",
-			DeliveryMode: amqp.Persistent,
-			Headers:      headers,
-			Body:         body,
-			Timestamp:    time.Now(),
+			ContentType:   "application/json",
+			DeliveryMode:  amqp.Persistent,
+			CorrelationId: corrID,
+			Headers:       headers,
+			Body:          body,
+			Timestamp:     time.Now(),
 		})
 }
 
@@ -273,6 +291,23 @@ func (r *RabbitMQ) ConsumeWithRetry(queueName, routingKey string, maxRetries int
 
 	go func() {
 		for d := range msgs {
+			// Extract correlation ID from message properties or headers
+			corrID := d.CorrelationId
+			if corrID == "" && d.Headers != nil {
+				if cid, ok := d.Headers["x-correlation-id"].(string); ok && cid != "" {
+					corrID = cid
+				} else if tid, ok := d.Headers["x-trace-id"].(string); ok && tid != "" {
+					corrID = tid
+				}
+			}
+			if corrID == "" {
+				corrID = GenerateCorrelationID()
+			}
+			if d.Headers == nil {
+				d.Headers = amqp.Table{}
+			}
+			d.Headers["x-correlation-id"] = corrID
+
 			// Extract retry count from headers
 			retryCount := 0
 			if d.Headers != nil {
@@ -287,6 +322,12 @@ func (r *RabbitMQ) ConsumeWithRetry(queueName, routingKey string, maxRetries int
 				}
 			}
 
+			StructuredLog("INFO", "booking-service", corrID, fmt.Sprintf("RabbitMQ Consuming from queue %s [%s]", queueName, routingKey), map[string]interface{}{
+				"queue":      queueName,
+				"routingKey": routingKey,
+				"retryCount": retryCount,
+			})
+
 			// Process message via handler
 			handlerErr := handler(d.Body, d.Headers)
 			if handlerErr == nil {
@@ -296,7 +337,10 @@ func (r *RabbitMQ) ConsumeWithRetry(queueName, routingKey string, maxRetries int
 
 			// Failure path: check if unprocessable (poison message)
 			if IsUnprocessable(handlerErr) {
-				log.Printf("[DLQ ROUTE - Poison/Unprocessable] %s on queue %s: %v", routingKey, queueName, handlerErr)
+				StructuredLog("WARN", "booking-service", corrID, fmt.Sprintf("[DLQ ROUTE - Poison/Unprocessable] %s on queue %s: %v", routingKey, queueName, handlerErr), map[string]interface{}{
+					"error":  handlerErr.Error(),
+					"reason": "UNPROCESSABLE_PAYLOAD",
+				})
 				_ = r.PublishToDLQ(routingKey, d.Body, "UNPROCESSABLE_PAYLOAD", handlerErr.Error(), retryCount)
 				_ = d.Ack(false)
 				continue
@@ -305,7 +349,10 @@ func (r *RabbitMQ) ConsumeWithRetry(queueName, routingKey string, maxRetries int
 			// Failure path: transient error
 			if retryCount < maxRetries {
 				nextRetry := retryCount + 1
-				log.Printf("[RETRY %d/%d] Message on %s failed (%v), retrying...", nextRetry, maxRetries, routingKey, handlerErr)
+				StructuredLog("WARN", "booking-service", corrID, fmt.Sprintf("[RETRY %d/%d] Message on %s failed (%v), retrying...", nextRetry, maxRetries, routingKey, handlerErr), map[string]interface{}{
+					"error":      handlerErr.Error(),
+					"retryCount": nextRetry,
+				})
 
 				time.Sleep(100 * time.Millisecond) // backoff to avoid hot loop
 
@@ -315,11 +362,15 @@ func (r *RabbitMQ) ConsumeWithRetry(queueName, routingKey string, maxRetries int
 				}
 				newHeaders["x-retry-count"] = int32(nextRetry)
 				newHeaders["x-last-error"] = handlerErr.Error()
+				newHeaders["x-correlation-id"] = corrID
 
 				_ = r.PublishWithHeaders(SagaExchange, routingKey, d.Body, newHeaders)
 				_ = d.Ack(false)
 			} else {
-				log.Printf("[DLQ ROUTE - Retries Exhausted (%d/%d)] Message on %s routed to DLQ: %v", retryCount, maxRetries, routingKey, handlerErr)
+				StructuredLog("ERROR", "booking-service", corrID, fmt.Sprintf("[DLQ ROUTE - Retries Exhausted (%d/%d)] Message on %s routed to DLQ: %v", retryCount, maxRetries, routingKey, handlerErr), map[string]interface{}{
+					"error":  handlerErr.Error(),
+					"reason": "MAX_RETRIES_EXCEEDED",
+				})
 				_ = r.PublishToDLQ(routingKey, d.Body, "MAX_RETRIES_EXCEEDED", handlerErr.Error(), retryCount)
 				_ = d.Ack(false)
 			}
