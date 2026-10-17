@@ -73,8 +73,10 @@ type CreateEventRequest struct {
 const CacheTTL = 30 * time.Second
 
 type Server struct {
-	db  *sql.DB
-	rdb *redis.Client
+	db        *sql.DB
+	rdb       *redis.Client
+	startTime time.Time
+	reqCount  int64
 }
 
 func initDB() (*sql.DB, error) {
@@ -140,20 +142,6 @@ func enableCORS(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-}
-
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	enableCORS(w)
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"status":  "UP",
-		"service": "catalog-service",
-	})
 }
 
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
@@ -480,7 +468,11 @@ func main() {
 		defer rdb.Close()
 	}
 
-	srv := &Server{db: db, rdb: rdb}
+	srv := &Server{
+		db:        db,
+		rdb:       rdb,
+		startTime: time.Now(),
+	}
 
 	mux := http.NewServeMux()
 
@@ -488,6 +480,13 @@ func main() {
 	mux.HandleFunc("/health", srv.handleHealth)
 	mux.HandleFunc("/api/health", srv.handleHealth)
 	mux.HandleFunc("/api/events/health", srv.handleHealth)
+	mux.HandleFunc("/api/catalog/health", srv.handleHealth)
+
+	// Metrics routes (R23)
+	mux.HandleFunc("/metrics", srv.handleMetrics)
+	mux.HandleFunc("/api/metrics", srv.handleMetrics)
+	mux.HandleFunc("/api/events/metrics", srv.handleMetrics)
+	mux.HandleFunc("/api/catalog/metrics", srv.handleMetrics)
 
 	// Events collection routes
 	mux.HandleFunc("/events", srv.handleEvents)
@@ -499,7 +498,7 @@ func main() {
 
 	serverAddr := ":" + port
 	log.Printf("Event Catalog Service starting on %s", serverAddr)
-	if err := http.ListenAndServe(serverAddr, TracingMiddleware("catalog-service", mux)); err != nil {
+	if err := http.ListenAndServe(serverAddr, TracingMiddleware("mutated-catalog", mux)); err != nil {
 		log.Fatalf("Server terminated: %v", err)
 	}
 }

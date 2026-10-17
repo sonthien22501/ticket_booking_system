@@ -446,6 +446,46 @@
         ],
         "type": "object"
       },
+      "HealthResponse": {
+        "properties": {
+          "components": {
+            "additionalProperties": {
+              "properties": {
+                "details": {
+                  "type": "object"
+                },
+                "status": {
+                  "example": "UP",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "service": {
+            "example": "catalog-service",
+            "type": "string"
+          },
+          "status": {
+            "example": "UP",
+            "type": "string"
+          },
+          "timestamp": {
+            "example": "2026-10-18T00:00:00Z",
+            "type": "string"
+          },
+          "uptime_seconds": {
+            "example": 124.5,
+            "type": "number"
+          },
+          "version": {
+            "example": "1.0.0",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "InventoryResponse": {
         "properties": {
           "availableSeats": {
@@ -547,6 +587,61 @@
           "email",
           "password"
         ],
+        "type": "object"
+      },
+      "MetricsResponse": {
+        "properties": {
+          "connection_pool": {
+            "properties": {
+              "idle": {
+                "example": 4,
+                "type": "integer"
+              },
+              "in_use": {
+                "example": 1,
+                "type": "integer"
+              },
+              "max_open_connections": {
+                "example": 25,
+                "type": "integer"
+              },
+              "open_connections": {
+                "example": 5,
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "memory": {
+            "properties": {
+              "alloc_bytes": {
+                "example": 4194304,
+                "type": "integer"
+              },
+              "num_goroutines": {
+                "example": 12,
+                "type": "integer"
+              },
+              "sys_bytes": {
+                "example": 16777216,
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "service": {
+            "example": "catalog-service",
+            "type": "string"
+          },
+          "timestamp": {
+            "example": "2026-10-18T00:00:00Z",
+            "type": "string"
+          },
+          "uptime_seconds": {
+            "example": 124.5,
+            "type": "number"
+          }
+        },
         "type": "object"
       },
       "RegisterRequest": {
@@ -2310,30 +2405,70 @@
     },
     "/health": {
       "get": {
-        "description": "Returns operational status and gateway uptime.",
+        "description": "Returns operational readiness and status of components (PostgreSQL, Redis, RabbitMQ) and uptime.",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "properties": {
-                    "gateway": {
-                      "example": "ok",
-                      "type": "string"
-                    },
-                    "status": {
-                      "example": "UP",
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
+                  "$ref": "#/components/schemas/HealthResponse"
                 }
               }
             },
-            "description": "Gateway is healthy"
+            "description": "System is healthy"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "System dependency is unhealthy or degraded"
           }
         },
-        "summary": "API Gateway Health Check",
+        "summary": "Service Health Check",
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/metrics": {
+      "get": {
+        "description": "Returns Go runtime memory metrics, database connection pool saturation, Redis pool statistics, and Prometheus exposition.",
+        "parameters": [
+          {
+            "description": "Exposition format (JSON default, or Prometheus text format)",
+            "in": "query",
+            "name": "format",
+            "schema": {
+              "enum": [
+                "json",
+                "prometheus"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Operational telemetry metrics"
+          }
+        },
+        "summary": "Service Metrics \u0026 Actuator Telemetry (R23)",
         "tags": [
           "System"
         ]

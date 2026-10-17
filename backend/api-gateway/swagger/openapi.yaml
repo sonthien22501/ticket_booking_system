@@ -34,22 +34,45 @@ paths:
     get:
       tags:
         - System
-      summary: API Gateway Health Check
-      description: Returns operational status and gateway uptime.
+      summary: Service Health Check
+      description: Returns operational readiness and status of components (PostgreSQL, Redis, RabbitMQ) and uptime.
       responses:
         '200':
-          description: Gateway is healthy
+          description: System is healthy
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: UP
-                  gateway:
-                    type: string
-                    example: ok
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: System dependency is unhealthy or degraded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      tags:
+        - System
+      summary: Service Metrics & Actuator Telemetry (R23)
+      description: Returns Go runtime memory metrics, database connection pool saturation, Redis pool statistics, and Prometheus exposition.
+      parameters:
+        - in: query
+          name: format
+          schema:
+            type: string
+            enum: [json, prometheus]
+          description: Exposition format (JSON default, or Prometheus text format)
+      responses:
+        '200':
+          description: Operational telemetry metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+            text/plain:
+              schema:
+                type: string
 
   /api/auth/register:
     post:
@@ -1594,3 +1617,72 @@ components:
         retryAfter:
           type: integer
           example: 1
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: UP
+        service:
+          type: string
+          example: catalog-service
+        timestamp:
+          type: string
+          example: '2026-10-18T00:00:00Z'
+        uptime_seconds:
+          type: number
+          example: 124.5
+        version:
+          type: string
+          example: 1.0.0
+        components:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              status:
+                type: string
+                example: UP
+              details:
+                type: object
+
+    MetricsResponse:
+      type: object
+      properties:
+        service:
+          type: string
+          example: catalog-service
+        timestamp:
+          type: string
+          example: '2026-10-18T00:00:00Z'
+        uptime_seconds:
+          type: number
+          example: 124.5
+        memory:
+          type: object
+          properties:
+            alloc_bytes:
+              type: integer
+              example: 4194304
+            sys_bytes:
+              type: integer
+              example: 16777216
+            num_goroutines:
+              type: integer
+              example: 12
+        connection_pool:
+          type: object
+          properties:
+            open_connections:
+              type: integer
+              example: 5
+            in_use:
+              type: integer
+              example: 1
+            idle:
+              type: integer
+              example: 4
+            max_open_connections:
+              type: integer
+              example: 25

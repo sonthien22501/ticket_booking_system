@@ -63,6 +63,8 @@ type Claims struct {
 type Server struct {
 	db        *sql.DB
 	jwtSecret []byte
+	startTime time.Time
+	reqCount  int64
 }
 
 func getEnv(key, defaultVal string) string {
@@ -208,20 +210,6 @@ func enableCORS(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Auth-Token")
-}
-
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	enableCORS(w)
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"status":  "UP",
-		"service": "auth-service",
-	})
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
@@ -578,6 +566,7 @@ func main() {
 	srv := &Server{
 		db:        db,
 		jwtSecret: []byte(jwtSecretKey),
+		startTime: time.Now(),
 	}
 
 	if err := srv.migrateDB(); err != nil {
@@ -591,6 +580,12 @@ func main() {
 	mux.HandleFunc("/api/health", srv.handleHealth)
 	mux.HandleFunc("/auth/health", srv.handleHealth)
 	mux.HandleFunc("/api/auth/health", srv.handleHealth)
+
+	// Metrics routes (R23)
+	mux.HandleFunc("/metrics", srv.handleMetrics)
+	mux.HandleFunc("/api/metrics", srv.handleMetrics)
+	mux.HandleFunc("/auth/metrics", srv.handleMetrics)
+	mux.HandleFunc("/api/auth/metrics", srv.handleMetrics)
 
 	// Auth Register routes
 	mux.HandleFunc("/register", srv.handleRegister)
