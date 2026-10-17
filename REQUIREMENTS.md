@@ -60,7 +60,7 @@ Explanation: The Booking Service creates a pending booking record linked to the 
 **R14: The system must enforce idempotent API requests for financial transactions.** ✅ (Done successfully)  
 Explanation: The payment endpoint must require an idempotency key to prevent double-charging a user in the event of network retries or dropped connections.
 
-**R14.1: The system must provide standardized API Documentation.**  
+**R14.1: The system must provide standardized API Documentation.** ✅ (Done successfully)  
 Explanation: All microservice APIs must be documented using the OpenAPI Specification (Swagger) to facilitate contract-driven development and frontend integration.
 
 **R15: The system must implement the Saga Pattern for distributed transaction orchestration.** ✅ (Done successfully)  

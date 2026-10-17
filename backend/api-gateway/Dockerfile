@@ -3,6 +3,7 @@ FROM nginx:1.25-alpine
 RUN apk --no-cache add wget curl
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY swagger/ /usr/share/nginx/html/docs/
 
 EXPOSE 8080
 
