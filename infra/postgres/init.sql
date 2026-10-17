@@ -102,6 +102,23 @@ CREATE TABLE IF NOT EXISTS tickets (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS waitlist (
+    id VARCHAR(64) PRIMARY KEY,
+    event_id VARCHAR(64) NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    tier_id VARCHAR(64),
+    seat_id VARCHAR(64),
+    user_id VARCHAR(64) NOT NULL,
+    customer_name VARCHAR(255) NOT NULL,
+    customer_email VARCHAR(255) NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    reservation_id VARCHAR(64),
+    promoted_at TIMESTAMP WITH TIME ZONE,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Index creation for high-performance lookup
 CREATE INDEX IF NOT EXISTS idx_seat_items_event_status ON seat_items(event_id, status);
 CREATE INDEX IF NOT EXISTS idx_seat_items_hold_expires ON seat_items(status, hold_expires_at) WHERE status = 'HOLD';
@@ -110,11 +127,15 @@ CREATE INDEX IF NOT EXISTS idx_bookings_email ON bookings(customer_email);
 CREATE INDEX IF NOT EXISTS idx_reservations_status_expires ON reservations(status, expires_at);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_bookings_idempotency ON bookings(idempotency_key) WHERE idempotency_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_waitlist_event_status_created ON waitlist(event_id, status, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_waitlist_user ON waitlist(user_id);
+CREATE INDEX IF NOT EXISTS idx_waitlist_reservation ON waitlist(reservation_id);
 
 -- 2. Seed Data
 
 -- Clear existing data if re-running
 TRUNCATE TABLE users CASCADE;
+TRUNCATE TABLE waitlist CASCADE;
 TRUNCATE TABLE tickets CASCADE;
 TRUNCATE TABLE bookings CASCADE;
 TRUNCATE TABLE reservations CASCADE;
