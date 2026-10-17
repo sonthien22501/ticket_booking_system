@@ -242,7 +242,7 @@ func (s *Server) sweepExpiredHolds() int {
 
 	// 1. Find expired reservations in HOLD status
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT reservation_id, event_id, tier_id, quantity 
+		`SELECT reservation_id, event_id, tier_id, quantity, seat_ids 
 		 FROM reservations 
 		 WHERE status = 'HOLD' AND expires_at < NOW()`)
 	if err != nil {
@@ -255,12 +255,15 @@ func (s *Server) sweepExpiredHolds() int {
 		eventID string
 		tierID  sql.NullString
 		qty     int
+		seatIDs []string
 	}
 
 	var expiredList []ExpiredRes
 	for rows.Next() {
 		var exp ExpiredRes
-		if err := rows.Scan(&exp.resID, &exp.eventID, &exp.tierID, &exp.qty); err == nil {
+		var seatsRaw string
+		if err := rows.Scan(&exp.resID, &exp.eventID, &exp.tierID, &exp.qty, &seatsRaw); err == nil {
+			_ = json.Unmarshal([]byte(seatsRaw), &exp.seatIDs)
 			expiredList = append(expiredList, exp)
 		}
 	}
@@ -304,6 +307,7 @@ func (s *Server) sweepExpiredHolds() int {
 					"reservationId": exp.resID,
 					"eventId":       exp.eventID,
 					"tierId":        exp.tierID.String,
+					"seatIds":       exp.seatIDs,
 					"quantity":      exp.qty,
 					"status":        "EXPIRED",
 					"reason":        "HOLD_TIMEOUT",
@@ -1276,6 +1280,8 @@ func (s *Server) handleCancel(w http.ResponseWriter, r *http.Request) {
 		"status":        "CANCELLED",
 		"reservationId": resID,
 		"eventId":       eventID,
+		"tierId":        tierIDStr,
+		"seatIds":       seatIDs,
 		"message":       "Reservation and seats cancelled successfully",
 	})
 }

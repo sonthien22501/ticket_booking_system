@@ -279,3 +279,63 @@ func TestWaitlistHTTP(t *testing.T) {
 	}
 }
 
+func TestWaitlistPromotionTrigger(t *testing.T) {
+	db := getTestDB(t)
+	if db == nil {
+		return
+	}
+	defer db.Close()
+
+	srv := &Server{
+		db:         db,
+		httpClient: &http.Client{},
+	}
+	ctx := context.Background()
+	_ = srv.initWaitlistSchema(ctx)
+
+	// Clean up any test users
+	_, _ = db.Exec("DELETE FROM waitlist WHERE user_id LIKE 'user-trigger-%'")
+	defer func() {
+		_, _ = db.Exec("DELETE FROM waitlist WHERE user_id LIKE 'user-trigger-%'")
+	}()
+
+	// 1. Join waitlist as user-trigger-1
+	entry := &WaitlistEntry{
+		EventID:       "evt-101",
+		TierID:        "tier-vip",
+		UserID:        "user-trigger-1",
+		CustomerName:  "Trigger Tester",
+		CustomerEmail: "trigger@test.com",
+		Quantity:      1,
+		Status:        WaitlistStatusPending,
+	}
+	created, err := srv.CreateWaitlistEntry(ctx, entry)
+	if err != nil {
+		t.Fatalf("Failed to create waitlist entry: %v", err)
+	}
+
+	so := &SagaOrchestrator{
+		srv: srv,
+		rmq: nil,
+	}
+
+	// 2. Invoke TriggerWaitlistPromotion
+	err = so.TriggerWaitlistPromotion(ctx, "corr-trigger-test", "evt-101", "tier-vip", []string{"A1"})
+	if err != nil {
+		t.Fatalf("TriggerWaitlistPromotion failed: %v", err)
+	}
+
+	// 3. Verify user-trigger-1 entry is now PROMOTED with a valid reservation ID
+	promoted, err := srv.GetWaitlistEntry(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("Failed to fetch waitlist entry after trigger: %v", err)
+	}
+	if promoted.Status != WaitlistStatusPromoted {
+		t.Errorf("Expected status %s, got %s", WaitlistStatusPromoted, promoted.Status)
+	}
+	if promoted.ReservationID == "" {
+		t.Errorf("Expected non-empty ReservationID on promoted entry")
+	}
+}
+
+
