@@ -1,0 +1,2379 @@
+{
+  "components": {
+    "schemas": {
+      "AuthResponse": {
+        "properties": {
+          "token": {
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        },
+        "required": [
+          "token",
+          "user"
+        ],
+        "type": "object"
+      },
+      "Booking": {
+        "properties": {
+          "bookingReference": {
+            "example": "BKG-ABCD-1234",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "customerEmail": {
+            "example": "john@example.com",
+            "type": "string"
+          },
+          "customerName": {
+            "example": "John Doe",
+            "type": "string"
+          },
+          "eventId": {
+            "example": "evt-101",
+            "type": "string"
+          },
+          "eventTitle": {
+            "example": "Coldplay World Tour",
+            "type": "string"
+          },
+          "id": {
+            "example": "bkg-1718000000",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "example": "idem-key-1718000000",
+            "type": "string"
+          },
+          "paymentStatus": {
+            "example": "COMPLETED",
+            "type": "string"
+          },
+          "quantity": {
+            "example": 2,
+            "type": "integer"
+          },
+          "reservationId": {
+            "example": "res-101",
+            "type": "string"
+          },
+          "seatIds": {
+            "example": [
+              "seat-a1",
+              "seat-a2"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "CONFIRMED",
+              "PENDING",
+              "CANCELLED"
+            ],
+            "example": "CONFIRMED",
+            "type": "string"
+          },
+          "tickets": {
+            "items": {
+              "$ref": "#/components/schemas/BookingTicket"
+            },
+            "type": "array"
+          },
+          "tierId": {
+            "example": "tier-vip",
+            "type": "string"
+          },
+          "totalAmount": {
+            "example": 240,
+            "format": "double",
+            "type": "number"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "userId": {
+            "example": "usr-101",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "bookingReference",
+          "userId",
+          "eventId",
+          "quantity",
+          "totalAmount",
+          "status"
+        ],
+        "type": "object"
+      },
+      "BookingTicket": {
+        "properties": {
+          "bookingId": {
+            "example": "bkg-101",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "example": "tkt-001",
+            "type": "string"
+          },
+          "seatId": {
+            "example": "seat-a1",
+            "type": "string"
+          },
+          "seatLabel": {
+            "example": "Row A, Seat 1",
+            "type": "string"
+          },
+          "status": {
+            "example": "VALID",
+            "type": "string"
+          },
+          "ticketCode": {
+            "example": "CODE-COLDPLAY-VIP-001",
+            "type": "string"
+          },
+          "ticketId": {
+            "example": "tkt-001",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "CancelBookingResponse": {
+        "properties": {
+          "bookingId": {
+            "example": "bkg-101",
+            "type": "string"
+          },
+          "message": {
+            "example": "Booking cancelled successfully",
+            "type": "string"
+          },
+          "status": {
+            "example": "CANCELLED",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ClaimWaitlistResponse": {
+        "properties": {
+          "bookingReference": {
+            "example": "BKG-WL-1234",
+            "type": "string"
+          },
+          "id": {
+            "example": "bkg-101",
+            "type": "string"
+          },
+          "status": {
+            "example": "CONFIRMED",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "CreateBookingRequest": {
+        "properties": {
+          "customerEmail": {
+            "example": "john@example.com",
+            "format": "email",
+            "type": "string"
+          },
+          "customerName": {
+            "example": "John Doe",
+            "type": "string"
+          },
+          "eventId": {
+            "example": "evt-101",
+            "type": "string"
+          },
+          "holdSeconds": {
+            "default": 120,
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "example": "idem-xyz-987",
+            "type": "string"
+          },
+          "paymentInfo": {
+            "properties": {
+              "cardToken": {
+                "example": "tok_visa_4242",
+                "type": "string"
+              },
+              "method": {
+                "example": "card",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "seats": {
+            "example": [
+              "A-1",
+              "A-2"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ticketCount": {
+            "example": 2,
+            "type": "integer"
+          },
+          "tierId": {
+            "example": "tier-vip",
+            "type": "string"
+          },
+          "userId": {
+            "example": "usr-101",
+            "type": "string"
+          }
+        },
+        "required": [
+          "eventId",
+          "customerEmail",
+          "ticketCount"
+        ],
+        "type": "object"
+      },
+      "DLQMessage": {
+        "properties": {
+          "errorMessage": {
+            "example": "Connection reset during saga reservation",
+            "type": "string"
+          },
+          "messageId": {
+            "example": "msg-101",
+            "type": "string"
+          },
+          "payload": {
+            "type": "object"
+          },
+          "queueName": {
+            "example": "saga.dlq",
+            "type": "string"
+          },
+          "retryCount": {
+            "example": 3,
+            "type": "integer"
+          },
+          "routingKey": {
+            "example": "inventory.reserve",
+            "type": "string"
+          },
+          "timestamp": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DLQRetryResponse": {
+        "properties": {
+          "reprocessed": {
+            "example": 5,
+            "type": "integer"
+          },
+          "status": {
+            "example": "REPROCESSED",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DLQStatsResponse": {
+        "properties": {
+          "consumerCount": {
+            "example": 1,
+            "type": "integer"
+          },
+          "messageCount": {
+            "example": 0,
+            "type": "integer"
+          },
+          "queueName": {
+            "example": "saga.dlq",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "example": "RATE_LIMIT_EXCEEDED",
+            "type": "string"
+          },
+          "message": {
+            "example": "Too many requests. Please slow down.",
+            "type": "string"
+          },
+          "retryAfter": {
+            "example": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "type": "object"
+      },
+      "Event": {
+        "properties": {
+          "category": {
+            "example": "Concert",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "example": "Live stadium concert experience",
+            "type": "string"
+          },
+          "endTime": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "example": "evt-101",
+            "type": "string"
+          },
+          "imageUrl": {
+            "example": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745",
+            "type": "string"
+          },
+          "startTime": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "example": "ACTIVE",
+            "type": "string"
+          },
+          "tiers": {
+            "items": {
+              "$ref": "#/components/schemas/EventTier"
+            },
+            "type": "array"
+          },
+          "title": {
+            "example": "Coldplay - Music of the Spheres World Tour",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "venueLocation": {
+            "example": "London, UK",
+            "type": "string"
+          },
+          "venueName": {
+            "example": "Wembley Stadium",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "category",
+          "venueName",
+          "startTime",
+          "endTime",
+          "status"
+        ],
+        "type": "object"
+      },
+      "EventListResponse": {
+        "items": {
+          "$ref": "#/components/schemas/Event"
+        },
+        "type": "array"
+      },
+      "EventTier": {
+        "properties": {
+          "availableSeats": {
+            "example": 85,
+            "type": "integer"
+          },
+          "capacity": {
+            "example": 100,
+            "type": "integer"
+          },
+          "eventId": {
+            "example": "evt-101",
+            "type": "string"
+          },
+          "name": {
+            "example": "VIP Seating",
+            "type": "string"
+          },
+          "price": {
+            "example": 120,
+            "format": "double",
+            "type": "number"
+          },
+          "tierId": {
+            "example": "tier-vip",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tierId",
+          "name",
+          "price",
+          "capacity"
+        ],
+        "type": "object"
+      },
+      "InventoryResponse": {
+        "properties": {
+          "availableSeats": {
+            "example": 150,
+            "type": "integer"
+          },
+          "bookedSeats": {
+            "example": 30,
+            "type": "integer"
+          },
+          "eventId": {
+            "example": "evt-101",
+            "type": "string"
+          },
+          "reservedSeats": {
+            "example": 20,
+            "type": "integer"
+          },
+          "tiers": {
+            "items": {
+              "properties": {
+                "available_seats": {
+                  "type": "integer"
+                },
+                "tier_id": {
+                  "type": "string"
+                },
+                "tier_name": {
+                  "type": "string"
+                },
+                "total_seats": {
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "totalSeats": {
+            "example": 200,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "JoinWaitlistRequest": {
+        "properties": {
+          "customerEmail": {
+            "example": "jane@example.com",
+            "format": "email",
+            "type": "string"
+          },
+          "customerName": {
+            "example": "Jane Doe",
+            "type": "string"
+          },
+          "eventId": {
+            "example": "evt-101",
+            "type": "string"
+          },
+          "quantity": {
+            "default": 1,
+            "example": 1,
+            "type": "integer"
+          },
+          "seatId": {
+            "example": "seat-a1",
+            "type": "string"
+          },
+          "tierId": {
+            "example": "tier-vip",
+            "type": "string"
+          },
+          "userId": {
+            "example": "usr-101",
+            "type": "string"
+          }
+        },
+        "required": [
+          "eventId",
+          "customerEmail"
+        ],
+        "type": "object"
+      },
+      "LoginRequest": {
+        "properties": {
+          "email": {
+            "example": "customer@tickets.com",
+            "format": "email",
+            "type": "string"
+          },
+          "password": {
+            "example": "securepass123",
+            "format": "password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object"
+      },
+      "RegisterRequest": {
+        "properties": {
+          "email": {
+            "example": "newuser@tickets.com",
+            "format": "email",
+            "type": "string"
+          },
+          "name": {
+            "example": "Morgan Reed",
+            "type": "string"
+          },
+          "password": {
+            "example": "securepass123",
+            "format": "password",
+            "type": "string"
+          },
+          "role": {
+            "default": "customer",
+            "enum": [
+              "customer",
+              "admin"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "name"
+        ],
+        "type": "object"
+      },
+      "ReservationResponse": {
+        "properties": {
+          "eventId": {
+            "example": "evt-101",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "quantity": {
+            "example": 2,
+            "type": "integer"
+          },
+          "reservationId": {
+            "example": "res-1718000000-xyz",
+            "type": "string"
+          },
+          "seats": {
+            "example": [
+              "A-1",
+              "A-2"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "status": {
+            "example": "HOLD",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reservationId",
+          "eventId",
+          "status",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
+      "ReserveSeatsRequest": {
+        "properties": {
+          "eventId": {
+            "example": "evt-101",
+            "type": "string"
+          },
+          "holdSeconds": {
+            "default": 120,
+            "example": 120,
+            "type": "integer"
+          },
+          "seats": {
+            "example": [
+              "A-1",
+              "A-2"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ticketCount": {
+            "example": 2,
+            "type": "integer"
+          },
+          "tierId": {
+            "example": "tier-vip",
+            "type": "string"
+          }
+        },
+        "required": [
+          "eventId"
+        ],
+        "type": "object"
+      },
+      "SeatItem": {
+        "properties": {
+          "eventId": {
+            "example": "evt-101",
+            "type": "string"
+          },
+          "holdExpiresAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "example": "seat-a1",
+            "type": "string"
+          },
+          "number": {
+            "example": 1,
+            "type": "integer"
+          },
+          "reservationId": {
+            "example": "res-abc12345",
+            "nullable": true,
+            "type": "string"
+          },
+          "row": {
+            "example": "A",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "HOLD",
+              "BOOKED",
+              "BLOCKED"
+            ],
+            "example": "AVAILABLE",
+            "type": "string"
+          },
+          "tierId": {
+            "example": "tier-vip",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "eventId",
+          "tierId",
+          "row",
+          "number",
+          "status"
+        ],
+        "type": "object"
+      },
+      "User": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "email": {
+            "example": "customer@tickets.com",
+            "format": "email",
+            "type": "string"
+          },
+          "id": {
+            "example": "usr-1718000000",
+            "type": "string"
+          },
+          "name": {
+            "example": "Alex Customer",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "customer",
+              "admin"
+            ],
+            "example": "customer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name",
+          "role"
+        ],
+        "type": "object"
+      },
+      "UserClaims": {
+        "properties": {
+          "email": {
+            "example": "customer@tickets.com",
+            "type": "string"
+          },
+          "name": {
+            "example": "Alex Customer",
+            "type": "string"
+          },
+          "role": {
+            "example": "customer",
+            "type": "string"
+          },
+          "userId": {
+            "example": "usr-1718000000",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "WaitlistEntry": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "customerEmail": {
+            "example": "jane@example.com",
+            "format": "email",
+            "type": "string"
+          },
+          "customerName": {
+            "example": "Jane Doe",
+            "type": "string"
+          },
+          "eventId": {
+            "example": "evt-101",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "example": "wt-1718000000",
+            "type": "string"
+          },
+          "position": {
+            "example": 1,
+            "type": "integer"
+          },
+          "promotedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "quantity": {
+            "example": 1,
+            "type": "integer"
+          },
+          "reservationId": {
+            "example": "res-promoted-123",
+            "type": "string"
+          },
+          "seatId": {
+            "example": "seat-a1",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "PROMOTED",
+              "CLAIMED",
+              "EXPIRED",
+              "CANCELLED"
+            ],
+            "example": "PENDING",
+            "type": "string"
+          },
+          "tierId": {
+            "example": "tier-vip",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "userId": {
+            "example": "usr-101",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "eventId",
+          "userId",
+          "customerName",
+          "customerEmail",
+          "quantity",
+          "status"
+        ],
+        "type": "object"
+      },
+      "WaitlistStatusResponse": {
+        "properties": {
+          "count": {
+            "example": 1,
+            "type": "integer"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/WaitlistEntry"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "bearerFormat": "JWT",
+        "description": "Standard Bearer JWT token obtained from `/api/auth/login` or `/api/auth/register`.",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "email": "engineering@tickets.com",
+      "name": "System Engineering Team"
+    },
+    "description": "Production-grade OpenAPI 3.0 specification for the Distributed Ticket Booking System.\nCovers Authentication, Event Catalog, Seat Inventory, Booking \u0026 Saga Orchestration,\nWaitlist Management, and RabbitMQ Dead Letter Queue (DLQ) operations.\n",
+    "title": "Distributed Ticket Booking System API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/auth/login": {
+      "post": {
+        "description": "Verifies user credentials and generates a signed JWT token.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            },
+            "description": "Authentication successful"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid email or password"
+          }
+        },
+        "summary": "Authenticate user credentials",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "description": "Returns profile details for the authenticated user context.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "User profile retrieved"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Current user profile",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "description": "Creates a new user account with hashed password credentials and returns a JWT bearer token.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            },
+            "description": "User registered successfully"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error or duplicate email"
+          }
+        },
+        "summary": "Register a new user",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/users": {
+      "get": {
+        "description": "Retrieves a list of all registered accounts. Restricted to administrators.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/User"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "User list retrieved"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden - Admin role required"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "List all registered users (Admin only)",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/verify": {
+      "get": {
+        "description": "Decodes and validates the caller's JWT token, returning token claims.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserClaims"
+                }
+              }
+            },
+            "description": "Token is valid"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Token is expired, malformed, or missing"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Verify JWT token validity",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/bookings": {
+      "get": {
+        "description": "Retrieves booking records with optional filters for user, event, or status.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "userId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "eventId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Booking"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "List of bookings"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "List bookings",
+        "tags": [
+          "Bookings"
+        ]
+      },
+      "post": {
+        "description": "Initiates a multi-step Saga distributed transaction: reserves inventory, captures payment,\nand generates confirmed tickets. Supports replay-safe idempotency.\n",
+        "parameters": [
+          {
+            "description": "Unique client key for preventing double charging and duplicate reservations",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Distributed trace correlation identifier",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBookingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booking"
+                }
+              }
+            },
+            "description": "Idempotent replay of previously confirmed booking",
+            "headers": {
+              "X-Idempotent-Replay": {
+                "description": "Indicates request was served from cached idempotency record",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booking"
+                }
+              }
+            },
+            "description": "Booking confirmed and tickets issued"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request payload"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Concurrency conflict or sold out"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Create booking (Saga Orchestration)",
+        "tags": [
+          "Bookings"
+        ]
+      }
+    },
+    "/api/bookings/{id}": {
+      "delete": {
+        "description": "Cancels confirmed booking and triggers compensating inventory release.",
+        "parameters": [
+          {
+            "description": "Booking ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelBookingResponse"
+                }
+              }
+            },
+            "description": "Booking cancelled"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Cancel booking",
+        "tags": [
+          "Bookings"
+        ]
+      },
+      "get": {
+        "description": "Retrieves single booking record with individual ticket barcode tokens.",
+        "parameters": [
+          {
+            "description": "Booking ID or booking reference code",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booking"
+                }
+              }
+            },
+            "description": "Booking retrieved"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Booking not found"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Get booking details",
+        "tags": [
+          "Bookings"
+        ]
+      }
+    },
+    "/api/bookings/{id}/cancel": {
+      "post": {
+        "description": "Alternative POST endpoint to cancel a booking and execute compensating releases.",
+        "parameters": [
+          {
+            "description": "Booking ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelBookingResponse"
+                }
+              }
+            },
+            "description": "Booking cancelled"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Cancel booking via POST",
+        "tags": [
+          "Bookings"
+        ]
+      }
+    },
+    "/api/dlq/messages": {
+      "delete": {
+        "description": "Administrative purge of all unprocessable poison messages.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "purged": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "example": "PURGED",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Purge count"
+          }
+        },
+        "summary": "Purge all DLQ messages",
+        "tags": [
+          "DLQ"
+        ]
+      },
+      "get": {
+        "description": "Inspects failed messages currently dwelling in the dead letter exchange.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "messages": {
+                      "items": {
+                        "$ref": "#/components/schemas/DLQMessage"
+                      },
+                      "type": "array"
+                    },
+                    "queueName": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Messages array"
+          }
+        },
+        "summary": "Peek DLQ poison messages",
+        "tags": [
+          "DLQ"
+        ]
+      }
+    },
+    "/api/dlq/retry": {
+      "post": {
+        "description": "Re-queues dead-lettered messages back into primary processing queues for reprocessing.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DLQRetryResponse"
+                }
+              }
+            },
+            "description": "Reprocess summary"
+          }
+        },
+        "summary": "Reprocess DLQ messages",
+        "tags": [
+          "DLQ"
+        ]
+      }
+    },
+    "/api/dlq/simulate": {
+      "post": {
+        "description": "Diagnostics endpoint to trigger controlled failures and test dead-letter routing.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "errorMessage": {
+                    "type": "string"
+                  },
+                  "payload": {
+                    "type": "object"
+                  },
+                  "routingKey": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "enum": [
+                      "poison",
+                      "retry_fail",
+                      "direct_dlq"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type",
+                  "errorMessage"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "status": {
+                      "example": "SIMULATED",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Poison pill routed to DLQ"
+          }
+        },
+        "summary": "Simulate DLQ poison pill ingestion",
+        "tags": [
+          "DLQ"
+        ]
+      }
+    },
+    "/api/dlq/stats": {
+      "get": {
+        "description": "Inspects active message count, consumer readiness, and unroutable dead-letter depth.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DLQStatsResponse"
+                }
+              }
+            },
+            "description": "DLQ metrics"
+          }
+        },
+        "summary": "Get RabbitMQ Dead Letter Queue telemetry",
+        "tags": [
+          "DLQ"
+        ]
+      }
+    },
+    "/api/events": {
+      "get": {
+        "description": "Retrieves upcoming events with active ticket tiers. Results are cached in Redis with a 30s TTL.",
+        "parameters": [
+          {
+            "description": "Optional filter by event category (e.g., Music, Sports, Theatre)",
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional search string matching event titles or descriptions",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventListResponse"
+                }
+              }
+            },
+            "description": "Array of events"
+          }
+        },
+        "summary": "List all events",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/events/{id}": {
+      "get": {
+        "description": "Retrieves detailed metadata for a single event including all ticket tier pricing and capacities.",
+        "parameters": [
+          {
+            "description": "Event ID (e.g., evt-101)",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            },
+            "description": "Event details"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Event not found"
+          }
+        },
+        "summary": "Get event details",
+        "tags": [
+          "Catalog"
+        ]
+      }
+    },
+    "/api/inventory/cancel": {
+      "post": {
+        "description": "Compensating transaction endpoint called during Saga rollback or customer booking cancellation.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "bookingId": {
+                    "type": "string"
+                  },
+                  "eventId": {
+                    "type": "string"
+                  },
+                  "quantity": {
+                    "type": "integer"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "reservationId": {
+                    "type": "string"
+                  },
+                  "seatIds": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "tierId": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "status": {
+                      "example": "CANCELLED",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Seats reverted to available"
+          }
+        },
+        "summary": "Cancel booked seats (Compensating transaction)",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/commit": {
+      "post": {
+        "description": "Finalizes a temporary reservation into permanently BOOKED seats upon payment confirmation.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "bookingId": {
+                    "type": "string"
+                  },
+                  "reservationId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "reservationId",
+                  "bookingId"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "status": {
+                      "example": "COMMITTED",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Reservation committed"
+          }
+        },
+        "summary": "Commit reservation to booked status",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/janitor/sweep": {
+      "post": {
+        "description": "Maintenance endpoint that audits expired HOLD seats and returns them to AVAILABLE.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "status": {
+                      "example": "COMPLETED",
+                      "type": "string"
+                    },
+                    "sweptReservations": {
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Janitor sweep report"
+          }
+        },
+        "summary": "Trigger janitor sweep of expired holds",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/release": {
+      "post": {
+        "description": "Manually or automatically releases held seats back to AVAILABLE status.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  },
+                  "reservationId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "reservationId"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "status": {
+                      "example": "RELEASED",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Reservation released"
+          }
+        },
+        "summary": "Release held reservation",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/reservations/{id}": {
+      "get": {
+        "description": "Queries the status, remaining hold duration, and seat assignments for a reservation.",
+        "parameters": [
+          {
+            "description": "Reservation ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationResponse"
+                }
+              }
+            },
+            "description": "Active reservation status"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Reservation not found or expired"
+          }
+        },
+        "summary": "Inspect reservation hold status",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/reserve": {
+      "post": {
+        "description": "Places a temporary hold (default 120s) on specified seats using distributed Redis locking.",
+        "parameters": [
+          {
+            "description": "Unique idempotency key to prevent duplicate reservation calls",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Distributed trace correlation identifier",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReserveSeatsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationResponse"
+                }
+              }
+            },
+            "description": "Seats held successfully"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict - Seats are already held or booked"
+          }
+        },
+        "summary": "Reserve seats with temporary hold",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/{eventId}": {
+      "get": {
+        "description": "Returns aggregate seat availability, booked count, and hold count grouped by tier.",
+        "parameters": [
+          {
+            "description": "Event ID",
+            "in": "path",
+            "name": "eventId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryResponse"
+                }
+              }
+            },
+            "description": "Inventory summary"
+          }
+        },
+        "summary": "Get event seat inventory overview",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/{eventId}/seats": {
+      "get": {
+        "description": "Returns a matrix of all seats, rows, seat numbers, and current hold/booked statuses.",
+        "parameters": [
+          {
+            "description": "Event ID",
+            "in": "path",
+            "name": "eventId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SeatItem"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Detailed seat list"
+          }
+        },
+        "summary": "List individual seat layouts",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/waitlist": {
+      "get": {
+        "description": "Lists waitlist queue status filtered by event, user, or status.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "eventId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "userId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WaitlistEntry"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Waitlist entries"
+          }
+        },
+        "summary": "Query waitlist entries",
+        "tags": [
+          "Waitlist"
+        ]
+      },
+      "post": {
+        "description": "Enqueues a customer onto the FIFO waitlist when an event or ticket tier is sold out.",
+        "parameters": [
+          {
+            "description": "Idempotency key for waitlist submission",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Distributed trace correlation identifier",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinWaitlistRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaitlistEntry"
+                }
+              }
+            },
+            "description": "Joined waitlist"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Join event waitlist",
+        "tags": [
+          "Waitlist"
+        ]
+      }
+    },
+    "/api/waitlist/{id}": {
+      "delete": {
+        "description": "Voluntarily leaves the waitlist queue.",
+        "parameters": [
+          {
+            "description": "Waitlist entry ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "example": "CANCELLED",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Waitlist entry cancelled"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Cancel waitlist position",
+        "tags": [
+          "Waitlist"
+        ]
+      },
+      "get": {
+        "description": "Returns position in queue, promotion timestamp, and hold expiry.",
+        "parameters": [
+          {
+            "description": "Waitlist entry ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaitlistEntry"
+                }
+              }
+            },
+            "description": "Waitlist details"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Entry not found"
+          }
+        },
+        "summary": "Get waitlist status and position",
+        "tags": [
+          "Waitlist"
+        ]
+      }
+    },
+    "/api/waitlist/{id}/cancel": {
+      "post": {
+        "description": "Alternate endpoint to cancel a waitlist reservation.",
+        "parameters": [
+          {
+            "description": "Waitlist entry ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Cancelled"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Cancel waitlist entry via POST",
+        "tags": [
+          "Waitlist"
+        ]
+      }
+    },
+    "/api/waitlist/{id}/claim": {
+      "post": {
+        "description": "Converts a promoted waitlist hold into a confirmed booking.",
+        "parameters": [
+          {
+            "description": "Waitlist entry ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booking"
+                }
+              }
+            },
+            "description": "Successfully claimed and booked"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not eligible or hold expired"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Claim promoted waitlist seat",
+        "tags": [
+          "Waitlist"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Returns operational status and gateway uptime.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "gateway": {
+                      "example": "ok",
+                      "type": "string"
+                    },
+                    "status": {
+                      "example": "UP",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Gateway is healthy"
+          }
+        },
+        "summary": "API Gateway Health Check",
+        "tags": [
+          "System"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "description": "API Gateway (Unified Entrypoint)",
+      "url": "http://localhost:8080"
+    }
+  ],
+  "tags": [
+    {
+      "description": "User registration, login, JWT issuance, and RBAC token verification",
+      "name": "Authentication"
+    },
+    {
+      "description": "High-throughput event discovery and ticket tier details with Redis caching",
+      "name": "Catalog"
+    },
+    {
+      "description": "Real-time seat inventory, distributed Redis locks, and hold reservation lifecycles",
+      "name": "Inventory"
+    },
+    {
+      "description": "Distributed booking lifecycle, idempotency key deduplication, and Saga orchestration",
+      "name": "Bookings"
+    },
+    {
+      "description": "FIFO waitlist queueing, cancellation, and automatic promotion claiming",
+      "name": "Waitlist"
+    },
+    {
+      "description": "Dead Letter Queue introspection, reprocessing, purging, and failure simulation",
+      "name": "DLQ"
+    },
+    {
+      "description": "Infrastructure health checks and diagnostic telemetry",
+      "name": "System"
+    }
+  ]
+}
