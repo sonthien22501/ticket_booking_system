@@ -89,7 +89,7 @@ Explanation: Users may cancel pending or completed reservations, triggering inve
 **R22: The system should provide asynchronous event messaging between microservices.**  
 Explanation: Message brokers (like Kafka or RabbitMQ) decouple service dependencies, publishing domain events (e.g., `OrderPlaced`, `PaymentFailed`) across service boundaries.
 
-**R23: The system should provide health check and metrics endpoints.**  
+**R23: The system should provide health check and metrics endpoints.** ✅ (Done successfully)  
 Explanation: Microservices expose actuator endpoints (e.g., `/health`, `/metrics`) for continuous monitoring of connection pool saturation, memory usage, and component status.
 
 **R24: The system should provide dialog confirmation functionality to users.**  
