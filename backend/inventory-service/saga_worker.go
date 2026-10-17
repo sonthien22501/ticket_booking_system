@@ -187,6 +187,12 @@ func (s *Server) startSagaWorker(rmq *RabbitMQ) {
 		outHeaders := amqp.Table{"x-correlation-id": corrID}
 		if rr.Code == http.StatusOK {
 			msg["status"] = "CANCELLED"
+			var cancelResp map[string]interface{}
+			if errU := json.Unmarshal(rr.Body.Bytes(), &cancelResp); errU == nil {
+				for k, v := range cancelResp {
+					msg[k] = v
+				}
+			}
 			out, _ := json.Marshal(msg)
 			_ = rmq.PublishWithHeaders(SagaExchange, "inventory.cancelled", out, outHeaders)
 			StructuredLog("INFO", "inventory-service", corrID, fmt.Sprintf("Published inventory.cancelled for saga %s", sagaID), nil)

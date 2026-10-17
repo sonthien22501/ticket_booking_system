@@ -1284,6 +1284,9 @@ func main() {
 	}
 
 	srv.startBookingJanitor()
+	if err := srv.initWaitlistSchema(context.Background()); err != nil {
+		log.Printf("Warning: failed to init waitlist schema: %v", err)
+	}
 
 	mux := http.NewServeMux()
 
@@ -1299,6 +1302,12 @@ func main() {
 	// Single booking routes
 	mux.HandleFunc("/bookings/", srv.handleBookingByID)
 	mux.HandleFunc("/api/bookings/", srv.handleBookingByID)
+
+	// Waitlist routes
+	mux.HandleFunc("/waitlist", srv.handleWaitlist)
+	mux.HandleFunc("/api/waitlist", srv.handleWaitlist)
+	mux.HandleFunc("/waitlist/", srv.handleWaitlistByID)
+	mux.HandleFunc("/api/waitlist/", srv.handleWaitlistByID)
 
 	// Dead Letter Queue (DLQ) management routes
 	mux.HandleFunc("/dlq/messages", srv.handleDLQMessages)
