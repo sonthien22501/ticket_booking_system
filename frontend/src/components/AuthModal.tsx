@@ -125,7 +125,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </p>
           <button
             type="button"
-            className="modal-close-btn cursor-pointer"
+            className="modal-btn-close auth-modal-close-btn cursor-pointer"
             onClick={onClose}
             aria-label="Close authentication modal"
           >
