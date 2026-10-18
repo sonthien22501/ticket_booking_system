@@ -251,7 +251,55 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/events/{id}/pricing:
+    get:
+      tags:
+        - Catalog
+      summary: Get dynamic surge pricing for event (R27, R33)
+      description: Returns real-time dynamic ticket pricing calculated from seat inventory scarcity and booking velocity, with service isolation fallback.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Event ID (e.g., evt-101)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Dynamic surge pricing analysis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                  basePrice:
+                    type: number
+                  currentPrice:
+                    type: number
+                  surgeMultiplier:
+                    type: number
+                  surgeFactor:
+                    type: string
+                  capacity:
+                    type: integer
+                  available:
+                    type: integer
+                  soldPercentage:
+                    type: number
+                  velocityPerMinute:
+                    type: number
+                  degraded:
+                    type: boolean
+                  calculatedAt:
+                    type: string
+                    format: date-time
+        '404':
+          description: Event not found
+
   /api/inventory/{eventId}:
+
     get:
       tags:
         - Inventory
