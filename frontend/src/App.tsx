@@ -240,7 +240,7 @@ export const App: React.FC = () => {
   /**
    * Handles checkout submission with 409 Conflict logic
    */
-  const handleSubmitBooking = async (customerName: string, customerEmail: string) => {
+  const handleSubmitBooking = async (customerName: string, customerEmail: string, voucherCode?: string) => {
     if (!selectedEvent || selectedSeatIds.size === 0) return;
 
     setSubmittingBooking(true);
@@ -257,6 +257,7 @@ export const App: React.FC = () => {
         customerName,
         customerEmail,
         userId: currentUser?.id,
+        voucherCode,
       });
 
       // Booking confirmed successfully!

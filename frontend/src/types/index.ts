@@ -57,6 +57,7 @@ export interface BookingRequest {
   customerName: string;
   customerEmail: string;
   userId?: string;
+  voucherCode?: string;
   paymentInfo?: {
     method: string;
     cardToken?: string;
@@ -81,6 +82,8 @@ export interface BookingResponse {
   quantity: number;
   seats: string[];
   totalPrice: number;
+  voucherCode?: string;
+  discountAmount?: number;
   customerName: string;
   customerEmail: string;
   tickets: TicketItem[];
@@ -182,6 +185,40 @@ export interface CreateEventPayload {
     price: number;
     capacity: number;
   }[];
+}
+
+export interface VoucherItem {
+  id: string;
+  code: string;
+  discountType: 'PERCENTAGE' | 'FIXED';
+  discountValue: number;
+  minSpend: number;
+  maxUses: number;
+  currentUses: number;
+  expiresAt?: string;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface VoucherValidationResult {
+  valid: boolean;
+  code: string;
+  discountType?: 'PERCENTAGE' | 'FIXED';
+  discountValue?: number;
+  discountAmount?: number;
+  finalTotal?: number;
+  message?: string;
+  minSpend?: number;
+}
+
+export interface CreateVoucherPayload {
+  code: string;
+  discountType: 'PERCENTAGE' | 'FIXED';
+  discountValue: number;
+  minSpend?: number;
+  maxUses?: number;
+  expiresInDays?: number;
 }
 
 

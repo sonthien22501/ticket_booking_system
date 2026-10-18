@@ -54,6 +54,8 @@ type CreateBookingRequest struct {
 	IdempotencyKeyAlt string       `json:"idempotency_key"`
 	HoldSeconds       int          `json:"holdSeconds"`
 	HoldSecondsAlt    int          `json:"hold_seconds"`
+	VoucherCode       string       `json:"voucherCode,omitempty"`
+	VoucherCodeAlt    string       `json:"voucher_code,omitempty"`
 }
 
 type Ticket struct {
@@ -86,6 +88,8 @@ type Booking struct {
 	PaymentStatus    string    `json:"paymentStatus"`
 	IdempotencyKey   string    `json:"idempotencyKey,omitempty"`
 	Tickets          []Ticket  `json:"tickets"`
+	VoucherCode      string    `json:"voucherCode,omitempty"`
+	DiscountAmount   float64   `json:"discountAmount,omitempty"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
 }
@@ -441,6 +445,27 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		totalAmount = 60.00 * float64(ticketCount)
 	}
 
+	voucherCode := strings.TrimSpace(req.VoucherCode)
+	if voucherCode == "" {
+		voucherCode = strings.TrimSpace(req.VoucherCodeAlt)
+	}
+	var discountAmount float64
+	if voucherCode != "" {
+		vResp, vErr := s.ValidateVoucher(voucherCode, totalAmount)
+		if vErr != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"error":   "INVALID_VOUCHER",
+				"message": vErr.Error(),
+			})
+			return
+		}
+		discountAmount = vResp.DiscountAmount
+		totalAmount = vResp.FinalTotal
+		voucherCode = vResp.Code
+	}
+
 	paymentStatus := "PENDING"
 	if req.PaymentInfo != nil && (req.PaymentInfo.CardToken == "tok_fail" || req.PaymentInfo.CardTokenAlt == "tok_fail") {
 		paymentStatus = "PENDING_tok_fail"
@@ -459,11 +484,22 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now()
+	var dbVoucher interface{} = nil
+	if voucherCode != "" {
+		dbVoucher = voucherCode
+	}
 	_, err := s.db.ExecContext(r.Context(),
-		`INSERT INTO bookings (id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, payment_status, idempotency_key, created_at, updated_at) 
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING', $12, $13, $14, $14)`,
-		bookingID, bookingRef, userID, customerName, customerEmail, eventID, eventTitle, tierID, ticketCount, string(seatJSON), totalAmount, paymentStatus, dbIdemKey, now,
+		`INSERT INTO bookings (id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, payment_status, idempotency_key, voucher_code, discount_amount, created_at, updated_at) 
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING', $12, $13, $14, $15, $16, $16)`,
+		bookingID, bookingRef, userID, customerName, customerEmail, eventID, eventTitle, tierID, ticketCount, string(seatJSON), totalAmount, paymentStatus, dbIdemKey, dbVoucher, discountAmount, now,
 	)
+	if err != nil && (strings.Contains(err.Error(), "voucher_code") || strings.Contains(err.Error(), "discount_amount")) {
+		_, err = s.db.ExecContext(r.Context(),
+			`INSERT INTO bookings (id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, payment_status, idempotency_key, created_at, updated_at) 
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING', $12, $13, $14, $14)`,
+			bookingID, bookingRef, userID, customerName, customerEmail, eventID, eventTitle, tierID, ticketCount, string(seatJSON), totalAmount, paymentStatus, dbIdemKey, now,
+		)
+	}
 	if err != nil {
 		if redisIdemKey != "" && s.rdb != nil {
 			s.rdb.Del(context.Background(), redisIdemKey)
@@ -498,6 +534,8 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		SeatIDs:          seats,
 		TotalAmount:      totalAmount,
 		TotalAmountAlt:   totalAmount,
+		VoucherCode:      voucherCode,
+		DiscountAmount:   discountAmount,
 		Status:           "PENDING",
 		PaymentStatus:    paymentStatus,
 		IdempotencyKey:   idempotencyKey,
@@ -575,6 +613,11 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		if redisIdemKey != "" && s.rdb != nil {
 			finalJSON, _ := json.Marshal(finalBooking)
 			_ = s.rdb.Set(context.Background(), redisIdemKey, string(finalJSON), 24*time.Hour).Err()
+		}
+
+		// Increment voucher redemptions if applied (Milestone 25)
+		if voucherCode != "" {
+			s.incrementVoucherUsage(r.Context(), voucherCode)
 		}
 
 		// Trigger Partner Webhooks & Asynchronous Domain Events (Milestone 19 / R26, R22)
@@ -1632,6 +1675,9 @@ func main() {
 	if err := srv.initWaitlistSchema(context.Background()); err != nil {
 		log.Printf("Warning: failed to init waitlist schema: %v", err)
 	}
+	if err := srv.initVoucherSchema(context.Background()); err != nil {
+		log.Printf("Warning: failed to init voucher schema: %v", err)
+	}
 
 	// Initialize Partner Webhook Manager (Milestone 19 / R26, R22)
 	srv.webhookManager = NewWebhookManager(srv.db, srv.rmq)
@@ -1659,6 +1705,12 @@ func main() {
 	// Admin and Organizer Analytics (Milestone 24)
 	mux.HandleFunc("/admin/analytics", srv.handleAdminAnalytics)
 	mux.HandleFunc("/api/admin/analytics", srv.handleAdminAnalytics)
+
+	// Promotional Voucher Engine routes (Milestone 25)
+	mux.HandleFunc("/vouchers/validate", srv.handleValidateVoucher)
+	mux.HandleFunc("/api/vouchers/validate", srv.handleValidateVoucher)
+	mux.HandleFunc("/admin/vouchers", srv.handleAdminVouchers)
+	mux.HandleFunc("/api/admin/vouchers", srv.handleAdminVouchers)
 
 	// Single booking routes
 	mux.HandleFunc("/bookings/", srv.handleBookingByID)

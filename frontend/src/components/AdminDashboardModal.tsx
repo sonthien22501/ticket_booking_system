@@ -3,8 +3,10 @@ import {
   fetchAdminAnalytics,
   createAdminEvent,
   updateEventStatus,
+  fetchAdminVouchers,
+  createAdminVoucher,
 } from '../services/api';
-import { AdminAnalyticsData, CreateEventPayload, User } from '../types';
+import { AdminAnalyticsData, CreateEventPayload, User, VoucherItem, CreateVoucherPayload } from '../types';
 import {
   XIcon,
   ChartBarIcon,
@@ -16,6 +18,8 @@ import {
   MapPinIcon,
   PlayIcon,
   PauseIcon,
+  TagIcon,
+  PercentIcon,
 } from './Icons';
 
 interface AdminDashboardModalProps {
@@ -31,11 +35,21 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   user,
   onEventCreated,
 }) => {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'create'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'create' | 'vouchers'>('analytics');
   const [analytics, setAnalytics] = useState<AdminAnalyticsData | null>(null);
+  const [vouchers, setVouchers] = useState<VoucherItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Create Voucher Form state (Milestone 25)
+  const [newVoucherCode, setNewVoucherCode] = useState('');
+  const [newVoucherType, setNewVoucherType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
+  const [newVoucherValue, setNewVoucherValue] = useState('20');
+  const [newVoucherMinSpend, setNewVoucherMinSpend] = useState('50');
+  const [newVoucherMaxUses, setNewVoucherMaxUses] = useState('100');
+  const [newVoucherDays, setNewVoucherDays] = useState('30');
+  const [isSubmittingVoucher, setIsSubmittingVoucher] = useState(false);
 
   // Create Event Form state
   const [title, setTitle] = useState('');
@@ -67,9 +81,19 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     }
   };
 
+  const loadVouchers = async () => {
+    try {
+      const data = await fetchAdminVouchers();
+      setVouchers(data);
+    } catch (err: unknown) {
+      console.error('Failed to load vouchers:', err);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       loadAnalytics();
+      loadVouchers();
       setSuccessMsg(null);
     }
   }, [isOpen]);
@@ -132,6 +156,42 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     }
   };
 
+  const handleCreateVoucher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newVoucherCode.trim()) {
+      setError('Voucher code is required');
+      return;
+    }
+    const val = parseFloat(newVoucherValue);
+    if (isNaN(val) || val <= 0) {
+      setError('Discount value must be greater than zero');
+      return;
+    }
+
+    try {
+      setIsSubmittingVoucher(true);
+      setError(null);
+      const payload: CreateVoucherPayload = {
+        code: newVoucherCode.trim().toUpperCase(),
+        discountType: newVoucherType,
+        discountValue: val,
+        minSpend: parseFloat(newVoucherMinSpend) || 0,
+        maxUses: parseInt(newVoucherMaxUses, 10) || 0,
+        expiresInDays: parseInt(newVoucherDays, 10) || 30,
+      };
+
+      await createAdminVoucher(payload);
+      setSuccessMsg(`Voucher campaign "${newVoucherCode.trim().toUpperCase()}" launched successfully!`);
+      setNewVoucherCode('');
+      await loadVouchers();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create voucher';
+      setError(msg);
+    } finally {
+      setIsSubmittingVoucher(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md"
@@ -191,6 +251,17 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           >
             <PlusCircleIcon size={18} />
             <span>Create New Event</span>
+          </button>
+          <button
+            onClick={() => { setActiveTab('vouchers'); setError(null); }}
+            className={`flex items-center space-x-2 pb-3 px-1 text-sm font-medium border-b-2 transition-all ${
+              activeTab === 'vouchers'
+                ? 'border-indigo-500 text-indigo-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <TagIcon size={18} />
+            <span>Promotions & Vouchers</span>
           </button>
         </div>
 
@@ -425,7 +496,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 </div>
               </div>
             </>
-          ) : (
+          ) : activeTab === 'create' ? (
             /* Tab 2: Create New Event Studio */
             <form onSubmit={handleCreateEvent} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -605,6 +676,192 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 </button>
               </div>
             </form>
+          ) : (
+            /* Promotions & Vouchers Studio (Milestone 25) */
+            <div className="space-y-6">
+              {/* Vouchers KPI summary */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-slate-800/60 border border-slate-700/50 p-4 rounded-xl">
+                  <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
+                    <span>Active Campaigns</span>
+                    <TagIcon size={16} className="text-indigo-400" />
+                  </div>
+                  <p className="text-xl font-bold text-white mt-2">
+                    {vouchers.filter((v) => v.active).length}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Live promo codes</p>
+                </div>
+
+                <div className="bg-slate-800/60 border border-slate-700/50 p-4 rounded-xl">
+                  <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
+                    <span>Total Redemptions</span>
+                    <TicketIcon size={16} className="text-emerald-400" />
+                  </div>
+                  <p className="text-xl font-bold text-white mt-2">
+                    {vouchers.reduce((sum, v) => sum + (v.currentUses || 0), 0)}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Orders with discounts</p>
+                </div>
+
+                <div className="bg-slate-800/60 border border-slate-700/50 p-4 rounded-xl">
+                  <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
+                    <span>Discount Engine</span>
+                    <PercentIcon size={16} className="text-purple-400" />
+                  </div>
+                  <p className="text-xl font-bold text-white mt-2">Anti-Stacking</p>
+                  <p className="text-[11px] text-emerald-400 mt-0.5">Enforced at Checkout</p>
+                </div>
+              </div>
+
+              {/* Create New Voucher Form */}
+              <form onSubmit={handleCreateVoucher} className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Create New Promotional Campaign</h3>
+                    <p className="text-xs text-slate-400">Launch a new coupon code with usage limits and spend rules.</p>
+                  </div>
+                  <span className="text-xs px-2.5 py-1 rounded bg-indigo-500/20 text-indigo-300 font-mono">
+                    Instant Activation
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Coupon Code *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. FLASH25"
+                      value={newVoucherCode}
+                      onChange={(e) => setNewVoucherCode(e.target.value.toUpperCase())}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white uppercase font-mono tracking-wider focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Discount Type</label>
+                    <select
+                      value={newVoucherType}
+                      onChange={(e) => setNewVoucherType(e.target.value as 'PERCENTAGE' | 'FIXED')}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="PERCENTAGE">Percentage Off (%)</option>
+                      <option value="FIXED">Fixed Amount Off ($)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      {newVoucherType === 'PERCENTAGE' ? 'Discount Percentage (%) *' : 'Discount Amount ($) *'}
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="1"
+                      max={newVoucherType === 'PERCENTAGE' ? '100' : '1000'}
+                      value={newVoucherValue}
+                      onChange={(e) => setNewVoucherValue(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Minimum Spend ($)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={newVoucherMinSpend}
+                      onChange={(e) => setNewVoucherMinSpend(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Max Redemptions (0 = Unlimited)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={newVoucherMaxUses}
+                      onChange={(e) => setNewVoucherMaxUses(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Validity (Days)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={newVoucherDays}
+                      onChange={(e) => setNewVoucherDays(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={isSubmittingVoucher}
+                    className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <PlusCircleIcon size={14} />
+                    <span>{isSubmittingVoucher ? 'Launching Campaign...' : 'Launch Promotional Campaign'}</span>
+                  </button>
+                </div>
+              </form>
+
+              {/* Existing Vouchers Table */}
+              <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl overflow-hidden">
+                <div className="p-4 border-b border-slate-700/60 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-white">Campaign Roster & Redemption Velocity</h3>
+                  <span className="text-xs text-slate-400">{vouchers.length} registered campaigns</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800">
+                      <tr>
+                        <th className="py-2.5 px-4 font-medium">Coupon Code</th>
+                        <th className="py-2.5 px-4 font-medium">Discount</th>
+                        <th className="py-2.5 px-4 font-medium">Min Spend</th>
+                        <th className="py-2.5 px-4 font-medium">Redemptions</th>
+                        <th className="py-2.5 px-4 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                      {vouchers.map((v) => (
+                        <tr key={v.id || v.code} className="hover:bg-slate-800/30">
+                          <td className="py-2.5 px-4 font-mono font-semibold text-indigo-300">
+                            {v.code}
+                          </td>
+                          <td className="py-2.5 px-4">
+                            {v.discountType === 'PERCENTAGE' ? (
+                              <span className="text-emerald-400 font-medium">{v.discountValue}% Off</span>
+                            ) : (
+                              <span className="text-emerald-400 font-medium">${v.discountValue.toFixed(2)} Off</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-4 text-slate-400">
+                            {v.minSpend > 0 ? `$${v.minSpend.toFixed(2)}` : 'None'}
+                          </td>
+                          <td className="py-2.5 px-4">
+                            <span className="font-mono">
+                              {v.currentUses} {v.maxUses > 0 ? `/ ${v.maxUses}` : '(Unlimited)'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-4">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              v.active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-400'
+                            }`}>
+                              {v.active ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>

@@ -231,3 +231,34 @@ SELECT
     s,
     'AVAILABLE'
 FROM generate_series(1, 80) AS s;
+
+-- 3. Promotional Voucher & Coupon Engine Schema (Milestone 25)
+CREATE TABLE IF NOT EXISTS vouchers (
+    id VARCHAR(64) PRIMARY KEY,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    discount_type VARCHAR(32) NOT NULL,
+    discount_value NUMERIC(10, 2) NOT NULL,
+    min_spend NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    max_uses INT NOT NULL DEFAULT 0,
+    current_uses INT NOT NULL DEFAULT 0,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_vouchers_code ON vouchers(code);
+CREATE INDEX IF NOT EXISTS idx_vouchers_active ON vouchers(active);
+
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS voucher_code VARCHAR(64);
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(10, 2) DEFAULT 0.00;
+
+-- Seed Standard Vouchers
+INSERT INTO vouchers (id, code, discount_type, discount_value, min_spend, max_uses, current_uses, active)
+VALUES
+('vch-earlybird20', 'EARLYBIRD20', 'PERCENTAGE', 20.00, 50.00, 200, 14, true),
+('vch-save10', 'SAVE10', 'FIXED', 10.00, 30.00, 500, 48, true),
+('vch-vip50', 'VIP50', 'PERCENTAGE', 50.00, 100.00, 50, 8, true),
+('vch-welcome5', 'WELCOME5', 'FIXED', 5.00, 0.00, 1000, 120, true)
+ON CONFLICT (code) DO NOTHING;
+
