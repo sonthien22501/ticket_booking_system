@@ -102,6 +102,10 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
             <span>Selected</span>
           </div>
           <div className="legend-item">
+            <span className="legend-dot dot-held"></span>
+            <span>On Hold</span>
+          </div>
+          <div className="legend-item">
             <span className="legend-dot dot-booked"></span>
             <span>Booked / Reserved</span>
           </div>
