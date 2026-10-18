@@ -17,6 +17,7 @@ interface BookingModalProps {
   onRefreshMap: () => void;
   onResetBooking: () => void;
   currentUser?: User | null;
+  onViewPasses?: () => void;
 }
 
 export const BookingModal: React.FC<BookingModalProps> = ({
@@ -32,6 +33,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   onRefreshMap,
   onResetBooking,
   currentUser = null,
+  onViewPasses,
 }) => {
   // Close on Escape key
   useEffect(() => {
@@ -105,6 +107,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                 onResetBooking();
                 onClose();
               }}
+              onViewPasses={onViewPasses ? () => {
+                onClose();
+                onViewPasses();
+              } : undefined}
             />
           ) : (
             <CheckoutForm

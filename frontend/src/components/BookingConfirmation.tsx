@@ -1,13 +1,17 @@
-import React from 'react';
-import { BookingResponse } from '../types';
-import { CheckCircleIcon, TicketIcon } from './Icons';
+import React, { useState } from 'react';
+import { BookingResponse, TicketItem } from '../types';
+import { CheckCircleIcon, TicketIcon, QrCodeIcon } from './Icons';
+import { TicketPassModal } from './TicketPassModal';
 
 interface BookingConfirmationProps {
   booking: BookingResponse;
   onDone: () => void;
+  onViewPasses?: () => void;
 }
 
-export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({ booking, onDone }) => {
+export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({ booking, onDone, onViewPasses }) => {
+  const [activeTicket, setActiveTicket] = useState<TicketItem | null>(null);
+
   return (
     <div className="booking-confirmation-view">
       <div className="confirmation-header">
@@ -79,7 +83,17 @@ export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({ bookin
                 <div className="simulated-barcode">
                   || | ||| || |||| | || |||| | ||| ||
                 </div>
-                <span className="ticket-code font-mono">{ticket.ticketCode}</span>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="ticket-code font-mono">{ticket.ticketCode}</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTicket(ticket)}
+                    className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 font-semibold cursor-pointer"
+                  >
+                    <QrCodeIcon size={14} />
+                    View QR Pass
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -87,6 +101,16 @@ export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({ bookin
       </div>
 
       <div className="confirmation-actions">
+        {onViewPasses && (
+          <button
+            type="button"
+            onClick={onViewPasses}
+            className="btn-print-ticket cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <QrCodeIcon size={16} />
+            My Passbook
+          </button>
+        )}
         <button
           type="button"
           onClick={() => window.print()}
@@ -102,6 +126,15 @@ export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({ bookin
           Book Another Event
         </button>
       </div>
+
+      {activeTicket && (
+        <TicketPassModal
+          booking={booking}
+          ticket={activeTicket}
+          isOpen={Boolean(activeTicket)}
+          onClose={() => setActiveTicket(null)}
+        />
+      )}
     </div>
   );
 };

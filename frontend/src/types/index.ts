@@ -119,3 +119,17 @@ export interface RegisterCredentials {
   role?: string;
 }
 
+export interface VerifyTicketResult {
+  valid: boolean;
+  status: 'VALID' | 'USED' | 'CANCELLED' | 'INVALID';
+  message: string;
+  ticket?: TicketItem;
+  booking?: {
+    bookingId: string;
+    bookingReference: string;
+    eventTitle?: string;
+    customerName?: string;
+  };
+}
+
+

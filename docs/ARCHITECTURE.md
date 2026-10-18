@@ -54,6 +54,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | M8 | Final Acceptance & E2E Verification | Automated verification script `scripts/verify_e2e.py` validating 100% acceptance criteria under docker-compose up | M7 | DONE |
 | M21 | Frontend Auth & User Profile Integration | React AuthModal, Header profile badge, token storage & checkout pre-fill (R3.1) | M5, M6 | DONE |
 | M22 | Cinematic Frontend Redesign | Design system tokens, curved cinema screen, tactile luminous seats, glassmorphism modals | M6, M21 | DONE |
+| M23 | User Bookings, Passbook & Gate QR Ticket Verification | MyBookingsModal history, TicketPassModal QR passes, gate check-in API, and Saga cancellation | M4, M6, M21, M22 | DONE |
 
 ---
 
@@ -69,7 +70,10 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 - `POST /api/inventory/commit` -> `http://inventory-service:8082/inventory/commit`
 - `POST /api/inventory/release` -> `http://inventory-service:8082/inventory/release`
 - `POST /api/bookings` -> `http://booking-service:8083/bookings`
+- `GET /api/bookings` -> `http://booking-service:8083/bookings` (filters by userId / email / JWT)
 - `GET /api/bookings/:id` -> `http://booking-service:8083/bookings/:id`
+- `POST /api/bookings/:id/cancel` -> `http://booking-service:8083/bookings/:id/cancel` (Saga inventory compensation)
+- `POST /api/bookings/verify-ticket` -> `http://booking-service:8083/bookings/verify-ticket` (gate scanner check-in)
 
 ### 2. Booking Service ↔ Inventory Service
 - **Reserve Hold**: `POST http://inventory-service:8082/inventory/reserve`

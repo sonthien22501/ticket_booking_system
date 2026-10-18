@@ -90,6 +90,20 @@ type Booking struct {
 	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
+type VerifyTicketRequest struct {
+	TicketCode string `json:"ticketCode"`
+	EventID    string `json:"eventId,omitempty"`
+	Action     string `json:"action,omitempty"` // "VERIFY" (default) or "CHECK_IN"
+}
+
+type VerifyTicketResponse struct {
+	Valid   bool     `json:"valid"`
+	Status  string   `json:"status"` // "VALID", "USED", "CANCELLED", "INVALID"
+	Message string   `json:"message"`
+	Ticket  *Ticket  `json:"ticket,omitempty"`
+	Booking *Booking `json:"booking,omitempty"`
+}
+
 type Server struct {
 	db                  *sql.DB
 	rdb                 *redis.Client
@@ -935,6 +949,166 @@ func (s *Server) handleCancelBooking(w http.ResponseWriter, r *http.Request, boo
 	})
 }
 
+func (s *Server) handleVerifyTicket(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req VerifyTicketRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"Invalid request payload: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	ticketCode := strings.TrimSpace(req.TicketCode)
+	if ticketCode == "" {
+		http.Error(w, `{"error":"ticketCode is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	if s.db == nil {
+		http.Error(w, `{"error":"Database not initialized"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Query ticket
+	var tkt Ticket
+	var seatID sql.NullString
+	err := s.db.QueryRow(
+		`SELECT id, booking_id, seat_id, seat_label, ticket_code, status, created_at FROM tickets WHERE ticket_code = $1`,
+		ticketCode,
+	).Scan(&tkt.ID, &tkt.BookingID, &seatID, &tkt.SeatLabel, &tkt.TicketCode, &tkt.Status, &tkt.CreatedAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			_ = json.NewEncoder(w).Encode(VerifyTicketResponse{
+				Valid:   false,
+				Status:  "INVALID",
+				Message: "Ticket code not found",
+			})
+			return
+		}
+		http.Error(w, fmt.Sprintf(`{"error":"Database error: %v"}`, err), http.StatusInternalServerError)
+		return
+	}
+	if seatID.Valid {
+		tkt.SeatID = seatID.String
+	}
+	tkt.TicketID = tkt.ID
+
+	// Query booking
+	var b Booking
+	var tierID, resID, idemKey sql.NullString
+	var seatsRaw string
+	err = s.db.QueryRow(
+		`SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, idempotency_key, created_at, updated_at 
+		 FROM bookings WHERE id = $1`,
+		tkt.BookingID,
+	).Scan(
+		&b.ID, &b.BookingReference, &b.UserID, &b.CustomerName, &b.CustomerEmail,
+		&b.EventID, &b.EventTitle, &tierID, &b.Quantity, &seatsRaw, &b.TotalAmount,
+		&b.Status, &resID, &b.PaymentStatus, &idemKey, &b.CreatedAt, &b.UpdatedAt,
+	)
+	if err == nil {
+		b.BookingID = b.ID
+		b.TotalAmountAlt = b.TotalAmount
+		if tierID.Valid {
+			b.TierID = tierID.String
+		}
+		if resID.Valid {
+			b.ReservationID = resID.String
+		}
+		if idemKey.Valid {
+			b.IdempotencyKey = idemKey.String
+		}
+		_ = json.Unmarshal([]byte(seatsRaw), &b.SeatIDs)
+	}
+
+	// Check if event ID was supplied and matches
+	if req.EventID != "" && b.EventID != "" && req.EventID != b.EventID {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(VerifyTicketResponse{
+			Valid:   false,
+			Status:  "INVALID",
+			Message: "Ticket does not belong to specified event",
+			Ticket:  &tkt,
+			Booking: &b,
+		})
+		return
+	}
+
+	// If booking is CANCELLED
+	if b.Status == "CANCELLED" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(VerifyTicketResponse{
+			Valid:   false,
+			Status:  "CANCELLED",
+			Message: "Associated booking has been cancelled",
+			Ticket:  &tkt,
+			Booking: &b,
+		})
+		return
+	}
+
+	// Action handling: CHECK_IN vs VERIFY
+	action := strings.ToUpper(strings.TrimSpace(req.Action))
+	if action == "CHECK_IN" {
+		if tkt.Status == "USED" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(VerifyTicketResponse{
+				Valid:   false,
+				Status:  "USED",
+				Message: "Ticket has already been redeemed and checked in",
+				Ticket:  &tkt,
+				Booking: &b,
+			})
+			return
+		}
+
+		// Update ticket status to USED
+		_, updateErr := s.db.Exec(`UPDATE tickets SET status = 'USED' WHERE id = $1`, tkt.ID)
+		if updateErr != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"Failed to update ticket status: %v"}`, updateErr), http.StatusInternalServerError)
+			return
+		}
+		tkt.Status = "USED"
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(VerifyTicketResponse{
+			Valid:   true,
+			Status:  "USED",
+			Message: "Ticket successfully checked in",
+			Ticket:  &tkt,
+			Booking: &b,
+		})
+		return
+	}
+
+	// Default: VERIFY
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(VerifyTicketResponse{
+		Valid:   tkt.Status == "VALID",
+		Status:  tkt.Status,
+		Message: "Ticket is valid for admission",
+		Ticket:  &tkt,
+		Booking: &b,
+	})
+}
+
 func (s *Server) listBookings(w http.ResponseWriter, r *http.Request) {
 	email := r.URL.Query().Get("email")
 	if email == "" {
@@ -1329,6 +1503,10 @@ func main() {
 	// Bookings collection routes
 	mux.HandleFunc("/bookings", srv.handleBookings)
 	mux.HandleFunc("/api/bookings", srv.handleBookings)
+
+	// Ticket verification and pass check-in routes (Milestone 23)
+	mux.HandleFunc("/bookings/verify-ticket", srv.handleVerifyTicket)
+	mux.HandleFunc("/api/bookings/verify-ticket", srv.handleVerifyTicket)
 
 	// Single booking routes
 	mux.HandleFunc("/bookings/", srv.handleBookingByID)

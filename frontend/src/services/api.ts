@@ -6,7 +6,9 @@ import {
   BookingResponse,
   ApiError,
   TicketTier,
+  VerifyTicketResult,
 } from '../types';
+import { getStoredToken } from './auth';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -331,3 +333,143 @@ export async function createBooking(req: BookingRequest): Promise<BookingRespons
     createdAt: String(body.created_at || body.createdAt || new Date().toISOString()),
   };
 }
+
+/**
+ * Retrieves booking history for a specific user ID or customer email.
+ */
+export async function fetchUserBookings(params: { userId?: string; email?: string }): Promise<BookingResponse[]> {
+  const token = getStoredToken();
+  const query = new URLSearchParams();
+  if (params.userId) query.set('userId', params.userId);
+  if (params.email) query.set('email', params.email);
+
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/bookings?${query.toString()}`, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw {
+      status: res.status,
+      message: errBody.message || errBody.error || `Failed to fetch bookings (${res.status})`,
+    } as ApiError;
+  }
+
+  const data = await res.json();
+  const rawList = Array.isArray(data) ? data : ((data && data.bookings) || []);
+  return rawList.map((item: Record<string, unknown>) => {
+    const ticketsRaw = (item.tickets as Array<Record<string, unknown>>) || [];
+    const tickets = ticketsRaw.map((t) => ({
+      ticketId: String(t.id || t.ticketId || t.ticket_id || ''),
+      seatLabel: String(t.seatLabel || t.seat_label || ''),
+      ticketCode: String(t.ticketCode || t.ticket_code || ''),
+      status: String(t.status || 'VALID'),
+    }));
+    return {
+      bookingId: String(item.id || item.bookingId || item.booking_id || ''),
+      bookingReference: String(item.bookingReference || item.booking_reference || ''),
+      status: (item.status as BookingResponse['status']) || 'CONFIRMED',
+      eventId: String(item.eventId || item.event_id || ''),
+      eventTitle: (item.eventTitle || item.event_title) as string | undefined,
+      tierName: (item.tierName || item.tier_name) as string | undefined,
+      quantity: Number(item.quantity || 1),
+      seats: Array.isArray(item.seatIds) ? (item.seatIds as string[]) : Array.isArray(item.seats) ? (item.seats as string[]) : [],
+      totalPrice: Number(item.totalAmount ?? item.total_amount ?? item.totalPrice ?? item.total_price ?? 0),
+      customerName: String(item.customerName || item.customer_name || ''),
+      customerEmail: String(item.customerEmail || item.customer_email || ''),
+      tickets,
+      createdAt: String(item.createdAt || item.created_at || new Date().toISOString()),
+    };
+  });
+}
+
+/**
+ * Cancels a booking via the backend Saga orchestrator.
+ */
+export async function cancelBooking(bookingId: string): Promise<{ success: boolean; message: string }> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/bookings/${bookingId}/cancel`, {
+    method: 'POST',
+    headers,
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw {
+      status: res.status,
+      message: errBody.message || errBody.error || `Failed to cancel booking (${res.status})`,
+    } as ApiError;
+  }
+
+  const body = await res.json().catch(() => ({}));
+  return {
+    success: true,
+    message: body.message || 'Booking cancelled and seats released successfully',
+  };
+}
+
+/**
+ * Verifies or checks in a digital pass code.
+ */
+export async function verifyTicket(params: { ticketCode: string; eventId?: string; action?: 'VERIFY' | 'CHECK_IN' }): Promise<VerifyTicketResult> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/bookings/verify-ticket`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      ticketCode: params.ticketCode,
+      eventId: params.eventId,
+      action: params.action || 'VERIFY',
+    }),
+  });
+
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok && res.status !== 400 && res.status !== 404 && res.status !== 409) {
+    throw {
+      status: res.status,
+      message: body.message || body.error || `Failed to verify ticket (${res.status})`,
+    } as ApiError;
+  }
+
+  return {
+    valid: Boolean(body.valid),
+    status: body.status || 'INVALID',
+    message: body.message || (body.valid ? 'Ticket is valid' : 'Ticket is invalid'),
+    ticket: body.ticket ? {
+      ticketId: String(body.ticket.id || body.ticket.ticketId || body.ticket.ticket_id || ''),
+      seatLabel: String(body.ticket.seatLabel || body.ticket.seat_label || ''),
+      ticketCode: String(body.ticket.ticketCode || body.ticket.ticket_code || ''),
+      status: String(body.ticket.status || 'VALID'),
+    } : undefined,
+    booking: body.booking ? {
+      bookingId: String(body.booking.id || body.booking.bookingId || ''),
+      bookingReference: String(body.booking.bookingReference || body.booking.booking_reference || ''),
+      eventTitle: body.booking.eventTitle || body.booking.event_title,
+      customerName: body.booking.customerName || body.booking.customer_name,
+    } : undefined,
+  };
+}
+

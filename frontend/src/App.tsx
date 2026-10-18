@@ -7,6 +7,7 @@ import { EventCatalog } from './components/EventCatalog';
 import { VenueSeatMap } from './components/VenueSeatMap';
 import { BookingModal } from './components/BookingModal';
 import { AuthModal } from './components/AuthModal';
+import { MyBookingsModal } from './components/MyBookingsModal';
 import { AlertNotification } from './components/AlertNotification';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { Theme, getInitialTheme, applyThemeToDocument, toggleThemeValue } from './services/theme';
@@ -19,6 +20,7 @@ export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(getStoredUser);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login');
+  const [isMyBookingsOpen, setIsMyBookingsOpen] = useState<boolean>(false);
 
   // Catalog State
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -329,6 +331,7 @@ export const App: React.FC = () => {
         currentUser={currentUser}
         onOpenAuth={handleOpenAuth}
         onLogout={handleLogout}
+        onOpenBookings={() => setIsMyBookingsOpen(true)}
       />
 
 
@@ -379,6 +382,7 @@ export const App: React.FC = () => {
           onRefreshMap={handleRefreshSeats}
           onResetBooking={handleResetAfterBooking}
           currentUser={currentUser}
+          onViewPasses={() => setIsMyBookingsOpen(true)}
         />
       )}
 
@@ -437,6 +441,26 @@ export const App: React.FC = () => {
         onClose={() => setIsAuthModalOpen(false)}
         onAuthSuccess={handleAuthSuccess}
         initialTab={authModalTab}
+      />
+
+      {/* My Bookings & Passbook Modal (Milestone 23) */}
+      <MyBookingsModal
+        isOpen={isMyBookingsOpen}
+        onClose={() => setIsMyBookingsOpen(false)}
+        currentUser={currentUser}
+        onBrowseEvents={() => {
+          setSelectedEvent(null);
+          loadEvents();
+        }}
+        onBookingCancelled={(bookingId) => {
+          setGeneralAlert({
+            type: 'info',
+            message: `Reservation #${bookingId} has been cancelled and seats were released.`,
+          });
+          if (selectedEvent) {
+            loadSeatsForEvent(selectedEvent);
+          }
+        }}
       />
     </div>
   );
