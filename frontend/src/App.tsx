@@ -12,10 +12,14 @@ import { AdminDashboardModal } from './components/AdminDashboardModal';
 import { AlertNotification } from './components/AlertNotification';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { Theme, getInitialTheme, applyThemeToDocument, toggleThemeValue } from './services/theme';
+import { getStoredCurrency, setStoredCurrency } from './services/currency';
 
 export const App: React.FC = () => {
   // Theme State (R28)
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
+
+  // Multi-Currency State (Milestone 26)
+  const [currentCurrency, setCurrentCurrency] = useState<string>(getStoredCurrency);
 
   // Authentication State (R3.1)
   const [currentUser, setCurrentUser] = useState<User | null>(getStoredUser);
@@ -240,7 +244,13 @@ export const App: React.FC = () => {
   /**
    * Handles checkout submission with 409 Conflict logic
    */
-  const handleSubmitBooking = async (customerName: string, customerEmail: string, voucherCode?: string) => {
+  const handleSubmitBooking = async (
+    customerName: string,
+    customerEmail: string,
+    voucherCode?: string,
+    currency?: string,
+    corporateDetails?: { companyName?: string; taxId?: string; billingAddress?: string }
+  ) => {
     if (!selectedEvent || selectedSeatIds.size === 0) return;
 
     setSubmittingBooking(true);
@@ -258,6 +268,10 @@ export const App: React.FC = () => {
         customerEmail,
         userId: currentUser?.id,
         voucherCode,
+        currency: currency || currentCurrency,
+        companyName: corporateDetails?.companyName,
+        taxId: corporateDetails?.taxId,
+        billingAddress: corporateDetails?.billingAddress,
       });
 
       // Booking confirmed successfully!
@@ -336,6 +350,11 @@ export const App: React.FC = () => {
         onLogout={handleLogout}
         onOpenBookings={() => setIsMyBookingsOpen(true)}
         onOpenAdmin={() => setIsAdminModalOpen(true)}
+        currentCurrency={currentCurrency}
+        onCurrencyChange={(curr) => {
+          setCurrentCurrency(curr);
+          setStoredCurrency(curr);
+        }}
       />
 
 
@@ -387,6 +406,7 @@ export const App: React.FC = () => {
           onResetBooking={handleResetAfterBooking}
           currentUser={currentUser}
           onViewPasses={() => setIsMyBookingsOpen(true)}
+          currentCurrency={currentCurrency}
         />
       )}
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BookingResponse, User, TicketItem } from '../types';
-import { fetchUserBookings, cancelBooking } from '../services/api';
+import { fetchUserBookings, cancelBooking, downloadInvoicePdf } from '../services/api';
+import { formatCurrency } from '../services/currency';
 import { TicketPassModal } from './TicketPassModal';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import {
@@ -14,6 +15,7 @@ import {
   SearchIcon,
   RefreshCwIcon,
   QrCodeIcon,
+  FileTextIcon,
 } from './Icons';
 
 interface MyBookingsModalProps {
@@ -321,7 +323,7 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
                       <div>
                         <span className="block text-slate-400 text-[10px] uppercase">Total Paid</span>
                         <span className="font-bold text-slate-100">
-                          ${b.totalPrice.toFixed(2)}
+                          {formatCurrency(b.totalPrice, b.currency || 'USD')}
                         </span>
                       </div>
                       <div>
@@ -337,6 +339,14 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
                         </span>
                       </div>
                     </div>
+
+                    {/* Corporate Billing Details (Milestone 26) */}
+                    {b.companyName && (
+                      <div className="text-xs bg-indigo-950/40 px-3 py-1.5 rounded-lg border border-indigo-800/40 flex items-center justify-between">
+                        <span className="text-slate-400">Billed To: <strong className="text-slate-200">{b.companyName}</strong></span>
+                        {b.taxId && <span className="font-mono text-cyan-300 text-[11px]">Tax ID: {b.taxId}</span>}
+                      </div>
+                    )}
 
                     {/* Tickets / QR Passes Collection */}
                     {b.tickets && b.tickets.length > 0 && (
@@ -375,7 +385,17 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
 
                     {/* Booking Card Actions */}
                     {isConfirmed && (
-                      <div className="flex justify-end pt-2">
+                      <div className="flex justify-end items-center gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => downloadInvoicePdf(b.bookingId || b.bookingReference, b.bookingReference)}
+                          className="px-3 py-1.5 rounded-xl border border-cyan-500/30 hover:border-cyan-400 bg-cyan-950/30 hover:bg-cyan-900/40 text-cyan-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                          data-testid="download-invoice-btn"
+                          title="Download Official Tax Invoice & Admission Receipt (PDF)"
+                        >
+                          <FileTextIcon size={14} />
+                          <span>Tax Invoice (PDF)</span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleOpenCancelConfirm(b.bookingId || b.bookingReference)}

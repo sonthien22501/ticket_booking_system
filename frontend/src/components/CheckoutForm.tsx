@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { EventItem, SeatItem, User, VoucherValidationResult } from '../types';
-import { UserIcon, MailIcon, CreditCardIcon, AlertCircleIcon, RefreshCwIcon, CheckCircleIcon, TagIcon, XIcon } from './Icons';
+import { UserIcon, MailIcon, CreditCardIcon, AlertCircleIcon, RefreshCwIcon, CheckCircleIcon, TagIcon, XIcon, BuildingOfficeIcon } from './Icons';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import { validateVoucher } from '../services/api';
+import { formatCurrency, calculateTax } from '../services/currency';
 
 interface CheckoutFormProps {
   event: EventItem;
@@ -11,9 +12,16 @@ interface CheckoutFormProps {
   conflictError: string | null;
   conflictingSeats: string[];
   submitting: boolean;
-  onSubmit: (customerName: string, customerEmail: string, voucherCode?: string) => void;
+  onSubmit: (
+    customerName: string,
+    customerEmail: string,
+    voucherCode?: string,
+    currency?: string,
+    corporateDetails?: { companyName?: string; taxId?: string; billingAddress?: string }
+  ) => void;
   onRefreshMap: () => void;
   currentUser?: User | null;
+  currentCurrency?: string;
 }
 
 export const CheckoutForm: React.FC<CheckoutFormProps> = ({
@@ -25,6 +33,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
   onSubmit,
   onRefreshMap,
   currentUser = null,
+  currentCurrency = 'USD',
 }) => {
   const [name, setName] = useState(currentUser?.name || '');
   const [email, setEmail] = useState(currentUser?.email || '');
@@ -38,6 +47,12 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [voucherError, setVoucherError] = useState<string | null>(null);
   const [validatingVoucher, setValidatingVoucher] = useState(false);
 
+  // Corporate Billing state (Milestone 26)
+  const [showCorporateFields, setShowCorporateFields] = useState(false);
+  const [companyName, setCompanyName] = useState('');
+  const [taxId, setTaxId] = useState('');
+  const [billingAddress, setBillingAddress] = useState('');
+
   useEffect(() => {
     if (currentUser) {
       setName((prev) => prev || currentUser.name);
@@ -47,7 +62,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
   const subtotal = selectedSeats.reduce((sum, s) => sum + (s.price || 0), 0);
   const discountAmount = appliedVoucher?.discountAmount || 0;
-  const totalPrice = Math.max(0, subtotal - discountAmount);
+  const taxDetails = calculateTax(subtotal, discountAmount, currentCurrency);
 
   const handleApplyVoucher = async () => {
     const trimmed = voucherCodeInput.trim().toUpperCase();
@@ -107,7 +122,19 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
   const handleConfirmPayment = () => {
     setIsPaymentConfirmOpen(false);
-    onSubmit(name.trim(), email.trim(), appliedVoucher?.code);
+    onSubmit(
+      name.trim(),
+      email.trim(),
+      appliedVoucher?.code,
+      currentCurrency,
+      showCorporateFields
+        ? {
+            companyName: companyName.trim(),
+            taxId: taxId.trim(),
+            billingAddress: billingAddress.trim(),
+          }
+        : undefined
+    );
   };
 
   return (
@@ -279,9 +306,77 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
         )}
       </div>
 
+      {/* Corporate Tax Invoice & Business Details (Milestone 26) */}
+      <div className="checkout-section">
+        <div className="flex items-center justify-between">
+          <h3 className="section-title mb-0">4. Corporate Expense & Tax Receipt</h3>
+          <button
+            type="button"
+            onClick={() => setShowCorporateFields(!showCorporateFields)}
+            className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer"
+            data-testid="toggle-corporate-billing"
+          >
+            <BuildingOfficeIcon size={14} />
+            <span>{showCorporateFields ? 'Hide Details' : '+ Add Business / Tax ID'}</span>
+          </button>
+        </div>
+
+        {showCorporateFields && (
+          <div className="mt-3 p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3 animate-in fade-in duration-150">
+            <p className="text-xs text-slate-400">
+              Provide company details to receive an audit-compliant PDF tax invoice with VAT/Sales tax breakdown for business expense claims.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="form-group">
+                <label htmlFor="company-name" className="form-label text-xs">
+                  Company / Organization Name
+                </label>
+                <input
+                  id="company-name"
+                  type="text"
+                  placeholder="e.g. Acme Corp Ltd."
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  className="form-input text-xs"
+                  data-testid="company-name-input"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="tax-id" className="form-label text-xs">
+                  Tax / VAT Registration #
+                </label>
+                <input
+                  id="tax-id"
+                  type="text"
+                  placeholder="e.g. EU-VAT-12345678"
+                  value={taxId}
+                  onChange={(e) => setTaxId(e.target.value)}
+                  className="form-input text-xs"
+                  data-testid="tax-id-input"
+                />
+              </div>
+            </div>
+            <div className="form-group">
+              <label htmlFor="billing-address" className="form-label text-xs">
+                Billing Address (Optional)
+              </label>
+              <input
+                id="billing-address"
+                type="text"
+                placeholder="e.g. 100 Innovation Way, Suite 400"
+                value={billingAddress}
+                onChange={(e) => setBillingAddress(e.target.value)}
+                className="form-input text-xs"
+                data-testid="billing-address-input"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Order Summary Section */}
       <div className="checkout-section order-summary-section">
-        <h3 className="section-title">4. Order Summary</h3>
+        <h3 className="section-title">5. Order Summary</h3>
         <div className="summary-row">
           <span className="summary-label">Event:</span>
           <span className="summary-value font-medium">{event.title}</span>
@@ -300,25 +395,27 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
           <span className="summary-label">Quantity:</span>
           <span className="summary-value">{selectedSeats.length} ticket(s)</span>
         </div>
+        <div className="summary-row">
+          <span className="summary-label">Subtotal ({currentCurrency}):</span>
+          <span className="summary-value">{formatCurrency(subtotal, currentCurrency)}</span>
+        </div>
         {appliedVoucher && (
-          <>
-            <div className="summary-row">
-              <span className="summary-label">Subtotal:</span>
-              <span className="summary-value">${subtotal.toFixed(2)}</span>
-            </div>
-            <div className="summary-row text-emerald-400">
-              <span className="summary-label flex items-center gap-1">
-                <TagIcon size={12} />
-                <span>Promo Discount ({appliedVoucher.code}):</span>
-              </span>
-              <span className="summary-value font-medium">-${discountAmount.toFixed(2)}</span>
-            </div>
-          </>
+          <div className="summary-row text-emerald-400">
+            <span className="summary-label flex items-center gap-1">
+              <TagIcon size={12} />
+              <span>Promo Discount ({appliedVoucher.code}):</span>
+            </span>
+            <span className="summary-value font-medium">-{formatCurrency(discountAmount, currentCurrency)}</span>
+          </div>
         )}
+        <div className="summary-row text-slate-300">
+          <span className="summary-label">Sales Tax / VAT ({taxDetails.taxRatePercent}):</span>
+          <span className="summary-value font-medium">+{taxDetails.taxAmountFormatted}</span>
+        </div>
         <div className="summary-divider"></div>
         <div className="summary-row total-row">
-          <span className="summary-label font-bold">Total Price:</span>
-          <span className="summary-value font-bold text-accent">${totalPrice.toFixed(2)}</span>
+          <span className="summary-label font-bold">Total Price ({currentCurrency}):</span>
+          <span className="summary-value font-bold text-accent">{taxDetails.finalTotalFormatted}</span>
         </div>
       </div>
 
@@ -332,7 +429,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
           {submitting ? (
             <LoadingSpinner message="Locking seats & reserving..." size="sm" />
           ) : (
-            `Confirm & Reserve ${selectedSeats.length} ${selectedSeats.length === 1 ? 'Seat' : 'Seats'} ($${totalPrice.toFixed(2)})`
+            `Confirm & Reserve ${selectedSeats.length} ${selectedSeats.length === 1 ? 'Seat' : 'Seats'} (${taxDetails.finalTotalFormatted})`
           )}
         </button>
       </div>
@@ -342,7 +439,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
         isOpen={isPaymentConfirmOpen}
         title="Authorize Payment & Reserve Tickets"
         message="Please verify your reservation and payment details before completing your order:"
-        confirmLabel={`Authorize Payment ($${totalPrice.toFixed(2)})`}
+        confirmLabel={`Authorize Payment (${taxDetails.finalTotalFormatted})`}
         cancelLabel="Modify Information"
         confirmVariant="primary"
         loading={submitting}
@@ -354,6 +451,12 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
             <span className="summary-label">Attendee:</span>
             <span className="summary-value font-medium">{name} ({email})</span>
           </div>
+          {companyName && (
+            <div className="summary-row">
+              <span className="summary-label">Billed To (Company):</span>
+              <span className="summary-value font-medium">{companyName} {taxId ? `(${taxId})` : ''}</span>
+            </div>
+          )}
           <div className="summary-row">
             <span className="summary-label">Event:</span>
             <span className="summary-value font-medium">{event.title}</span>
@@ -371,12 +474,16 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
           {appliedVoucher && (
             <div className="summary-row text-emerald-400">
               <span className="summary-label">Promo Discount ({appliedVoucher.code}):</span>
-              <span className="summary-value font-medium">-${discountAmount.toFixed(2)}</span>
+              <span className="summary-value font-medium">-{formatCurrency(discountAmount, currentCurrency)}</span>
             </div>
           )}
+          <div className="summary-row text-slate-300">
+            <span className="summary-label">Sales Tax / VAT ({taxDetails.taxRatePercent}):</span>
+            <span className="summary-value font-medium">+{taxDetails.taxAmountFormatted}</span>
+          </div>
           <div className="summary-row total-row">
             <span className="summary-label font-bold">Total Authorization:</span>
-            <span className="summary-value font-bold text-accent">${totalPrice.toFixed(2)}</span>
+            <span className="summary-value font-bold text-accent">{taxDetails.finalTotalFormatted}</span>
           </div>
         </div>
       </ConfirmationDialog>

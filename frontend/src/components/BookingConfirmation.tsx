@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { BookingResponse, TicketItem } from '../types';
-import { CheckCircleIcon, TicketIcon, QrCodeIcon } from './Icons';
+import { CheckCircleIcon, TicketIcon, QrCodeIcon, FileTextIcon } from './Icons';
 import { TicketPassModal } from './TicketPassModal';
+import { downloadInvoicePdf } from '../services/api';
+import { formatCurrency } from '../services/currency';
 
 interface BookingConfirmationProps {
   booking: BookingResponse;
@@ -11,6 +13,18 @@ interface BookingConfirmationProps {
 
 export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({ booking, onDone, onViewPasses }) => {
   const [activeTicket, setActiveTicket] = useState<TicketItem | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadInvoice = async () => {
+    setDownloadingPdf(true);
+    try {
+      await downloadInvoicePdf(booking.bookingId, booking.bookingReference);
+    } catch (err) {
+      console.error('Invoice download error:', err);
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   return (
     <div className="booking-confirmation-view">
@@ -41,10 +55,18 @@ export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({ bookin
             <span className="detail-label">Customer Email</span>
             <span className="detail-value">{booking.customerEmail}</span>
           </div>
+          {booking.companyName && (
+            <div className="detail-item">
+              <span className="detail-label">Billed To (Company)</span>
+              <span className="detail-value font-medium">
+                {booking.companyName} {booking.taxId ? `(${booking.taxId})` : ''}
+              </span>
+            </div>
+          )}
           <div className="detail-item">
             <span className="detail-label">Total Amount Paid</span>
             <span className="detail-value font-bold text-accent">
-              ${booking.totalPrice.toFixed(2)}
+              {formatCurrency(booking.totalPrice, booking.currency || 'USD')}
             </span>
           </div>
           <div className="detail-item">
@@ -111,6 +133,17 @@ export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({ bookin
             My Passbook
           </button>
         )}
+        <button
+          type="button"
+          onClick={handleDownloadInvoice}
+          disabled={downloadingPdf}
+          className="btn-print-ticket cursor-pointer flex items-center justify-center gap-1.5 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-950/40"
+          data-testid="confirmation-download-invoice-btn"
+          title="Download Official Tax Invoice & Admission Receipt (PDF)"
+        >
+          <FileTextIcon size={16} />
+          <span>{downloadingPdf ? 'Generating PDF...' : 'Tax Invoice (PDF)'}</span>
+        </button>
         <button
           type="button"
           onClick={() => window.print()}
