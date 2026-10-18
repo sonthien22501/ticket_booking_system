@@ -7,8 +7,12 @@ import { VenueSeatMap } from './components/VenueSeatMap';
 import { BookingModal } from './components/BookingModal';
 import { AlertNotification } from './components/AlertNotification';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
+import { Theme, getInitialTheme, applyThemeToDocument, toggleThemeValue } from './services/theme';
 
 export const App: React.FC = () => {
+  // Theme State (R28)
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+
   // Catalog State
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loadingEvents, setLoadingEvents] = useState<boolean>(true);
@@ -254,12 +258,30 @@ export const App: React.FC = () => {
     loadEvents();
   };
 
+  /**
+   * Synchronize active theme with document attributes & storage
+   */
+  useEffect(() => {
+    applyThemeToDocument(theme);
+  }, [theme]);
+
+  const handleToggleTheme = () => {
+    setTheme((prev) => {
+      const next = toggleThemeValue(prev);
+      applyThemeToDocument(next);
+      return next;
+    });
+  };
+
   return (
     <div className="app-root">
       <Header
         onHomeClick={() => setSelectedEvent(null)}
         apiConnected={apiConnected}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
       />
+
 
       <main className="main-content">
         {generalAlert && (

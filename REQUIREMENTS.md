@@ -11,8 +11,9 @@ An event ticket booking system built with a microservices architecture. It inclu
 
 ## 3. Mandatory Technical Requirements
 
-**R1: The system must provide a React-based frontend for users.**  
+**R1: The system must provide a React-based frontend for users.** ✅ (Done successfully)  
 Explanation: Implement a web frontend using React and TypeScript that consumes the backend APIs. Users should be able to view available events and book seats.
+
 
 **R2: The system must provide a microservices architecture backend.**  
 Explanation: Core business domains are strictly separated into autonomous services including at least an Event Catalog Service, a Seat Inventory Service, and a Booking Service.
@@ -106,7 +107,7 @@ Explanation: Emits HTTP callbacks to third-party event organizers when an event 
 **R27: The system can provide dynamic surge pricing for highly contested events.**  
 Explanation: Adjusts real-time ticket pricing based on inventory scarcity and current booking velocity.
 
-**R28: The system can provide dark mode interface toggle functionality to users.**  
+**R28: The system can provide dark mode interface toggle functionality to users.** ✅ (Done successfully)  
 Explanation: Allows switching between light and dark visual themes on the React frontend.
 
 ## 5. Non-Functional Requirements
@@ -120,8 +121,9 @@ Explanation: Event catalog and seat layout queries must execute with sub-500ms r
 **R31: The system shall enforce API rate limiting.** ✅ (Done successfully)  
 Explanation: The API Gateway restricts individual IP addresses or user accounts to a predefined number of reservation requests per minute to mitigate bot-driven scalping.
 
-**R32: The system shall be usable on modern desktop browsers for users.**  
+**R32: The system shall be usable on modern desktop browsers for users.** ✅ (Done successfully)  
 Explanation: The React frontend complies with modern web standards and renders correctly on current versions of Chromium, Firefox, and WebKit browsers.
+
 
 **R33: The system shall provide service isolation and fault tolerance.**  
 Explanation: Failure of an isolated downstream service (e.g., Event Catalog) must not cause cascading unhandled crashes in unrelated services (e.g., Seat Inventory).
