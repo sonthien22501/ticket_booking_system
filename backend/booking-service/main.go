@@ -104,6 +104,42 @@ type VerifyTicketResponse struct {
 	Booking *Booking `json:"booking,omitempty"`
 }
 
+type AdminAnalyticsBooking struct {
+	ID               string    `json:"id"`
+	BookingReference string    `json:"bookingReference"`
+	CustomerName     string    `json:"customerName"`
+	CustomerEmail    string    `json:"customerEmail"`
+	EventTitle       string    `json:"eventTitle"`
+	TotalAmount      float64   `json:"totalAmount"`
+	Status           string    `json:"status"`
+	Quantity         int       `json:"quantity"`
+	CreatedAt        time.Time `json:"createdAt"`
+}
+
+type AdminEventSummary struct {
+	EventID          string  `json:"eventId"`
+	Title            string  `json:"title"`
+	Category         string  `json:"category"`
+	VenueName        string  `json:"venueName"`
+	Status           string  `json:"status"`
+	TotalSeats       int     `json:"totalSeats"`
+	BookedSeats      int     `json:"bookedSeats"`
+	OccupancyPercent float64 `json:"occupancyPercent"`
+	GrossRevenue     float64 `json:"grossRevenue"`
+}
+
+type AdminAnalyticsResponse struct {
+	TotalRevenue      float64                 `json:"totalRevenue"`
+	TotalBookings     int                     `json:"totalBookings"`
+	ConfirmedBookings int                     `json:"confirmedBookings"`
+	CancelledBookings int                     `json:"cancelledBookings"`
+	TotalTicketsSold  int                     `json:"totalTicketsSold"`
+	ActiveEventsCount int                     `json:"activeEventsCount"`
+	AverageOccupancy  float64                 `json:"averageOccupancy"`
+	RecentBookings    []AdminAnalyticsBooking `json:"recentBookings"`
+	EventsSummary     []AdminEventSummary     `json:"eventsSummary"`
+}
+
 type Server struct {
 	db                  *sql.DB
 	rdb                 *redis.Client
@@ -1109,6 +1145,118 @@ func (s *Server) handleVerifyTicket(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleAdminAnalytics(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	response := AdminAnalyticsResponse{
+		RecentBookings: []AdminAnalyticsBooking{},
+		EventsSummary:  []AdminEventSummary{},
+	}
+
+	if s.db == nil {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// 1. Overall booking stats
+	var totalRevenue float64
+	var totalBookings, confirmedBookings, cancelledBookings, totalTicketsSold int
+	row := s.db.QueryRow(`
+		SELECT 
+			COUNT(*),
+			COALESCE(SUM(total_amount) FILTER (WHERE status = 'CONFIRMED'), 0),
+			COUNT(*) FILTER (WHERE status = 'CONFIRMED'),
+			COUNT(*) FILTER (WHERE status = 'CANCELLED'),
+			COALESCE(SUM(quantity) FILTER (WHERE status = 'CONFIRMED'), 0)
+		FROM bookings
+	`)
+	if err := row.Scan(&totalBookings, &totalRevenue, &confirmedBookings, &cancelledBookings, &totalTicketsSold); err == nil {
+		response.TotalRevenue = totalRevenue
+		response.TotalBookings = totalBookings
+		response.ConfirmedBookings = confirmedBookings
+		response.CancelledBookings = cancelledBookings
+		response.TotalTicketsSold = totalTicketsSold
+	}
+
+	// 2. Recent Bookings feed
+	bookingRows, err := s.db.Query(`
+		SELECT id, booking_reference, customer_name, customer_email, event_title, total_amount, status, quantity, created_at
+		FROM bookings
+		ORDER BY created_at DESC
+		LIMIT 15
+	`)
+	if err == nil {
+		defer bookingRows.Close()
+		for bookingRows.Next() {
+			var b AdminAnalyticsBooking
+			if err := bookingRows.Scan(&b.ID, &b.BookingReference, &b.CustomerName, &b.CustomerEmail, &b.EventTitle, &b.TotalAmount, &b.Status, &b.Quantity, &b.CreatedAt); err == nil {
+				response.RecentBookings = append(response.RecentBookings, b)
+			}
+		}
+	}
+
+	// 3. Events breakdown and occupancy
+	eventRows, err := s.db.Query(`
+		SELECT 
+			e.id, 
+			e.title, 
+			e.category, 
+			e.venue_name, 
+			e.status,
+			COALESCE(SUM(i.total_seats), 0) AS total_seats,
+			COALESCE(SUM(i.booked_seats), 0) AS booked_seats,
+			COALESCE((
+				SELECT SUM(b.total_amount) 
+				FROM bookings b 
+				WHERE b.event_id = e.id AND b.status = 'CONFIRMED'
+			), 0) AS gross_revenue
+		FROM events e
+		LEFT JOIN event_inventory i ON e.id = i.event_id
+		GROUP BY e.id, e.title, e.category, e.venue_name, e.status, e.created_at
+		ORDER BY e.created_at DESC
+	`)
+	if err == nil {
+		defer eventRows.Close()
+		totalOccupancySum := 0.0
+		countedEvents := 0
+
+		for eventRows.Next() {
+			var ev AdminEventSummary
+			if err := eventRows.Scan(&ev.EventID, &ev.Title, &ev.Category, &ev.VenueName, &ev.Status, &ev.TotalSeats, &ev.BookedSeats, &ev.GrossRevenue); err == nil {
+				if ev.TotalSeats > 0 {
+					ev.OccupancyPercent = (float64(ev.BookedSeats) / float64(ev.TotalSeats)) * 100.0
+					if ev.OccupancyPercent > 100.0 {
+						ev.OccupancyPercent = 100.0
+					}
+					totalOccupancySum += ev.OccupancyPercent
+					countedEvents++
+				}
+				if strings.ToUpper(ev.Status) == "ACTIVE" || strings.ToUpper(ev.Status) == "PUBLISHED" {
+					response.ActiveEventsCount++
+				}
+				response.EventsSummary = append(response.EventsSummary, ev)
+			}
+		}
+
+		if countedEvents > 0 {
+			response.AverageOccupancy = totalOccupancySum / float64(countedEvents)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(response)
+}
+
 func (s *Server) listBookings(w http.ResponseWriter, r *http.Request) {
 	email := r.URL.Query().Get("email")
 	if email == "" {
@@ -1507,6 +1655,10 @@ func main() {
 	// Ticket verification and pass check-in routes (Milestone 23)
 	mux.HandleFunc("/bookings/verify-ticket", srv.handleVerifyTicket)
 	mux.HandleFunc("/api/bookings/verify-ticket", srv.handleVerifyTicket)
+
+	// Admin and Organizer Analytics (Milestone 24)
+	mux.HandleFunc("/admin/analytics", srv.handleAdminAnalytics)
+	mux.HandleFunc("/api/admin/analytics", srv.handleAdminAnalytics)
 
 	// Single booking routes
 	mux.HandleFunc("/bookings/", srv.handleBookingByID)

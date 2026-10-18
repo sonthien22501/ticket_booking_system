@@ -55,6 +55,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | M21 | Frontend Auth & User Profile Integration | React AuthModal, Header profile badge, token storage & checkout pre-fill (R3.1) | M5, M6 | DONE |
 | M22 | Cinematic Frontend Redesign | Design system tokens, curved cinema screen, tactile luminous seats, glassmorphism modals | M6, M21 | DONE |
 | M23 | User Bookings, Passbook & Gate QR Ticket Verification | MyBookingsModal history, TicketPassModal QR passes, gate check-in API, and Saga cancellation | M4, M6, M21, M22 | DONE |
+| M24 | Admin & Organizer Studio & Live Telemetry | Admin analytics API, automated event & 2D seat provisioning, event status management, and Organizer Studio modal | M2, M4, M5, M6, M21, M23 | DONE |
 
 ---
 
@@ -74,6 +75,8 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 - `GET /api/bookings/:id` -> `http://booking-service:8083/bookings/:id`
 - `POST /api/bookings/:id/cancel` -> `http://booking-service:8083/bookings/:id/cancel` (Saga inventory compensation)
 - `POST /api/bookings/verify-ticket` -> `http://booking-service:8083/bookings/verify-ticket` (gate scanner check-in)
+- `GET /api/admin/analytics` -> `http://booking-service:8083/admin/analytics` (gross revenue, occupancy %, active events, and recent orders)
+- `PUT /api/events/:id/status` -> `http://catalog-service:8081/events/:id/status` (lifecycle toggle: ACTIVE, PAUSED, COMPLETED, CANCELLED)
 
 ### 2. Booking Service ↔ Inventory Service
 - **Reserve Hold**: `POST http://inventory-service:8082/inventory/reserve`

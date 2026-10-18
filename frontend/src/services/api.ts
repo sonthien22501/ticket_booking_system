@@ -7,6 +7,8 @@ import {
   ApiError,
   TicketTier,
   VerifyTicketResult,
+  AdminAnalyticsData,
+  CreateEventPayload,
 } from '../types';
 import { getStoredToken } from './auth';
 
@@ -472,4 +474,70 @@ export async function verifyTicket(params: { ticketCode: string; eventId?: strin
     } : undefined,
   };
 }
+
+/**
+ * Fetches admin & organizer live telemetry and analytics (Milestone 24)
+ */
+export async function fetchAdminAnalytics(): Promise<AdminAnalyticsData> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/admin/analytics`, { headers });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch admin analytics: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+/**
+ * Creates a new event in the catalog with automatic tiers and seat provisioning (Milestone 24)
+ */
+export async function createAdminEvent(payload: CreateEventPayload): Promise<{ id: string; status: string }> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/events`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    throw new Error(errorBody.error || `Failed to create event: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+/**
+ * Updates event status (ACTIVE, PAUSED, COMPLETED, CANCELLED) (Milestone 24)
+ */
+export async function updateEventStatus(eventId: string, status: string): Promise<void> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/events/${eventId}/status`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to update event status: HTTP ${res.status}`);
+  }
+}
+
 

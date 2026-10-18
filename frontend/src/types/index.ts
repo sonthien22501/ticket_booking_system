@@ -132,4 +132,57 @@ export interface VerifyTicketResult {
   };
 }
 
+export interface AdminAnalyticsBooking {
+  id: string;
+  bookingReference: string;
+  customerName: string;
+  customerEmail: string;
+  eventTitle: string;
+  totalAmount: number;
+  status: string;
+  quantity: number;
+  createdAt: string;
+}
+
+export interface AdminEventSummary {
+  eventId: string;
+  title: string;
+  category: string;
+  venueName: string;
+  status: string;
+  totalSeats: number;
+  bookedSeats: number;
+  occupancyPercent: number;
+  grossRevenue: number;
+}
+
+export interface AdminAnalyticsData {
+  totalRevenue: number;
+  totalBookings: number;
+  confirmedBookings: number;
+  cancelledBookings: number;
+  totalTicketsSold: number;
+  activeEventsCount: number;
+  averageOccupancy: number;
+  recentBookings: AdminAnalyticsBooking[];
+  eventsSummary: AdminEventSummary[];
+}
+
+export interface CreateEventPayload {
+  title: string;
+  description: string;
+  category: string;
+  venueName: string;
+  venueLocation: string;
+  startTime: string;
+  endTime: string;
+  imageUrl?: string;
+  tiers: {
+    name: string;
+    price: number;
+    capacity: number;
+  }[];
+}
+
+
 
