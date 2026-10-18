@@ -12,6 +12,7 @@ interface HeaderProps {
   currentUser?: User | null;
   onOpenAuth?: (tab?: 'login' | 'register') => void;
   onLogout?: () => void;
+  onOpenBookings?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -22,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser = null,
   onOpenAuth,
   onLogout,
+  onOpenBookings,
 }) => {
   return (
     <header className="site-header">
@@ -62,6 +64,21 @@ export const Header: React.FC<HeaderProps> = ({
               {apiConnected ? 'Gateway Connected' : 'Connecting to Gateway...'}
             </span>
           </div>
+
+          {/* My Bookings / Tickets Button */}
+          {onOpenBookings && (
+            <button
+              type="button"
+              className="btn-my-tickets cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-950/70 border border-indigo-700/50 hover:border-amber-500/60 hover:bg-indigo-900/80 text-amber-300 text-xs font-bold transition-all shadow-sm"
+              onClick={onOpenBookings}
+              title="View My Bookings & Tickets"
+              aria-label="View My Bookings & Tickets"
+              data-testid="my-tickets-btn"
+            >
+              <TicketIcon size={16} />
+              <span>My Tickets</span>
+            </button>
+          )}
 
           {/* User Authentication Pill / Controls */}
           {currentUser ? (
