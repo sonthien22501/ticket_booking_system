@@ -225,13 +225,22 @@ export function generateVenueSeatLayout(eventId: string, event?: EventItem): Sea
  * Handles HTTP 409 Conflict gracefully with custom ApiError.
  */
 export async function createBooking(req: BookingRequest): Promise<BookingResponse> {
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('ticketverse_auth_token') : null;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const payload = {
     eventId: req.eventId,
     event_id: req.eventId,
     tierId: req.tierId,
     tier_id: req.tierId,
-    userId: `usr_${Date.now().toString(36)}`,
-    user_id: `usr_${Date.now().toString(36)}`,
+    userId: req.userId || `usr_${Date.now().toString(36)}`,
+    user_id: req.userId || `usr_${Date.now().toString(36)}`,
     customerName: req.customerName,
     customer_name: req.customerName,
     customerEmail: req.customerEmail,
@@ -248,10 +257,7 @@ export async function createBooking(req: BookingRequest): Promise<BookingRespons
 
   const res = await fetch(`${API_BASE}/bookings`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
+    headers,
     body: JSON.stringify(payload),
   });
 

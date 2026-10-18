@@ -52,6 +52,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | M6 | React/TypeScript Frontend | React + Vite + TS app in `frontend/` with seat map & Dockerfile | M5 | DONE |
 | M7 | Docker Compose Containerization | Complete `docker-compose.yml` and integration scripts | M1, M2, M3, M4, M5, M6 | DONE |
 | M8 | Final Acceptance & E2E Verification | Automated verification script `scripts/verify_e2e.py` validating 100% acceptance criteria under docker-compose up | M7 | DONE |
+| M21 | Frontend Auth & User Profile Integration | React AuthModal, Header profile badge, token storage & checkout pre-fill (R3.1) | M5, M6 | DONE |
 
 ---
 
