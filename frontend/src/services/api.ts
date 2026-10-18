@@ -12,6 +12,7 @@ import {
   VoucherItem,
   VoucherValidationResult,
   CreateVoucherPayload,
+  InvoiceData,
 } from '../types';
 import { getStoredToken } from './auth';
 
@@ -258,6 +259,13 @@ export async function createBooking(req: BookingRequest): Promise<BookingRespons
     quantity: req.seats.length,
     voucherCode: req.voucherCode,
     voucher_code: req.voucherCode,
+    currency: req.currency,
+    companyName: req.companyName,
+    company_name: req.companyName,
+    taxId: req.taxId,
+    tax_id: req.taxId,
+    billingAddress: req.billingAddress,
+    billing_address: req.billingAddress,
     paymentInfo: req.paymentInfo || { method: 'CREDIT_CARD', cardToken: 'tok_visa_success' },
     payment_info: req.paymentInfo || { method: 'CREDIT_CARD', card_token: 'tok_visa_success' },
     idempotencyKey: req.idempotencyKey || `idem-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
@@ -336,6 +344,13 @@ export async function createBooking(req: BookingRequest): Promise<BookingRespons
     totalPrice: Number(body.total_price ?? body.totalPrice ?? body.total_amount ?? 0),
     voucherCode: body.voucher_code || body.voucherCode || req.voucherCode,
     discountAmount: Number(body.discount_amount ?? body.discountAmount ?? 0),
+    currency: (body.currency as string) || req.currency,
+    exchangeRate: Number(body.exchange_rate ?? body.exchangeRate ?? 1.0),
+    taxRate: Number(body.tax_rate ?? body.taxRate ?? 0),
+    taxAmount: Number(body.tax_amount ?? body.taxAmount ?? 0),
+    companyName: (body.company_name || body.companyName || req.companyName) as string | undefined,
+    taxId: (body.tax_id || body.taxId || req.taxId) as string | undefined,
+    billingAddress: (body.billing_address || body.billingAddress || req.billingAddress) as string | undefined,
     customerName: String(body.customer_name || body.customerName || req.customerName),
     customerEmail: String(body.customer_email || body.customerEmail || req.customerEmail),
     tickets,
@@ -392,6 +407,15 @@ export async function fetchUserBookings(params: { userId?: string; email?: strin
       quantity: Number(item.quantity || 1),
       seats: Array.isArray(item.seatIds) ? (item.seatIds as string[]) : Array.isArray(item.seats) ? (item.seats as string[]) : [],
       totalPrice: Number(item.totalAmount ?? item.total_amount ?? item.totalPrice ?? item.total_price ?? 0),
+      voucherCode: (item.voucherCode || item.voucher_code) as string | undefined,
+      discountAmount: Number(item.discountAmount ?? item.discount_amount ?? 0),
+      currency: (item.currency as string) || undefined,
+      exchangeRate: Number(item.exchangeRate ?? item.exchange_rate ?? 1.0),
+      taxRate: Number(item.taxRate ?? item.tax_rate ?? 0),
+      taxAmount: Number(item.taxAmount ?? item.tax_amount ?? 0),
+      companyName: (item.companyName || item.company_name) as string | undefined,
+      taxId: (item.taxId || item.tax_id) as string | undefined,
+      billingAddress: (item.billingAddress || item.billing_address) as string | undefined,
       customerName: String(item.customerName || item.customer_name || ''),
       customerEmail: String(item.customerEmail || item.customer_email || ''),
       tickets,
@@ -739,6 +763,56 @@ export async function createAdminVoucher(payload: CreateVoucherPayload): Promise
   }
 
   return res.json();
+}
+
+/**
+ * Returns direct URL to download binary invoice PDF (Milestone 26)
+ */
+export function getInvoicePdfUrl(bookingId: string): string {
+  return `${API_BASE}/bookings/${bookingId}/invoice/pdf`;
+}
+
+/**
+ * Fetches structured invoice metadata for a booking (Milestone 26)
+ */
+export async function getInvoice(bookingId: string): Promise<InvoiceData> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/bookings/${bookingId}/invoice`, { headers });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch invoice: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+/**
+ * Downloads the official PDF ticket receipt/invoice directly to the user's filesystem (Milestone 26)
+ */
+export async function downloadInvoicePdf(bookingId: string, reference?: string): Promise<void> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/bookings/${bookingId}/invoice/pdf`, { headers });
+  if (!res.ok) {
+    throw new Error(`Failed to download invoice PDF: HTTP ${res.status}`);
+  }
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `invoice-${reference || bookingId}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
 }
 
 

@@ -4,6 +4,8 @@ import { ThemeToggle } from './ThemeToggle';
 import { Theme } from '../services/theme';
 import { User } from '../types';
 
+import { SUPPORTED_CURRENCIES } from '../services/currency';
+
 interface HeaderProps {
   onHomeClick?: () => void;
   apiConnected?: boolean;
@@ -14,6 +16,8 @@ interface HeaderProps {
   onLogout?: () => void;
   onOpenBookings?: () => void;
   onOpenAdmin?: () => void;
+  currentCurrency?: string;
+  onCurrencyChange?: (curr: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,6 +30,8 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
   onOpenBookings,
   onOpenAdmin,
+  currentCurrency = 'USD',
+  onCurrencyChange,
 }) => {
   return (
     <header className="site-header">
@@ -55,6 +61,27 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="header-status-area">
           {onToggleTheme && (
             <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+          )}
+
+          {/* Multi-Currency Selector (Milestone 26) */}
+          {onCurrencyChange && (
+            <div className="currency-selector-pill flex items-center bg-slate-900/80 border border-slate-700/60 rounded-xl px-2 py-1 shadow-sm hover:border-cyan-500/70 transition-all">
+              <label htmlFor="currency-select" className="sr-only">Select Currency</label>
+              <select
+                id="currency-select"
+                aria-label="Currency"
+                value={currentCurrency}
+                onChange={(e) => onCurrencyChange(e.target.value)}
+                className="bg-transparent text-cyan-300 font-bold text-xs outline-none cursor-pointer pr-1"
+                data-testid="currency-selector"
+              >
+                {Object.values(SUPPORTED_CURRENCIES).map((c) => (
+                  <option key={c.code} value={c.code} className="bg-slate-900 text-slate-200">
+                    {c.symbol} {c.code}
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
 
           <div

@@ -56,6 +56,14 @@ type CreateBookingRequest struct {
 	HoldSecondsAlt    int          `json:"hold_seconds"`
 	VoucherCode       string       `json:"voucherCode,omitempty"`
 	VoucherCodeAlt    string       `json:"voucher_code,omitempty"`
+	Currency          string       `json:"currency,omitempty"`
+	CurrencyAlt       string       `json:"currency_code,omitempty"`
+	CompanyName       string       `json:"companyName,omitempty"`
+	CompanyNameAlt    string       `json:"company_name,omitempty"`
+	TaxID             string       `json:"taxId,omitempty"`
+	TaxIDAlt          string       `json:"tax_id,omitempty"`
+	BillingAddress    string       `json:"billingAddress,omitempty"`
+	BillingAddressAlt string       `json:"billing_address,omitempty"`
 }
 
 type Ticket struct {
@@ -65,6 +73,7 @@ type Ticket struct {
 	SeatID     string    `json:"seatId"`
 	SeatLabel  string    `json:"seatLabel"`
 	TicketCode string    `json:"ticketCode"`
+	Price      float64   `json:"price,omitempty"`
 	Status     string    `json:"status"` // VALID, USED, CANCELLED
 	CreatedAt  time.Time `json:"createdAt"`
 }
@@ -90,6 +99,13 @@ type Booking struct {
 	Tickets          []Ticket  `json:"tickets"`
 	VoucherCode      string    `json:"voucherCode,omitempty"`
 	DiscountAmount   float64   `json:"discountAmount,omitempty"`
+	Currency         string    `json:"currency,omitempty"`
+	ExchangeRate     float64   `json:"exchangeRate,omitempty"`
+	TaxRate          float64   `json:"taxRate,omitempty"`
+	TaxAmount        float64   `json:"taxAmount,omitempty"`
+	CompanyName      string    `json:"companyName,omitempty"`
+	TaxID            string    `json:"taxId,omitempty"`
+	BillingAddress   string    `json:"billingAddress,omitempty"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
 }
@@ -205,6 +221,15 @@ func initDB() (*sql.DB, error) {
 				_, _ = db.Exec(`
 					ALTER TABLE bookings ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(128);
 					CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_idempotency ON bookings(idempotency_key) WHERE idempotency_key IS NOT NULL AND idempotency_key != '';
+					ALTER TABLE bookings ADD COLUMN IF NOT EXISTS voucher_code VARCHAR(64);
+					ALTER TABLE bookings ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(10,2) DEFAULT 0.0;
+					ALTER TABLE bookings ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'USD';
+					ALTER TABLE bookings ADD COLUMN IF NOT EXISTS exchange_rate NUMERIC(10,4) DEFAULT 1.0;
+					ALTER TABLE bookings ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(5,4) DEFAULT 0.085;
+					ALTER TABLE bookings ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(10,2) DEFAULT 0.0;
+					ALTER TABLE bookings ADD COLUMN IF NOT EXISTS company_name VARCHAR(255);
+					ALTER TABLE bookings ADD COLUMN IF NOT EXISTS tax_id VARCHAR(100);
+					ALTER TABLE bookings ADD COLUMN IF NOT EXISTS billing_address TEXT;
 				`)
 
 				return db, nil
@@ -466,6 +491,33 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		voucherCode = vResp.Code
 	}
 
+	// Multi-Currency & Corporate Billing (Milestone 26)
+	currency := strings.ToUpper(strings.TrimSpace(req.Currency))
+	if currency == "" {
+		currency = strings.ToUpper(strings.TrimSpace(req.CurrencyAlt))
+	}
+	if currency == "" {
+		currency = "USD"
+	}
+	companyName := strings.TrimSpace(req.CompanyName)
+	if companyName == "" {
+		companyName = strings.TrimSpace(req.CompanyNameAlt)
+	}
+	taxID := strings.TrimSpace(req.TaxID)
+	if taxID == "" {
+		taxID = strings.TrimSpace(req.TaxIDAlt)
+	}
+	billingAddress := strings.TrimSpace(req.BillingAddress)
+	if billingAddress == "" {
+		billingAddress = strings.TrimSpace(req.BillingAddressAlt)
+	}
+
+	rate := 1.0
+	if info, ok := currencyRegistry[currency]; ok {
+		rate = info.Rate
+	}
+	taxRate, taxAmount, _ := CalculateTax(totalAmount, 0.0, currency)
+
 	paymentStatus := "PENDING"
 	if req.PaymentInfo != nil && (req.PaymentInfo.CardToken == "tok_fail" || req.PaymentInfo.CardTokenAlt == "tok_fail") {
 		paymentStatus = "PENDING_tok_fail"
@@ -489,16 +541,23 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		dbVoucher = voucherCode
 	}
 	_, err := s.db.ExecContext(r.Context(),
-		`INSERT INTO bookings (id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, payment_status, idempotency_key, voucher_code, discount_amount, created_at, updated_at) 
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING', $12, $13, $14, $15, $16, $16)`,
-		bookingID, bookingRef, userID, customerName, customerEmail, eventID, eventTitle, tierID, ticketCount, string(seatJSON), totalAmount, paymentStatus, dbIdemKey, dbVoucher, discountAmount, now,
+		`INSERT INTO bookings (id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, payment_status, idempotency_key, voucher_code, discount_amount, currency, exchange_rate, tax_rate, tax_amount, company_name, tax_id, billing_address, created_at, updated_at) 
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING', $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $23)`,
+		bookingID, bookingRef, userID, customerName, customerEmail, eventID, eventTitle, tierID, ticketCount, string(seatJSON), totalAmount, paymentStatus, dbIdemKey, dbVoucher, discountAmount, currency, rate, taxRate, taxAmount, companyName, taxID, billingAddress, now,
 	)
-	if err != nil && (strings.Contains(err.Error(), "voucher_code") || strings.Contains(err.Error(), "discount_amount")) {
+	if err != nil && (strings.Contains(err.Error(), "currency") || strings.Contains(err.Error(), "company_name") || strings.Contains(err.Error(), "voucher_code") || strings.Contains(err.Error(), "discount_amount")) {
 		_, err = s.db.ExecContext(r.Context(),
-			`INSERT INTO bookings (id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, payment_status, idempotency_key, created_at, updated_at) 
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING', $12, $13, $14, $14)`,
-			bookingID, bookingRef, userID, customerName, customerEmail, eventID, eventTitle, tierID, ticketCount, string(seatJSON), totalAmount, paymentStatus, dbIdemKey, now,
+			`INSERT INTO bookings (id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, payment_status, idempotency_key, voucher_code, discount_amount, created_at, updated_at) 
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING', $12, $13, $14, $15, $16, $16)`,
+			bookingID, bookingRef, userID, customerName, customerEmail, eventID, eventTitle, tierID, ticketCount, string(seatJSON), totalAmount, paymentStatus, dbIdemKey, dbVoucher, discountAmount, now,
 		)
+		if err != nil {
+			_, err = s.db.ExecContext(r.Context(),
+				`INSERT INTO bookings (id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, payment_status, idempotency_key, created_at, updated_at) 
+				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'PENDING', $12, $13, $14, $14)`,
+				bookingID, bookingRef, userID, customerName, customerEmail, eventID, eventTitle, tierID, ticketCount, string(seatJSON), totalAmount, paymentStatus, dbIdemKey, now,
+			)
+		}
 	}
 	if err != nil {
 		if redisIdemKey != "" && s.rdb != nil {
@@ -607,6 +666,20 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 			sagaRes.Booking.Status = "CONFIRMED"
 			sagaRes.Booking.IdempotencyKey = idempotencyKey
 			finalBooking = sagaRes.Booking
+		}
+
+		if finalBooking != nil {
+			finalBooking.Currency = currency
+			finalBooking.ExchangeRate = rate
+			finalBooking.TaxRate = taxRate
+			finalBooking.TaxAmount = taxAmount
+			finalBooking.CompanyName = companyName
+			finalBooking.TaxID = taxID
+			finalBooking.BillingAddress = billingAddress
+			if voucherCode != "" {
+				finalBooking.VoucherCode = voucherCode
+				finalBooking.DiscountAmount = discountAmount
+			}
 		}
 
 		// Cache completed booking in Redis
@@ -795,9 +868,24 @@ func (s *Server) handleBookingByID(w http.ResponseWriter, r *http.Request) {
 	path = strings.TrimPrefix(path, "/")
 
 	isCancel := false
+	isInvoice := false
+	isInvoicePDF := false
+
 	if strings.HasSuffix(path, "/cancel") {
 		isCancel = true
 		path = strings.TrimSuffix(path, "/cancel")
+		path = strings.TrimSuffix(path, "/")
+	} else if strings.HasSuffix(path, "/invoice/pdf") {
+		isInvoice = true
+		isInvoicePDF = true
+		path = strings.TrimSuffix(path, "/invoice/pdf")
+		path = strings.TrimSuffix(path, "/")
+	} else if strings.HasSuffix(path, "/invoice") {
+		isInvoice = true
+		if r.URL.Query().Get("format") == "pdf" {
+			isInvoicePDF = true
+		}
+		path = strings.TrimSuffix(path, "/invoice")
 		path = strings.TrimSuffix(path, "/")
 	} else if r.Method == http.MethodDelete {
 		isCancel = true
@@ -814,18 +902,36 @@ func (s *Server) handleBookingByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if isInvoice {
+		s.handleBookingInvoice(w, r, bookingID, isInvoicePDF)
+		return
+	}
+
 	var b Booking
 	var seatsRaw string
-	var tierID, resID, idemKey sql.NullString
+	var tierID, resID, idemKey, vCode, compName, taxNum, billAddr, curr sql.NullString
+	var discAmt, exRate, tRate, tAmt sql.NullFloat64
+
 	err := s.db.QueryRow(
-		`SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, idempotency_key, created_at, updated_at 
+		`SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, idempotency_key, voucher_code, discount_amount, currency, exchange_rate, tax_rate, tax_amount, company_name, tax_id, billing_address, created_at, updated_at 
 		 FROM bookings WHERE id = $1 OR booking_reference = $1`,
 		bookingID,
 	).Scan(
 		&b.ID, &b.BookingReference, &b.UserID, &b.CustomerName, &b.CustomerEmail,
 		&b.EventID, &b.EventTitle, &tierID, &b.Quantity, &seatsRaw, &b.TotalAmount,
-		&b.Status, &resID, &b.PaymentStatus, &idemKey, &b.CreatedAt, &b.UpdatedAt,
+		&b.Status, &resID, &b.PaymentStatus, &idemKey, &vCode, &discAmt, &curr, &exRate, &tRate, &tAmt, &compName, &taxNum, &billAddr, &b.CreatedAt, &b.UpdatedAt,
 	)
+	if err != nil {
+		err = s.db.QueryRow(
+			`SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, idempotency_key, created_at, updated_at 
+			 FROM bookings WHERE id = $1 OR booking_reference = $1`,
+			bookingID,
+		).Scan(
+			&b.ID, &b.BookingReference, &b.UserID, &b.CustomerName, &b.CustomerEmail,
+			&b.EventID, &b.EventTitle, &tierID, &b.Quantity, &seatsRaw, &b.TotalAmount,
+			&b.Status, &resID, &b.PaymentStatus, &idemKey, &b.CreatedAt, &b.UpdatedAt,
+		)
+	}
 
 	if err == sql.ErrNoRows {
 		w.Header().Set("Content-Type", "application/json")
@@ -848,6 +954,37 @@ func (s *Server) handleBookingByID(w http.ResponseWriter, r *http.Request) {
 	}
 	if idemKey.Valid {
 		b.IdempotencyKey = idemKey.String
+	}
+	if vCode.Valid {
+		b.VoucherCode = vCode.String
+	}
+	if discAmt.Valid {
+		b.DiscountAmount = discAmt.Float64
+	}
+	if curr.Valid && curr.String != "" {
+		b.Currency = curr.String
+	} else {
+		b.Currency = "USD"
+	}
+	if exRate.Valid && exRate.Float64 > 0 {
+		b.ExchangeRate = exRate.Float64
+	} else {
+		b.ExchangeRate = 1.0
+	}
+	if tRate.Valid {
+		b.TaxRate = tRate.Float64
+	}
+	if tAmt.Valid {
+		b.TaxAmount = tAmt.Float64
+	}
+	if compName.Valid {
+		b.CompanyName = compName.String
+	}
+	if taxNum.Valid {
+		b.TaxID = taxNum.String
+	}
+	if billAddr.Valid {
+		b.BillingAddress = billAddr.String
 	}
 	_ = json.Unmarshal([]byte(seatsRaw), &b.SeatIDs)
 
@@ -1711,6 +1848,12 @@ func main() {
 	mux.HandleFunc("/api/vouchers/validate", srv.handleValidateVoucher)
 	mux.HandleFunc("/admin/vouchers", srv.handleAdminVouchers)
 	mux.HandleFunc("/api/admin/vouchers", srv.handleAdminVouchers)
+
+	// Multi-Currency & Invoicing routes (Milestone 26)
+	mux.HandleFunc("/currencies/rates", srv.handleCurrencyRates)
+	mux.HandleFunc("/api/currencies/rates", srv.handleCurrencyRates)
+	mux.HandleFunc("/currencies/convert", srv.handleCurrencyConvert)
+	mux.HandleFunc("/api/currencies/convert", srv.handleCurrencyConvert)
 
 	// Single booking routes
 	mux.HandleFunc("/bookings/", srv.handleBookingByID)

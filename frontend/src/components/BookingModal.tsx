@@ -13,11 +13,18 @@ interface BookingModalProps {
   conflictingSeats: string[];
   confirmedBooking: BookingResponse | null;
   onClose: () => void;
-  onSubmitBooking: (customerName: string, customerEmail: string, voucherCode?: string) => void;
+  onSubmitBooking: (
+    customerName: string,
+    customerEmail: string,
+    voucherCode?: string,
+    currency?: string,
+    corporateDetails?: { companyName?: string; taxId?: string; billingAddress?: string }
+  ) => void;
   onRefreshMap: () => void;
   onResetBooking: () => void;
   currentUser?: User | null;
   onViewPasses?: () => void;
+  currentCurrency?: string;
 }
 
 export const BookingModal: React.FC<BookingModalProps> = ({
@@ -34,6 +41,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   onResetBooking,
   currentUser = null,
   onViewPasses,
+  currentCurrency = 'USD',
 }) => {
   // Close on Escape key
   useEffect(() => {
@@ -122,6 +130,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               onSubmit={onSubmitBooking}
               onRefreshMap={onRefreshMap}
               currentUser={currentUser}
+              currentCurrency={currentCurrency}
             />
           )}
         </div>

@@ -58,6 +58,10 @@ export interface BookingRequest {
   customerEmail: string;
   userId?: string;
   voucherCode?: string;
+  currency?: string;
+  companyName?: string;
+  taxId?: string;
+  billingAddress?: string;
   paymentInfo?: {
     method: string;
     cardToken?: string;
@@ -70,6 +74,7 @@ export interface TicketItem {
   seatLabel: string;
   ticketCode: string;
   status: string;
+  price?: number;
 }
 
 export interface BookingResponse {
@@ -84,6 +89,13 @@ export interface BookingResponse {
   totalPrice: number;
   voucherCode?: string;
   discountAmount?: number;
+  currency?: string;
+  exchangeRate?: number;
+  taxRate?: number;
+  taxAmount?: number;
+  companyName?: string;
+  taxId?: string;
+  billingAddress?: string;
   customerName: string;
   customerEmail: string;
   tickets: TicketItem[];
@@ -220,6 +232,62 @@ export interface CreateVoucherPayload {
   maxUses?: number;
   expiresInDays?: number;
 }
+
+export type CurrencyCode = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD';
+
+export interface CurrencyInfo {
+  code: CurrencyCode | string;
+  name: string;
+  symbol: string;
+  rate: number;
+  taxRate: number;
+  decimals: number;
+}
+
+export interface CorporateBillingDetails {
+  companyName: string;
+  taxId: string;
+  billingAddress: string;
+}
+
+export interface InvoiceItemData {
+  description: string;
+  seatId: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export interface InvoiceData {
+  invoiceNumber: string;
+  bookingId: string;
+  bookingReference: string;
+  issueDate: string;
+  dueDate: string;
+  status: string;
+  paymentStatus: string;
+  customerName: string;
+  customerEmail: string;
+  companyName?: string;
+  taxId?: string;
+  billingAddress?: string;
+  eventId: string;
+  eventTitle: string;
+  currency: string;
+  currencySymbol: string;
+  exchangeRate: number;
+  subtotal: number;
+  discount: number;
+  taxableAmount: number;
+  taxRate: number;
+  taxAmount: number;
+  totalAmount: number;
+  issuerName: string;
+  issuerTaxId: string;
+  issuerAddress: string;
+  items: InvoiceItemData[];
+}
+
 
 
 

@@ -88,6 +88,15 @@ CREATE TABLE IF NOT EXISTS bookings (
     reservation_id VARCHAR(64),
     payment_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
     idempotency_key VARCHAR(128),
+    voucher_code VARCHAR(64),
+    discount_amount NUMERIC(10, 2) DEFAULT 0.0,
+    currency VARCHAR(10) DEFAULT 'USD',
+    exchange_rate NUMERIC(10, 4) DEFAULT 1.0,
+    tax_rate NUMERIC(5, 4) DEFAULT 0.085,
+    tax_amount NUMERIC(10, 2) DEFAULT 0.0,
+    company_name VARCHAR(255),
+    tax_id VARCHAR(100),
+    billing_address TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
