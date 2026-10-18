@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { EventItem, SeatItem } from '../types';
 import { UserIcon, MailIcon, CreditCardIcon, AlertCircleIcon, RefreshCwIcon } from './Icons';
 import { LoadingSpinner } from './LoadingSpinner';
+import { ConfirmationDialog } from './ConfirmationDialog';
 
 interface CheckoutFormProps {
   event: EventItem;
@@ -26,6 +27,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [email, setEmail] = useState('');
   const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [isPaymentConfirmOpen, setIsPaymentConfirmOpen] = useState(false);
 
   const totalPrice = selectedSeats.reduce((sum, s) => sum + (s.price || 0), 0);
 
@@ -49,8 +51,14 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     }
 
     if (valid) {
-      onSubmit(name.trim(), email.trim());
+      // R24: Prompt confirmation dialog before executing payment/booking state change
+      setIsPaymentConfirmOpen(true);
     }
+  };
+
+  const handleConfirmPayment = () => {
+    setIsPaymentConfirmOpen(false);
+    onSubmit(name.trim(), email.trim());
   };
 
   return (
@@ -186,6 +194,44 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
           )}
         </button>
       </div>
+
+      {/* R24: Payment Authorization Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={isPaymentConfirmOpen}
+        title="Authorize Payment & Reserve Tickets"
+        message="Please verify your reservation and payment details before completing your order:"
+        confirmLabel={`Authorize Payment ($${totalPrice.toFixed(2)})`}
+        cancelLabel="Modify Information"
+        confirmVariant="primary"
+        loading={submitting}
+        onConfirm={handleConfirmPayment}
+        onCancel={() => setIsPaymentConfirmOpen(false)}
+      >
+        <div className="payment-confirm-details">
+          <div className="summary-row">
+            <span className="summary-label">Attendee:</span>
+            <span className="summary-value font-medium">{name} ({email})</span>
+          </div>
+          <div className="summary-row">
+            <span className="summary-label">Event:</span>
+            <span className="summary-value font-medium">{event.title}</span>
+          </div>
+          <div className="summary-row">
+            <span className="summary-label">Venue:</span>
+            <span className="summary-value">{event.venueName}</span>
+          </div>
+          <div className="summary-row">
+            <span className="summary-label">Selected Seats:</span>
+            <span className="summary-value font-mono">
+              {selectedSeats.map((s) => `${s.row}${s.number}`).join(', ')}
+            </span>
+          </div>
+          <div className="summary-row total-row">
+            <span className="summary-label font-bold">Total Authorization:</span>
+            <span className="summary-value font-bold text-accent">${totalPrice.toFixed(2)}</span>
+          </div>
+        </div>
+      </ConfirmationDialog>
     </form>
   );
 };

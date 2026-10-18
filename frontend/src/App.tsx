@@ -6,6 +6,7 @@ import { EventCatalog } from './components/EventCatalog';
 import { VenueSeatMap } from './components/VenueSeatMap';
 import { BookingModal } from './components/BookingModal';
 import { AlertNotification } from './components/AlertNotification';
+import { ConfirmationDialog } from './components/ConfirmationDialog';
 
 export const App: React.FC = () => {
   // Catalog State
@@ -19,6 +20,10 @@ export const App: React.FC = () => {
   const [seats, setSeats] = useState<SeatItem[]>([]);
   const [loadingSeats, setLoadingSeats] = useState<boolean>(false);
   const [selectedSeatIds, setSelectedSeatIds] = useState<Set<string>>(new Set());
+
+  // R24 Dialog Confirmation States
+  const [isSelectionConfirmOpen, setIsSelectionConfirmOpen] = useState<boolean>(false);
+  const [isClearConfirmOpen, setIsClearConfirmOpen] = useState<boolean>(false);
 
   // Checkout & Modal State
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -78,6 +83,48 @@ export const App: React.FC = () => {
   };
 
   /**
+   * Real-time SSE Stream subscription for selected event (R10 & R25)
+   */
+  useEffect(() => {
+    if (!selectedEvent || typeof EventSource === 'undefined') return;
+
+    const sseUrl = `/api/inventory/${selectedEvent.id}/seats/stream`;
+    const eventSource = new EventSource(sseUrl);
+
+    eventSource.addEventListener('seat_update', (e: MessageEvent) => {
+      try {
+        const payload = JSON.parse(e.data);
+        if (payload && payload.seat_id && payload.status) {
+          setSeats((prev) =>
+            prev.map((s) => (s.id === payload.seat_id ? { ...s, status: payload.status } : s))
+          );
+          // Auto-deselect if seat was claimed by another user
+          if (payload.status !== 'AVAILABLE') {
+            setSelectedSeatIds((prev) => {
+              if (prev.has(payload.seat_id)) {
+                const next = new Set(prev);
+                next.delete(payload.seat_id);
+                return next;
+              }
+              return prev;
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to parse SSE seat_update event:', err);
+      }
+    });
+
+    eventSource.onerror = () => {
+      // Reconnect is handled automatically by the browser EventSource
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [selectedEvent]);
+
+  /**
    * Toggle seat selection
    */
   const handleToggleSeat = (seat: SeatItem) => {
@@ -92,11 +139,32 @@ export const App: React.FC = () => {
     });
   };
 
+  /**
+   * Gated selection clear (R24 dialog confirmation)
+   */
   const handleClearSelection = () => {
-    setSelectedSeatIds(new Set());
+    if (selectedSeatIds.size > 1) {
+      setIsClearConfirmOpen(true);
+    } else {
+      setSelectedSeatIds(new Set());
+    }
   };
 
-  const handleOpenCheckout = () => {
+  const handleConfirmClearSelection = () => {
+    setSelectedSeatIds(new Set());
+    setIsClearConfirmOpen(false);
+  };
+
+  /**
+   * Gated checkout launch (R24 dialog confirmation)
+   */
+  const handleRequestCheckout = () => {
+    if (selectedSeatIds.size === 0) return;
+    setIsSelectionConfirmOpen(true);
+  };
+
+  const handleConfirmCheckout = () => {
+    setIsSelectionConfirmOpen(false);
     setConflictError(null);
     setConflictingSeats([]);
     setIsModalOpen(true);
@@ -210,7 +278,7 @@ export const App: React.FC = () => {
             loadingSeats={loadingSeats}
             onToggleSeat={handleToggleSeat}
             onClearSelection={handleClearSelection}
-            onProceedToCheckout={handleOpenCheckout}
+            onProceedToCheckout={handleRequestCheckout}
             onBackToCatalog={() => setSelectedEvent(null)}
             onRefreshSeats={handleRefreshSeats}
           />
@@ -241,6 +309,55 @@ export const App: React.FC = () => {
           onResetBooking={handleResetAfterBooking}
         />
       )}
+
+      {/* R24: Seat Selection Confirmation Dialog */}
+      {selectedEvent && (
+        <ConfirmationDialog
+          isOpen={isSelectionConfirmOpen}
+          title="Confirm Seat Selection"
+          message={`You have selected ${selectedSeatIds.size} ${selectedSeatIds.size === 1 ? 'seat' : 'seats'} for ${selectedEvent.title}.`}
+          confirmLabel={`Proceed to Reservation (${selectedSeatIds.size})`}
+          cancelLabel="Modify Seats"
+          confirmVariant="primary"
+          onConfirm={handleConfirmCheckout}
+          onCancel={() => setIsSelectionConfirmOpen(false)}
+        >
+          <div className="seat-confirm-breakdown">
+            <div className="seat-confirm-chips">
+              {seats
+                .filter((s) => selectedSeatIds.has(s.id))
+                .map((seat) => (
+                  <div key={seat.id} className="seat-confirm-chip">
+                    <span className="chip-label">{seat.row}{seat.number}</span>
+                    <span className="chip-tier">{seat.tierName || 'Standard'}</span>
+                    <span className="chip-price">${seat.price?.toFixed(2)}</span>
+                  </div>
+                ))}
+            </div>
+            <div className="seat-confirm-total-bar">
+              <span>Estimated Subtotal:</span>
+              <span className="font-bold text-accent">
+                ${seats
+                  .filter((s) => selectedSeatIds.has(s.id))
+                  .reduce((sum, s) => sum + (s.price || 0), 0)
+                  .toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </ConfirmationDialog>
+      )}
+
+      {/* R24: Clear Selection Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={isClearConfirmOpen}
+        title="Clear Selected Seats?"
+        message={`Are you sure you want to deselect all ${selectedSeatIds.size} selected seats?`}
+        confirmLabel="Yes, Clear Selection"
+        cancelLabel="Keep Selection"
+        confirmVariant="warning"
+        onConfirm={handleConfirmClearSelection}
+        onCancel={() => setIsClearConfirmOpen(false)}
+      />
     </div>
   );
 };

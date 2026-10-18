@@ -92,12 +92,12 @@ Explanation: Message brokers (like Kafka or RabbitMQ) decouple service dependenc
 **R23: The system should provide health check and metrics endpoints.** ✅ (Done successfully)  
 Explanation: Microservices expose actuator endpoints (e.g., `/health`, `/metrics`) for continuous monitoring of connection pool saturation, memory usage, and component status.
 
-**R24: The system should provide dialog confirmation functionality to users.**  
+**R24: The system should provide dialog confirmation functionality to users.** ✅ (Done successfully)  
 Explanation: Modal dialogues prompt users to confirm seat selections and payment submissions before executing state changes.
 
 ### 4.3 Can Requirements
 
-**R25: The system can provide visual interactive seat map visualization to users.**  
+**R25: The system can provide visual interactive seat map visualization to users.** ✅ (Done successfully)  
 Explanation: Renders an interactive 2D floor grid allowing users to click and select specific seats directly.
 
 **R26: The system can provide webhook notifications to external partners.**  
