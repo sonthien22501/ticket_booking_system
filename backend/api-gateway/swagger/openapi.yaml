@@ -283,17 +283,105 @@ paths:
           in: path
           required: true
           description: Event ID
+        - name: status
+          in: query
+          required: false
+          description: Filter seats by status (AVAILABLE, HOLD, BOOKED)
           schema:
             type: string
+            enum: [AVAILABLE, HOLD, BOOKED]
       responses:
         '200':
           description: Detailed seat list
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/SeatItem'
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                  summary:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      available:
+                        type: integer
+                      held:
+                        type: integer
+                      booked:
+                        type: integer
+                  seats:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SeatItem'
+
+  /api/inventory/{eventId}/seats/realtime:
+    get:
+      tags:
+        - Inventory
+      summary: Real-time seat availability snapshot (R10)
+      description: Returns live seat matrix and inventory count breakdown bypassing all caches.
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          description: Event ID
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Filter seats by status (AVAILABLE, HOLD, BOOKED)
+          schema:
+            type: string
+            enum: [AVAILABLE, HOLD, BOOKED]
+      responses:
+        '200':
+          description: Real-time seat availability snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                  summary:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      available:
+                        type: integer
+                      held:
+                        type: integer
+                      booked:
+                        type: integer
+                  seats:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SeatItem'
+
+  /api/inventory/{eventId}/seats/stream:
+    get:
+      tags:
+        - Inventory
+      summary: Real-time seat availability SSE stream (R10)
+      description: Server-Sent Events (SSE) push stream broadcasting seat status changes in real time.
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          description: Event ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Continuous text/event-stream of seat state changes
+          content:
+            text/event-stream:
+              schema:
+                type: string
 
   /api/inventory/reserve:
     post:

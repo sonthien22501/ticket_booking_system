@@ -45,7 +45,7 @@ Explanation: An in-memory data store (e.g., Redis) must be used to cache event c
 **R9: The system must provide event catalog browsing functionality to users.** ✅ (Done successfully)  
 Explanation: Users can retrieve and view all published events, schedules, and venue details via the frontend interface.
 
-**R10: The system must provide real-time seat availability retrieval functionality to users.**  
+**R10: The system must provide real-time seat availability retrieval functionality to users.** ✅ (Done successfully)  
 Explanation: The system queries the Seat Inventory Service to present current seat states (available, held, reserved).
 
 **R11: The system must provide seat reservation locking functionality to users.** ✅ (Done successfully)  

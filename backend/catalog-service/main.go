@@ -498,7 +498,7 @@ func main() {
 
 	serverAddr := ":" + port
 	log.Printf("Event Catalog Service starting on %s", serverAddr)
-	if err := http.ListenAndServe(serverAddr, TracingMiddleware("mutated-catalog", mux)); err != nil {
+	if err := http.ListenAndServe(serverAddr, TracingMiddleware("catalog-service", mux)); err != nil {
 		log.Fatalf("Server terminated: %v", err)
 	}
 }

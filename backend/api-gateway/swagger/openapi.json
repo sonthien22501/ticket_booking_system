@@ -2080,6 +2080,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Filter seats by status (AVAILABLE, HOLD, BOOKED)",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": ["AVAILABLE", "HOLD", "BOOKED"],
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -2087,10 +2097,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/SeatItem"
-                  },
-                  "type": "array"
+                  "type": "object",
+                  "properties": {
+                    "eventId": { "type": "string" },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "total": { "type": "integer" },
+                        "available": { "type": "integer" },
+                        "held": { "type": "integer" },
+                        "booked": { "type": "integer" }
+                      }
+                    },
+                    "seats": {
+                      "items": {
+                        "$ref": "#/components/schemas/SeatItem"
+                      },
+                      "type": "array"
+                    }
+                  }
                 }
               }
             },
@@ -2098,6 +2123,98 @@
           }
         },
         "summary": "List individual seat layouts",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/{eventId}/seats/realtime": {
+      "get": {
+        "description": "Returns live seat matrix and inventory count breakdown bypassing all caches.",
+        "parameters": [
+          {
+            "description": "Event ID",
+            "in": "path",
+            "name": "eventId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter seats by status (AVAILABLE, HOLD, BOOKED)",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": ["AVAILABLE", "HOLD", "BOOKED"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "eventId": { "type": "string" },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "total": { "type": "integer" },
+                        "available": { "type": "integer" },
+                        "held": { "type": "integer" },
+                        "booked": { "type": "integer" }
+                      }
+                    },
+                    "seats": {
+                      "items": {
+                        "$ref": "#/components/schemas/SeatItem"
+                      },
+                      "type": "array"
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Real-time seat availability snapshot"
+          }
+        },
+        "summary": "Real-time seat availability snapshot (R10)",
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/{eventId}/seats/stream": {
+      "get": {
+        "description": "Server-Sent Events (SSE) push stream broadcasting seat status changes in real time.",
+        "parameters": [
+          {
+            "description": "Event ID",
+            "in": "path",
+            "name": "eventId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Continuous text/event-stream of seat state changes"
+          }
+        },
+        "summary": "Real-time seat availability SSE stream (R10)",
         "tags": [
           "Inventory"
         ]
