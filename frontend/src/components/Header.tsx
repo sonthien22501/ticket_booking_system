@@ -1,5 +1,5 @@
 import React from 'react';
-import { TicketIcon, UserIcon, LogOutIcon } from './Icons';
+import { TicketIcon, UserIcon, LogOutIcon, SparklesIcon } from './Icons';
 import { ThemeToggle } from './ThemeToggle';
 import { Theme } from '../services/theme';
 import { User } from '../types';
@@ -13,6 +13,7 @@ interface HeaderProps {
   onOpenAuth?: (tab?: 'login' | 'register') => void;
   onLogout?: () => void;
   onOpenBookings?: () => void;
+  onOpenAdmin?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -24,6 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAuth,
   onLogout,
   onOpenBookings,
+  onOpenAdmin,
 }) => {
   return (
     <header className="site-header">
@@ -77,6 +79,21 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <TicketIcon size={16} />
               <span>My Tickets</span>
+            </button>
+          )}
+
+          {/* Admin Studio / Organizer Portal Button (Milestone 24) */}
+          {onOpenAdmin && (
+            <button
+              type="button"
+              className="btn-admin-studio cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-950/70 border border-purple-700/50 hover:border-purple-400 hover:bg-purple-900/80 text-purple-300 text-xs font-bold transition-all shadow-sm"
+              onClick={onOpenAdmin}
+              title="Open Organizer Studio & Live Telemetry"
+              aria-label="Organizer Studio"
+              data-testid="admin-studio-btn"
+            >
+              <SparklesIcon size={15} />
+              <span>Organizer Studio</span>
             </button>
           )}
 

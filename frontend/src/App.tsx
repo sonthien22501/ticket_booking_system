@@ -8,6 +8,7 @@ import { VenueSeatMap } from './components/VenueSeatMap';
 import { BookingModal } from './components/BookingModal';
 import { AuthModal } from './components/AuthModal';
 import { MyBookingsModal } from './components/MyBookingsModal';
+import { AdminDashboardModal } from './components/AdminDashboardModal';
 import { AlertNotification } from './components/AlertNotification';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { Theme, getInitialTheme, applyThemeToDocument, toggleThemeValue } from './services/theme';
@@ -21,6 +22,7 @@ export const App: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login');
   const [isMyBookingsOpen, setIsMyBookingsOpen] = useState<boolean>(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
 
   // Catalog State
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -332,6 +334,7 @@ export const App: React.FC = () => {
         onOpenAuth={handleOpenAuth}
         onLogout={handleLogout}
         onOpenBookings={() => setIsMyBookingsOpen(true)}
+        onOpenAdmin={() => setIsAdminModalOpen(true)}
       />
 
 
@@ -460,6 +463,20 @@ export const App: React.FC = () => {
           if (selectedEvent) {
             loadSeatsForEvent(selectedEvent);
           }
+        }}
+      />
+
+      {/* Organizer Studio & Live Telemetry Modal (Milestone 24) */}
+      <AdminDashboardModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        user={currentUser}
+        onEventCreated={() => {
+          loadEvents();
+          setGeneralAlert({
+            type: 'success',
+            message: 'Catalog synchronized with newly published event!',
+          });
         }}
       />
     </div>

@@ -290,6 +290,10 @@ func (s *Server) handleEventByID(w http.ResponseWriter, r *http.Request) {
 		s.handleEventPricing(w, r)
 		return
 	}
+	if strings.HasSuffix(path, "/status") {
+		s.handleEventStatusUpdate(w, r)
+		return
+	}
 	eventID := strings.TrimSpace(path)
 
 	if eventID == "" {
@@ -440,11 +444,35 @@ func (s *Server) createEvent(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Printf("Insert inventory failed: %v", err)
 		}
+
+		// Generate seat_items so the interactive seat map immediately shows seats
+		seatsToGenerate := tier.Capacity
+		if seatsToGenerate > 100 {
+			seatsToGenerate = 100
+		}
+		rowPrefix := string(rune('A' + (i % 26)))
+		for sIdx := 1; sIdx <= seatsToGenerate; sIdx++ {
+			seatRow := fmt.Sprintf("%s%d", rowPrefix, ((sIdx-1)/10)+1)
+			seatNum := ((sIdx - 1) % 10) + 1
+			seatID := fmt.Sprintf("%s-%d", seatRow, seatNum)
+			_, _ = tx.Exec(
+				`INSERT INTO seat_items (id, event_id, tier_id, seat_row, seat_number, status) VALUES ($1, $2, $3, $4, $5, 'AVAILABLE') ON CONFLICT DO NOTHING`,
+				seatID, req.ID, tierID, seatRow, seatNum,
+			)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
 		http.Error(w, `{"error":"Failed to commit transaction"}`, http.StatusInternalServerError)
 		return
+	}
+
+	if s.rdb != nil {
+		ctx := context.Background()
+		iter := s.rdb.Scan(ctx, 0, "events_list:*", 0).Iterator()
+		for iter.Next(ctx) {
+			_ = s.rdb.Del(ctx, iter.Val())
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
