@@ -1,12 +1,21 @@
 import React from 'react';
 import { TicketIcon } from './Icons';
+import { ThemeToggle } from './ThemeToggle';
+import { Theme } from '../services/theme';
 
 interface HeaderProps {
   onHomeClick?: () => void;
   apiConnected?: boolean;
+  theme?: Theme;
+  onToggleTheme?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onHomeClick, apiConnected = true }) => {
+export const Header: React.FC<HeaderProps> = ({
+  onHomeClick,
+  apiConnected = true,
+  theme = 'dark',
+  onToggleTheme,
+}) => {
   return (
     <header className="site-header">
       <div className="header-container">
@@ -21,6 +30,10 @@ export const Header: React.FC<HeaderProps> = ({ onHomeClick, apiConnected = true
         </div>
 
         <div className="header-status-area">
+          {onToggleTheme && (
+            <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+          )}
+
           <div className={`gateway-pill ${apiConnected ? 'pill-online' : 'pill-offline'}`}>
             <span className="status-dot"></span>
             <span className="status-label">
@@ -32,3 +45,4 @@ export const Header: React.FC<HeaderProps> = ({ onHomeClick, apiConnected = true
     </header>
   );
 };
+
