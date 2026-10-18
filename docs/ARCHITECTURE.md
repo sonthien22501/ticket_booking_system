@@ -56,6 +56,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | M22 | Cinematic Frontend Redesign | Design system tokens, curved cinema screen, tactile luminous seats, glassmorphism modals | M6, M21 | DONE |
 | M23 | User Bookings, Passbook & Gate QR Ticket Verification | MyBookingsModal history, TicketPassModal QR passes, gate check-in API, and Saga cancellation | M4, M6, M21, M22 | DONE |
 | M24 | Admin & Organizer Studio & Live Telemetry | Admin analytics API, automated event & 2D seat provisioning, event status management, and Organizer Studio modal | M2, M4, M5, M6, M21, M23 | DONE |
+| M25 | Promotional Voucher & Coupon Engine | Percentage/fixed discount codes, minimum spend thresholds, usage limits, and real-time checkout cart calculation with anti-stacking protection | M4, M5, M6, M21, M24 | DONE |
 
 ---
 
@@ -70,11 +71,14 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 - `POST /api/inventory/reserve` -> `http://inventory-service:8082/inventory/reserve`
 - `POST /api/inventory/commit` -> `http://inventory-service:8082/inventory/commit`
 - `POST /api/inventory/release` -> `http://inventory-service:8082/inventory/release`
-- `POST /api/bookings` -> `http://booking-service:8083/bookings`
+- `POST /api/bookings` -> `http://booking-service:8083/bookings` (supports optional `voucherCode` with discount deduction)
 - `GET /api/bookings` -> `http://booking-service:8083/bookings` (filters by userId / email / JWT)
 - `GET /api/bookings/:id` -> `http://booking-service:8083/bookings/:id`
 - `POST /api/bookings/:id/cancel` -> `http://booking-service:8083/bookings/:id/cancel` (Saga inventory compensation)
 - `POST /api/bookings/verify-ticket` -> `http://booking-service:8083/bookings/verify-ticket` (gate scanner check-in)
+- `POST /api/vouchers/validate` -> `http://booking-service:8083/vouchers/validate` (validates code against subtotal, returns discount amount & final total)
+- `GET /api/admin/vouchers` -> `http://booking-service:8083/admin/vouchers` (retrieves active promotional codes & redemption counts)
+- `POST /api/admin/vouchers` -> `http://booking-service:8083/admin/vouchers` (provisions new campaign codes with usage limits & spend rules)
 - `GET /api/admin/analytics` -> `http://booking-service:8083/admin/analytics` (gross revenue, occupancy %, active events, and recent orders)
 - `PUT /api/events/:id/status` -> `http://catalog-service:8081/events/:id/status` (lifecycle toggle: ACTIVE, PAUSED, COMPLETED, CANCELLED)
 

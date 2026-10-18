@@ -9,6 +9,9 @@ import {
   VerifyTicketResult,
   AdminAnalyticsData,
   CreateEventPayload,
+  VoucherItem,
+  VoucherValidationResult,
+  CreateVoucherPayload,
 } from '../types';
 import { getStoredToken } from './auth';
 
@@ -253,6 +256,8 @@ export async function createBooking(req: BookingRequest): Promise<BookingRespons
     seat_ids: req.seats,
     ticketCount: req.seats.length,
     quantity: req.seats.length,
+    voucherCode: req.voucherCode,
+    voucher_code: req.voucherCode,
     paymentInfo: req.paymentInfo || { method: 'CREDIT_CARD', cardToken: 'tok_visa_success' },
     payment_info: req.paymentInfo || { method: 'CREDIT_CARD', card_token: 'tok_visa_success' },
     idempotencyKey: req.idempotencyKey || `idem-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
@@ -329,6 +334,8 @@ export async function createBooking(req: BookingRequest): Promise<BookingRespons
     quantity: Number(body.quantity || req.seats.length),
     seats: Array.isArray(body.seat_ids) ? body.seat_ids : Array.isArray(body.seats) ? body.seats : req.seats,
     totalPrice: Number(body.total_price ?? body.totalPrice ?? body.total_amount ?? 0),
+    voucherCode: body.voucher_code || body.voucherCode || req.voucherCode,
+    discountAmount: Number(body.discount_amount ?? body.discountAmount ?? 0),
     customerName: String(body.customer_name || body.customerName || req.customerName),
     customerEmail: String(body.customer_email || body.customerEmail || req.customerEmail),
     tickets,
@@ -538,6 +545,200 @@ export async function updateEventStatus(eventId: string, status: string): Promis
   if (!res.ok) {
     throw new Error(`Failed to update event status: HTTP ${res.status}`);
   }
+}
+
+/**
+ * Local fallback dictionary for demo/offline voucher evaluations (Milestone 25)
+ */
+const FALLBACK_VOUCHERS: Record<string, { type: 'PERCENTAGE' | 'FIXED'; value: number; minSpend: number }> = {
+  EARLYBIRD20: { type: 'PERCENTAGE', value: 20, minSpend: 50 },
+  SAVE10: { type: 'FIXED', value: 10, minSpend: 30 },
+  VIP50: { type: 'PERCENTAGE', value: 50, minSpend: 100 },
+  WELCOME5: { type: 'FIXED', value: 5, minSpend: 0 },
+};
+
+/**
+ * Validates a promotional voucher code against order subtotal (Milestone 25)
+ */
+export async function validateVoucher(
+  code: string,
+  subtotal: number,
+  eventId?: string
+): Promise<VoucherValidationResult> {
+  const normCode = code.trim().toUpperCase();
+  if (!normCode) {
+    return {
+      valid: false,
+      code: '',
+      message: 'Voucher code is required.',
+    };
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/vouchers/validate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        code: normCode,
+        subtotal,
+        eventId,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        valid: false,
+        code: normCode,
+        message: data.message || data.error || `Invalid voucher code (HTTP ${res.status})`,
+      };
+    }
+
+    return {
+      valid: Boolean(data.valid),
+      code: String(data.code || normCode),
+      discountType: data.discountType,
+      discountValue: Number(data.discountValue ?? 0),
+      discountAmount: Number(data.discountAmount ?? 0),
+      finalTotal: Number(data.finalTotal ?? subtotal),
+      minSpend: Number(data.minSpend ?? 0),
+      message: data.message,
+    };
+  } catch (err) {
+    // Network failure fallback for offline/demo resilience
+    const fallback = FALLBACK_VOUCHERS[normCode];
+    if (fallback) {
+      if (fallback.minSpend > 0 && subtotal < fallback.minSpend) {
+        return {
+          valid: false,
+          code: normCode,
+          minSpend: fallback.minSpend,
+          message: `minimum spend of $${fallback.minSpend.toFixed(2)} required for voucher '${normCode}'`,
+        };
+      }
+      let discount = fallback.type === 'PERCENTAGE' ? (subtotal * fallback.value) / 100 : fallback.value;
+      if (discount > subtotal) discount = subtotal;
+      discount = Math.round(discount * 100) / 100;
+      const finalTotal = Math.max(0, Math.round((subtotal - discount) * 100) / 100);
+
+      return {
+        valid: true,
+        code: normCode,
+        discountType: fallback.type,
+        discountValue: fallback.value,
+        discountAmount: discount,
+        finalTotal,
+        minSpend: fallback.minSpend,
+        message: `Voucher '${normCode}' applied successfully! Saved $${discount.toFixed(2)}`,
+      };
+    }
+
+    return {
+      valid: false,
+      code: normCode,
+      message: `voucher code '${normCode}' not found`,
+    };
+  }
+}
+
+/**
+ * Fetches all promotional vouchers for the Organizer Studio (Milestone 25)
+ */
+export async function fetchAdminVouchers(): Promise<VoucherItem[]> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/admin/vouchers`, { headers });
+    if (!res.ok) {
+      throw new Error(`Failed to fetch admin vouchers: HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    // Fallback vouchers for offline preview
+    return [
+      {
+        id: 'vch-earlybird20',
+        code: 'EARLYBIRD20',
+        discountType: 'PERCENTAGE',
+        discountValue: 20,
+        minSpend: 50,
+        maxUses: 200,
+        currentUses: 14,
+        active: true,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'vch-save10',
+        code: 'SAVE10',
+        discountType: 'FIXED',
+        discountValue: 10,
+        minSpend: 30,
+        maxUses: 500,
+        currentUses: 48,
+        active: true,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'vch-vip50',
+        code: 'VIP50',
+        discountType: 'PERCENTAGE',
+        discountValue: 50,
+        minSpend: 100,
+        maxUses: 50,
+        currentUses: 8,
+        active: true,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'vch-welcome5',
+        code: 'WELCOME5',
+        discountType: 'FIXED',
+        discountValue: 5,
+        minSpend: 0,
+        maxUses: 1000,
+        currentUses: 120,
+        active: true,
+        createdAt: new Date().toISOString(),
+      },
+    ];
+  }
+}
+
+/**
+ * Creates a new campaign voucher code in Organizer Studio (Milestone 25)
+ */
+export async function createAdminVoucher(payload: CreateVoucherPayload): Promise<VoucherItem> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/admin/vouchers`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody.error || `Failed to create voucher: HTTP ${res.status}`);
+  }
+
+  return res.json();
 }
 
 

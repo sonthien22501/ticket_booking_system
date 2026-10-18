@@ -13,7 +13,7 @@ interface BookingModalProps {
   conflictingSeats: string[];
   confirmedBooking: BookingResponse | null;
   onClose: () => void;
-  onSubmitBooking: (customerName: string, customerEmail: string) => void;
+  onSubmitBooking: (customerName: string, customerEmail: string, voucherCode?: string) => void;
   onRefreshMap: () => void;
   onResetBooking: () => void;
   currentUser?: User | null;
