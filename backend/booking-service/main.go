@@ -99,6 +99,8 @@ type Server struct {
 	inventoryServiceURL string
 	sagaOrchestrator    *SagaOrchestrator
 	jwtSecret           []byte
+	startTime           time.Time
+	reqCount            int64
 }
 
 func (s *Server) validateJWT(tokenString string) (*Claims, error) {
@@ -191,20 +193,6 @@ func enableCORS(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key, X-Idempotency-Key, X-User-ID, X-User-Role")
-}
-
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	enableCORS(w)
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"status":  "UP",
-		"service": "booking-service",
-	})
 }
 
 func (s *Server) handleBookings(w http.ResponseWriter, r *http.Request) {
@@ -1272,6 +1260,7 @@ func main() {
 		catalogServiceURL:   catalogURL,
 		inventoryServiceURL: inventoryURL,
 		jwtSecret:           []byte(jwtSecretKey),
+		startTime:           time.Now(),
 	}
 
 	rmq, err := InitRabbitMQ("amqp://guest:guest@rabbitmq:5672/")
@@ -1294,6 +1283,11 @@ func main() {
 	mux.HandleFunc("/health", srv.handleHealth)
 	mux.HandleFunc("/api/health", srv.handleHealth)
 	mux.HandleFunc("/api/bookings/health", srv.handleHealth)
+
+	// Metrics routes (R23)
+	mux.HandleFunc("/metrics", srv.handleMetrics)
+	mux.HandleFunc("/api/metrics", srv.handleMetrics)
+	mux.HandleFunc("/api/bookings/metrics", srv.handleMetrics)
 
 	// Bookings collection routes
 	mux.HandleFunc("/bookings", srv.handleBookings)

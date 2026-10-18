@@ -131,11 +131,13 @@ type CancelRequest struct {
 }
 
 type Server struct {
-	db       *sql.DB
-	rdb      *redis.Client
-	rmq      *RabbitMQ
-	lockMgr  *DistributedLockManager
-	stopChan chan struct{}
+	db        *sql.DB
+	rdb       *redis.Client
+	rmq       *RabbitMQ
+	lockMgr   *DistributedLockManager
+	stopChan  chan struct{}
+	startTime time.Time
+	reqCount  int64
 }
 
 func initRedis() (*redis.Client, error) {
@@ -200,20 +202,6 @@ func enableCORS(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-}
-
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	enableCORS(w)
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"status":  "UP",
-		"service": "seat-inventory-service",
-	})
 }
 
 // Background Lease Janitor: cleans up expired holds every 3 seconds
@@ -1302,10 +1290,11 @@ func main() {
 	defer rdb.Close()
 
 	srv := &Server{
-		db:       db,
-		rdb:      rdb,
-		lockMgr:  NewDistributedLockManager(rdb),
-		stopChan: make(chan struct{}),
+		db:        db,
+		rdb:       rdb,
+		lockMgr:   NewDistributedLockManager(rdb),
+		stopChan:  make(chan struct{}),
+		startTime: time.Now(),
 	}
 
 	// Start background janitor
@@ -1317,6 +1306,11 @@ func main() {
 	mux.HandleFunc("/health", srv.handleHealth)
 	mux.HandleFunc("/api/health", srv.handleHealth)
 	mux.HandleFunc("/api/inventory/health", srv.handleHealth)
+
+	// Metrics routes (R23)
+	mux.HandleFunc("/metrics", srv.handleMetrics)
+	mux.HandleFunc("/api/metrics", srv.handleMetrics)
+	mux.HandleFunc("/api/inventory/metrics", srv.handleMetrics)
 
 	// Actions
 	mux.HandleFunc("/inventory/reserve", srv.handleReserve)
