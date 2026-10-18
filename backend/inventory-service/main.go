@@ -131,13 +131,14 @@ type CancelRequest struct {
 }
 
 type Server struct {
-	db        *sql.DB
-	rdb       *redis.Client
-	rmq       *RabbitMQ
-	lockMgr   *DistributedLockManager
-	stopChan  chan struct{}
-	startTime time.Time
-	reqCount  int64
+	db          *sql.DB
+	rdb         *redis.Client
+	rmq         *RabbitMQ
+	lockMgr     *DistributedLockManager
+	broadcaster *SeatBroadcaster
+	stopChan    chan struct{}
+	startTime   time.Time
+	reqCount    int64
 }
 
 func initRedis() (*redis.Client, error) {
@@ -304,6 +305,11 @@ func (s *Server) sweepExpiredHolds() int {
 					_ = s.rmq.Publish("inventory.reservation_expired", out)
 				}
 			}
+
+			// Broadcast real-time availability update
+			if s.broadcaster != nil && len(exp.seatIDs) > 0 {
+				s.broadcaster.BroadcastMultiple(exp.eventID, "AVAILABLE", exp.seatIDs)
+			}
 		}
 		s.lockMgr.ReleaseLock(ctx, exp.eventID)
 	}
@@ -417,8 +423,12 @@ func (s *Server) handleGetInventory(w http.ResponseWriter, r *http.Request) {
 	path = strings.TrimPrefix(path, "/inventory/events/")
 	path = strings.TrimPrefix(path, "/inventory/")
 
-	// If subpath is "seats", route to seats handler
-	if strings.HasSuffix(path, "/seats") {
+	// Route seat requests
+	if strings.HasSuffix(path, "/seats/stream") || strings.HasSuffix(path, "/stream") {
+		s.handleStreamSeats(w, r)
+		return
+	}
+	if strings.HasSuffix(path, "/seats/realtime") || strings.HasSuffix(path, "/realtime") || strings.HasSuffix(path, "/seats") {
 		s.handleGetSeats(w, r)
 		return
 	}
@@ -507,7 +517,7 @@ func (s *Server) handleGetInventory(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// GET /inventory/{eventId}/seats
+// GET /inventory/{eventId}/seats and /inventory/{eventId}/seats/realtime
 func (s *Server) handleGetSeats(w http.ResponseWriter, r *http.Request) {
 	enableCORS(w)
 	if r.Method == http.MethodOptions {
@@ -520,6 +530,8 @@ func (s *Server) handleGetSeats(w http.ResponseWriter, r *http.Request) {
 	path = strings.TrimPrefix(path, "/api/inventory/")
 	path = strings.TrimPrefix(path, "/inventory/events/")
 	path = strings.TrimPrefix(path, "/inventory/")
+	path = strings.TrimSuffix(path, "/seats/realtime")
+	path = strings.TrimSuffix(path, "/realtime")
 	path = strings.TrimSuffix(path, "/seats")
 	eventID := strings.TrimSpace(path)
 
@@ -527,6 +539,7 @@ func (s *Server) handleGetSeats(w http.ResponseWriter, r *http.Request) {
 	if tierID == "" {
 		tierID = r.URL.Query().Get("tierId")
 	}
+	statusFilter := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("status")))
 
 	query := `SELECT id, event_id, tier_id, seat_row, seat_number, status, reservation_id, hold_expires_at 
 	          FROM seat_items WHERE event_id = $1`
@@ -547,32 +560,182 @@ func (s *Server) handleGetSeats(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var seats []SeatItem
+	var allSeats []SeatItem
+	summary := map[string]int{
+		"total":     0,
+		"available": 0,
+		"held":      0,
+		"booked":    0,
+	}
+
 	for rows.Next() {
-		var s SeatItem
+		var seat SeatItem
 		var resID sql.NullString
 		var expires sql.NullTime
-		if err := rows.Scan(&s.ID, &s.EventID, &s.TierID, &s.SeatRow, &s.SeatNumber, &s.Status, &resID, &expires); err == nil {
+		if err := rows.Scan(&seat.ID, &seat.EventID, &seat.TierID, &seat.SeatRow, &seat.SeatNumber, &seat.Status, &resID, &expires); err == nil {
 			if resID.Valid {
-				s.ReservationID = &resID.String
+				seat.ReservationID = &resID.String
 			}
 			if expires.Valid {
-				s.HoldExpiresAt = &expires.Time
+				seat.HoldExpiresAt = &expires.Time
 			}
-			seats = append(seats, s)
+			allSeats = append(allSeats, seat)
+			summary["total"]++
+			switch seat.Status {
+			case "AVAILABLE":
+				summary["available"]++
+			case "HOLD":
+				summary["held"]++
+			case "BOOKED":
+				summary["booked"]++
+			}
 		}
 	}
 
+	var filteredSeats []SeatItem
+	if statusFilter != "" {
+		for _, seat := range allSeats {
+			if seat.Status == statusFilter {
+				filteredSeats = append(filteredSeats, seat)
+			}
+		}
+	} else {
+		filteredSeats = allSeats
+	}
+
+	if filteredSeats == nil {
+		filteredSeats = []SeatItem{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"event_id": eventID,
+		"eventId":  eventID,
+		"summary":  summary,
+		"seats":    filteredSeats,
+	})
+}
+
+// GET /inventory/{eventId}/seats/stream (Server-Sent Events)
+func (s *Server) handleStreamSeats(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	path := r.URL.Path
+	path = strings.TrimPrefix(path, "/api/inventory/events/")
+	path = strings.TrimPrefix(path, "/api/inventory/")
+	path = strings.TrimPrefix(path, "/inventory/events/")
+	path = strings.TrimPrefix(path, "/inventory/")
+	path = strings.TrimSuffix(path, "/seats/stream")
+	path = strings.TrimSuffix(path, "/stream")
+	eventID := strings.TrimSpace(path)
+
+	if eventID == "" {
+		http.Error(w, `{"error":"Event ID is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache, no-transform")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	// Query initial seat state
+	rows, err := s.db.QueryContext(r.Context(),
+		`SELECT id, event_id, tier_id, seat_row, seat_number, status, reservation_id, hold_expires_at 
+		 FROM seat_items WHERE event_id = $1 ORDER BY seat_row ASC, seat_number ASC`,
+		eventID,
+	)
+	var seats []SeatItem
+	summary := map[string]int{
+		"total":     0,
+		"available": 0,
+		"held":      0,
+		"booked":    0,
+	}
+
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var seat SeatItem
+			var resID sql.NullString
+			var expires sql.NullTime
+			if err := rows.Scan(&seat.ID, &seat.EventID, &seat.TierID, &seat.SeatRow, &seat.SeatNumber, &seat.Status, &resID, &expires); err == nil {
+				if resID.Valid {
+					seat.ReservationID = &resID.String
+				}
+				if expires.Valid {
+					seat.HoldExpiresAt = &expires.Time
+				}
+				seats = append(seats, seat)
+				summary["total"]++
+				switch seat.Status {
+				case "AVAILABLE":
+					summary["available"]++
+				case "HOLD":
+					summary["held"]++
+				case "BOOKED":
+					summary["booked"]++
+				}
+			}
+		}
+	}
 	if seats == nil {
 		seats = []SeatItem{}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"event_id": eventID,
-		"eventId":  eventID,
-		"seats":    seats,
+	initialData, _ := json.Marshal(map[string]interface{}{
+		"eventId": eventID,
+		"seats":   seats,
+		"summary": summary,
+		"time":    time.Now().UTC(),
 	})
+
+	fmt.Fprintf(w, "event: initial_state\ndata: %s\n\n", string(initialData))
+	flusher.Flush()
+
+	// Subscribe to live broadcast updates
+	if s.broadcaster == nil {
+		return
+	}
+
+	subCh, unsubscribe := s.broadcaster.Subscribe(eventID)
+	defer unsubscribe()
+
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
+	notify := r.Context().Done()
+	for {
+		select {
+		case <-notify:
+			return
+		case event, ok := <-subCh:
+			if !ok {
+				return
+			}
+			eventData, errMarshal := json.Marshal(event)
+			if errMarshal == nil {
+				fmt.Fprintf(w, "event: seat_update\ndata: %s\n\n", string(eventData))
+				flusher.Flush()
+			}
+		case <-ticker.C:
+			fmt.Fprintf(w, "event: ping\ndata: {\"timestamp\":\"%s\"}\n\n", time.Now().UTC().Format(time.RFC3339))
+			flusher.Flush()
+		}
+	}
 }
 
 // POST /inventory/reserve
@@ -822,6 +985,11 @@ func (s *Server) handleReserve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast real-time availability update
+	if s.broadcaster != nil && len(reservedSeatIDs) > 0 {
+		s.broadcaster.BroadcastMultiple(eventID, "MUTATED_HOLD", reservedSeatIDs)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(ReserveResponse{
@@ -862,15 +1030,17 @@ func (s *Server) handleCommit(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
-	// Query reservation
 	var eventID, status string
 	var tierID sql.NullString
 	var qty int
 	var expiresAt time.Time
+	var seatIDsRaw string
 	err := s.db.QueryRowContext(ctx,
-		`SELECT event_id, tier_id, quantity, status, expires_at FROM reservations WHERE reservation_id = $1`,
+		`SELECT event_id, tier_id, quantity, status, expires_at, COALESCE(seat_ids::text, '[]') FROM reservations WHERE reservation_id = $1`,
 		resID,
-	).Scan(&eventID, &tierID, &qty, &status, &expiresAt)
+	).Scan(&eventID, &tierID, &qty, &status, &expiresAt, &seatIDsRaw)
+	var committedSeats []string
+	_ = json.Unmarshal([]byte(seatIDsRaw), &committedSeats)
 
 	if err == sql.ErrNoRows {
 		w.Header().Set("Content-Type", "application/json")
@@ -974,6 +1144,11 @@ func (s *Server) handleCommit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast real-time availability update
+	if s.broadcaster != nil && len(committedSeats) > 0 {
+		s.broadcaster.BroadcastMultiple(eventID, "BOOKED", committedSeats)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"status":        "COMMITTED",
@@ -1010,10 +1185,13 @@ func (s *Server) handleRelease(w http.ResponseWriter, r *http.Request) {
 	var eventID, status string
 	var tierID sql.NullString
 	var qty int
+	var seatIDsRaw string
 	err := s.db.QueryRowContext(ctx,
-		`SELECT event_id, tier_id, quantity, status FROM reservations WHERE reservation_id = $1`,
+		`SELECT event_id, tier_id, quantity, status, COALESCE(seat_ids::text, '[]') FROM reservations WHERE reservation_id = $1`,
 		resID,
-	).Scan(&eventID, &tierID, &qty, &status)
+	).Scan(&eventID, &tierID, &qty, &status, &seatIDsRaw)
+	var releasedSeats []string
+	_ = json.Unmarshal([]byte(seatIDsRaw), &releasedSeats)
 
 	if err == sql.ErrNoRows {
 		// Idempotent release
@@ -1096,6 +1274,11 @@ func (s *Server) handleRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast real-time availability update
+	if s.broadcaster != nil && len(releasedSeats) > 0 {
+		s.broadcaster.BroadcastMultiple(eventID, "AVAILABLE", releasedSeats)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"status":        "RELEASED",
@@ -1140,15 +1323,18 @@ func (s *Server) handleCancel(w http.ResponseWriter, r *http.Request) {
 	var dbEventID, dbStatus string
 	var dbTierID sql.NullString
 	var dbQty int
+	var dbSeatIDsRaw string
 
 	hasRes := false
+	var dbSeatIDs []string
 	if resID != "" {
 		err := s.db.QueryRowContext(ctx,
-			`SELECT event_id, tier_id, quantity, status FROM reservations WHERE reservation_id = $1`,
+			`SELECT event_id, tier_id, quantity, status, COALESCE(seat_ids::text, '[]') FROM reservations WHERE reservation_id = $1`,
 			resID,
-		).Scan(&dbEventID, &dbTierID, &dbQty, &dbStatus)
+		).Scan(&dbEventID, &dbTierID, &dbQty, &dbStatus, &dbSeatIDsRaw)
 		if err == nil {
 			hasRes = true
+			_ = json.Unmarshal([]byte(dbSeatIDsRaw), &dbSeatIDs)
 			if eventID == "" {
 				eventID = dbEventID
 			}
@@ -1263,6 +1449,15 @@ func (s *Server) handleCancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast real-time availability update
+	if s.broadcaster != nil {
+		if len(seatIDs) > 0 {
+			s.broadcaster.BroadcastMultiple(eventID, "AVAILABLE", seatIDs)
+		} else if len(dbSeatIDs) > 0 {
+			s.broadcaster.BroadcastMultiple(eventID, "AVAILABLE", dbSeatIDs)
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":        "CANCELLED",
@@ -1290,11 +1485,12 @@ func main() {
 	defer rdb.Close()
 
 	srv := &Server{
-		db:        db,
-		rdb:       rdb,
-		lockMgr:   NewDistributedLockManager(rdb),
-		stopChan:  make(chan struct{}),
-		startTime: time.Now(),
+		db:          db,
+		rdb:         rdb,
+		lockMgr:     NewDistributedLockManager(rdb),
+		broadcaster: NewSeatBroadcaster(rdb),
+		stopChan:    make(chan struct{}),
+		startTime:   time.Now(),
 	}
 
 	// Start background janitor

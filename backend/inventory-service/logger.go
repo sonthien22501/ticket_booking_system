@@ -182,6 +182,12 @@ func (rw *statusResponseWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
+func (rw *statusResponseWriter) Flush() {
+	if flusher, ok := rw.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
 // TracingMiddleware intercepts HTTP requests to extract/generate correlation IDs,
 // attach them to the request context, set response headers, and output structured access logs.
 func TracingMiddleware(serviceName string, next http.Handler) http.Handler {
