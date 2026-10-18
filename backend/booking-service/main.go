@@ -28,27 +28,27 @@ type Claims struct {
 }
 
 type PaymentInfo struct {
-	Method    string `json:"method"`
-	CardToken string `json:"cardToken"`
+	Method       string `json:"method"`
+	CardToken    string `json:"cardToken"`
 	CardTokenAlt string `json:"card_token"`
 }
 
 type CreateBookingRequest struct {
-	EventID        string       `json:"eventId"`
-	EventIDAlt     string       `json:"event_id"`
-	UserID         string       `json:"userId"`
-	UserIDAlt      string       `json:"user_id"`
-	CustomerName   string       `json:"customerName"`
-	CustomerNameAlt string      `json:"customer_name"`
-	CustomerEmail  string       `json:"customerEmail"`
-	CustomerEmailAlt string     `json:"customer_email"`
-	TierID         string       `json:"tierId"`
-	TierIDAlt      string       `json:"tier_id"`
-	Seats          []string     `json:"seats"`
-	SeatIDsAlt     []string     `json:"seat_ids"`
-	TicketCount    int          `json:"ticketCount"`
-	QuantityAlt    int          `json:"quantity"`
-	PaymentInfo    *PaymentInfo `json:"paymentInfo"`
+	EventID           string       `json:"eventId"`
+	EventIDAlt        string       `json:"event_id"`
+	UserID            string       `json:"userId"`
+	UserIDAlt         string       `json:"user_id"`
+	CustomerName      string       `json:"customerName"`
+	CustomerNameAlt   string       `json:"customer_name"`
+	CustomerEmail     string       `json:"customerEmail"`
+	CustomerEmailAlt  string       `json:"customer_email"`
+	TierID            string       `json:"tierId"`
+	TierIDAlt         string       `json:"tier_id"`
+	Seats             []string     `json:"seats"`
+	SeatIDsAlt        []string     `json:"seat_ids"`
+	TicketCount       int          `json:"ticketCount"`
+	QuantityAlt       int          `json:"quantity"`
+	PaymentInfo       *PaymentInfo `json:"paymentInfo"`
 	PaymentInfoAlt    *PaymentInfo `json:"payment_info"`
 	IdempotencyKey    string       `json:"idempotencyKey"`
 	IdempotencyKeyAlt string       `json:"idempotency_key"`
@@ -98,6 +98,7 @@ type Server struct {
 	catalogServiceURL   string
 	inventoryServiceURL string
 	sagaOrchestrator    *SagaOrchestrator
+	webhookManager      *WebhookManager
 	jwtSecret           []byte
 	startTime           time.Time
 	reqCount            int64
@@ -475,7 +476,7 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if sagaRes.Status == "SUCCESS" {
-		
+
 		// generate tickets
 		tx, _ := s.db.Begin()
 		var tickets []Ticket
@@ -526,15 +527,49 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 			_ = s.rdb.Set(context.Background(), redisIdemKey, string(finalJSON), 24*time.Hour).Err()
 		}
 
+		// Trigger Partner Webhooks & Asynchronous Domain Events (Milestone 19 / R26, R22)
+		if s.webhookManager != nil {
+			go func(b *Booking) {
+				eventID := b.EventID
+				if eventID == "" {
+					eventID = b.ID
+				}
+				// 1. Order Placed / Confirmed Event
+
+				_, _ = s.webhookManager.DispatchEvent(eventID, "order.placed", map[string]interface{}{
+					"bookingId":     b.ID,
+					"customerEmail": b.CustomerEmail,
+					"customerName":  b.CustomerName,
+					"seats":         b.SeatIDs,
+					"totalAmount":   b.TotalAmount,
+					"timestamp":     time.Now().UTC().Format(time.RFC3339),
+				})
+
+				// 2. Revenue Threshold Event Check
+				var totalRevenue float64
+				if s.db != nil {
+					_ = s.db.QueryRow("SELECT COALESCE(SUM(total_amount), 0) FROM bookings WHERE event_id = $1 AND status = 'CONFIRMED'", eventID).Scan(&totalRevenue)
+					if totalRevenue > 0 {
+						_, _ = s.webhookManager.DispatchEvent(eventID, "event.revenue_threshold", map[string]interface{}{
+							"currentRevenue": totalRevenue,
+							"currency":       "USD",
+							"timestamp":      time.Now().UTC().Format(time.RFC3339),
+						})
+					}
+				}
+			}(finalBooking)
+		}
+
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(finalBooking)
+
 	} else if sagaRes.Status == "FAILED" {
 		if redisIdemKey != "" && s.rdb != nil {
 			s.rdb.Del(context.Background(), redisIdemKey)
 		}
 		w.WriteHeader(http.StatusConflict) // Or 402 Payment Required depending on error, keep simple
 		json.NewEncoder(w).Encode(map[string]string{
-			"error": "BOOKING_FAILED",
+			"error":   "BOOKING_FAILED",
 			"message": sagaRes.Error,
 		})
 	} else {
@@ -543,7 +578,7 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusAccepted)
 		json.NewEncoder(w).Encode(map[string]string{
-			"status": "PROCESSING",
+			"status":    "PROCESSING",
 			"bookingId": bookingID,
 		})
 	}
@@ -580,7 +615,6 @@ func (s *Server) getBookingByIdempotencyKey(key string) (*Booking, error) {
 	b.Tickets = s.fetchTicketsForBooking(b.ID)
 	return &b, nil
 }
-
 
 func (s *Server) releaseInventory(ctx context.Context, reservationID string) {
 	if reservationID == "" {
@@ -1277,6 +1311,9 @@ func main() {
 		log.Printf("Warning: failed to init waitlist schema: %v", err)
 	}
 
+	// Initialize Partner Webhook Manager (Milestone 19 / R26, R22)
+	srv.webhookManager = NewWebhookManager(srv.db, srv.rmq)
+
 	mux := http.NewServeMux()
 
 	// Health routes
@@ -1312,6 +1349,16 @@ func main() {
 	mux.HandleFunc("/api/dlq/retry", srv.handleDLQRetry)
 	mux.HandleFunc("/dlq/simulate", srv.handleDLQSimulate)
 	mux.HandleFunc("/api/dlq/simulate", srv.handleDLQSimulate)
+
+	// Partner Webhook subsystem routes (Milestone 19 / R26, R22)
+	mux.HandleFunc("/webhooks/subscriptions", srv.handleWebhookSubscriptions)
+	mux.HandleFunc("/api/webhooks/subscriptions", srv.handleWebhookSubscriptions)
+	mux.HandleFunc("/webhooks/subscriptions/", srv.handleWebhookSubscriptionByID)
+	mux.HandleFunc("/api/webhooks/subscriptions/", srv.handleWebhookSubscriptionByID)
+	mux.HandleFunc("/webhooks/deliveries", srv.handleWebhookDeliveries)
+	mux.HandleFunc("/api/webhooks/deliveries", srv.handleWebhookDeliveries)
+	mux.HandleFunc("/webhooks/dispatch", srv.handleWebhookTestDispatch)
+	mux.HandleFunc("/api/webhooks/dispatch", srv.handleWebhookTestDispatch)
 
 	serverAddr := ":" + port
 	log.Printf("Booking Service starting on %s", serverAddr)

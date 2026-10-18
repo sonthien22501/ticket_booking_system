@@ -1061,7 +1061,132 @@ paths:
                     type: string
                     example: SIMULATED
 
+  /api/webhooks/subscriptions:
+    post:
+      tags:
+        - Webhooks
+      summary: Register partner webhook subscription (R26, R22)
+      description: Subscribes an external partner endpoint to event lifecycle webhooks (e.g., event capacity reached, revenue threshold) with HMAC-SHA256 signatures.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetUrl, events]
+              properties:
+                eventId:
+                  type: string
+                  example: evt-101
+                targetUrl:
+                  type: string
+                  example: https://partner.example.com/webhooks/tickets
+                secret:
+                  type: string
+                  example: partner-secret-key-123
+                events:
+                  type: array
+                  items:
+                    type: string
+                  example: ["event.capacity_reached", "event.revenue_threshold"]
+      responses:
+        '201':
+          description: Subscription registered successfully
+        '400':
+          description: Bad Request
+    get:
+      tags:
+        - Webhooks
+      summary: List partner webhook subscriptions
+      description: Retrieves all active partner webhook subscriptions, optionally filtered by eventId.
+      parameters:
+        - name: eventId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of subscriptions
+
+  /api/webhooks/subscriptions/{id}:
+    get:
+      tags:
+        - Webhooks
+      summary: Get webhook subscription details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Subscription details
+        '404':
+          description: Subscription not found
+    delete:
+      tags:
+        - Webhooks
+      summary: Delete webhook subscription
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Subscription removed
+        '404':
+          description: Subscription not found
+
+  /api/webhooks/deliveries:
+    get:
+      tags:
+        - Webhooks
+      summary: Query webhook delivery audit logs
+      parameters:
+        - name: subscriptionId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: List of delivery audit entries
+
+  /api/webhooks/dispatch:
+    post:
+      tags:
+        - Webhooks
+      summary: Test dispatch a webhook event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                eventId:
+                  type: string
+                eventType:
+                  type: string
+                  example: event.capacity_reached
+                data:
+                  type: object
+      responses:
+        '200':
+          description: Event dispatched to matching subscribers
+
 components:
+
   securitySchemes:
     BearerAuth:
       type: http

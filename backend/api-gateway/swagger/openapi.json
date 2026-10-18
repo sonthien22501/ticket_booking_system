@@ -976,7 +976,7 @@
       "email": "engineering@tickets.com",
       "name": "System Engineering Team"
     },
-    "description": "Production-grade OpenAPI 3.0 specification for the Distributed Ticket Booking System.\nCovers Authentication, Event Catalog, Seat Inventory, Booking \u0026 Saga Orchestration,\nWaitlist Management, and RabbitMQ Dead Letter Queue (DLQ) operations.\n",
+    "description": "Production-grade OpenAPI 3.0 specification for the Distributed Ticket Booking System.\nCovers Authentication, Event Catalog, Seat Inventory, Booking & Saga Orchestration,\nWaitlist Management, and RabbitMQ Dead Letter Queue (DLQ) operations.\n",
     "title": "Distributed Ticket Booking System API",
     "version": "1.0.0"
   },
@@ -2087,7 +2087,11 @@
             "name": "status",
             "required": false,
             "schema": {
-              "enum": ["AVAILABLE", "HOLD", "BOOKED"],
+              "enum": [
+                "AVAILABLE",
+                "HOLD",
+                "BOOKED"
+              ],
               "type": "string"
             }
           }
@@ -2099,14 +2103,24 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "eventId": { "type": "string" },
+                    "eventId": {
+                      "type": "string"
+                    },
                     "summary": {
                       "type": "object",
                       "properties": {
-                        "total": { "type": "integer" },
-                        "available": { "type": "integer" },
-                        "held": { "type": "integer" },
-                        "booked": { "type": "integer" }
+                        "total": {
+                          "type": "integer"
+                        },
+                        "available": {
+                          "type": "integer"
+                        },
+                        "held": {
+                          "type": "integer"
+                        },
+                        "booked": {
+                          "type": "integer"
+                        }
                       }
                     },
                     "seats": {
@@ -2147,7 +2161,11 @@
             "name": "status",
             "required": false,
             "schema": {
-              "enum": ["AVAILABLE", "HOLD", "BOOKED"],
+              "enum": [
+                "AVAILABLE",
+                "HOLD",
+                "BOOKED"
+              ],
               "type": "string"
             }
           }
@@ -2159,14 +2177,24 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "eventId": { "type": "string" },
+                    "eventId": {
+                      "type": "string"
+                    },
                     "summary": {
                       "type": "object",
                       "properties": {
-                        "total": { "type": "integer" },
-                        "available": { "type": "integer" },
-                        "held": { "type": "integer" },
-                        "booked": { "type": "integer" }
+                        "total": {
+                          "type": "integer"
+                        },
+                        "available": {
+                          "type": "integer"
+                        },
+                        "held": {
+                          "type": "integer"
+                        },
+                        "booked": {
+                          "type": "integer"
+                        }
                       }
                     },
                     "seats": {
@@ -2585,10 +2613,84 @@
             "description": "Operational telemetry metrics"
           }
         },
-        "summary": "Service Metrics \u0026 Actuator Telemetry (R23)",
+        "summary": "Service Metrics & Actuator Telemetry (R23)",
         "tags": [
           "System"
         ]
+      }
+    },
+    "/api/webhooks/subscriptions": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Register partner webhook subscription (R26, R22)",
+        "responses": {
+          "201": {
+            "description": "Subscription registered"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "List partner webhook subscriptions",
+        "responses": {
+          "200": {
+            "description": "List of subscriptions"
+          }
+        }
+      }
+    },
+    "/api/webhooks/subscriptions/{id}": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Get webhook subscription details",
+        "responses": {
+          "200": {
+            "description": "Subscription details"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Delete webhook subscription",
+        "responses": {
+          "200": {
+            "description": "Subscription removed"
+          }
+        }
+      }
+    },
+    "/api/webhooks/deliveries": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Query webhook delivery audit logs",
+        "responses": {
+          "200": {
+            "description": "List of delivery audit entries"
+          }
+        }
+      }
+    },
+    "/api/webhooks/dispatch": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Test dispatch a webhook event",
+        "responses": {
+          "200": {
+            "description": "Event dispatched"
+          }
+        }
       }
     }
   },

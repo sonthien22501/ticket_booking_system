@@ -87,7 +87,7 @@ Explanation: When a user cancels a confirmed ticket or abandons a checkout, the 
 **R21: The system should provide booking cancellation functionality to users.** ✅ (Done successfully)  
 Explanation: Users may cancel pending or completed reservations, triggering inventory compensation workflows.
 
-**R22: The system should provide asynchronous event messaging between microservices.**  
+**R22: The system should provide asynchronous event messaging between microservices.** ✅ (Done successfully)  
 Explanation: Message brokers (like Kafka or RabbitMQ) decouple service dependencies, publishing domain events (e.g., `OrderPlaced`, `PaymentFailed`) across service boundaries.
 
 **R23: The system should provide health check and metrics endpoints.** ✅ (Done successfully)  
@@ -101,8 +101,9 @@ Explanation: Modal dialogues prompt users to confirm seat selections and payment
 **R25: The system can provide visual interactive seat map visualization to users.** ✅ (Done successfully)  
 Explanation: Renders an interactive 2D floor grid allowing users to click and select specific seats directly.
 
-**R26: The system can provide webhook notifications to external partners.**  
+**R26: The system can provide webhook notifications to external partners.** ✅ (Done successfully)  
 Explanation: Emits HTTP callbacks to third-party event organizers when an event reaches maximum capacity or triggers specific revenue thresholds.
+
 
 **R27: The system can provide dynamic surge pricing for highly contested events.**  
 Explanation: Adjusts real-time ticket pricing based on inventory scarcity and current booking velocity.
