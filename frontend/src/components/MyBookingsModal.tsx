@@ -1,8 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { BookingResponse, User, TicketItem } from '../types';
-import { fetchUserBookings, cancelBooking, downloadInvoicePdf } from '../services/api';
+import { BookingResponse, User, TicketItem, WaitlistEntry } from '../types';
+import {
+  fetchUserBookings,
+  cancelBooking,
+  downloadInvoicePdf,
+  fetchUserWaitlists,
+  cancelWaitlistEntry,
+  claimWaitlistReservation,
+} from '../services/api';
 import { formatCurrency } from '../services/currency';
 import { TicketPassModal } from './TicketPassModal';
+import { TicketTransferModal } from './TicketTransferModal';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import {
   XIcon,
@@ -16,6 +24,8 @@ import {
   RefreshCwIcon,
   QrCodeIcon,
   FileTextIcon,
+  ClockIcon,
+  Share2Icon,
 } from './Icons';
 
 interface MyBookingsModalProps {
@@ -36,9 +46,20 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
   const [bookings, setBookings] = useState<BookingResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [filterTab, setFilterTab] = useState<'ALL' | 'CONFIRMED' | 'CANCELLED'>('ALL');
+  const [filterTab, setFilterTab] = useState<'ALL' | 'CONFIRMED' | 'CANCELLED' | 'WAITLIST'>('ALL');
   const [guestEmail, setGuestEmail] = useState<string>('');
   const [copiedRef, setCopiedRef] = useState<string | null>(null);
+
+  // Waitlist state
+  const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntry[]>([]);
+  const [waitlistLoading, setWaitlistLoading] = useState<boolean>(false);
+  const [claimingWaitlistId, setClaimingWaitlistId] = useState<string | null>(null);
+
+  // Ticket transfer modal state
+  const [transferTicketState, setTransferTicketState] = useState<{
+    booking: BookingResponse;
+    ticket: TicketItem;
+  } | null>(null);
 
   // Ticket pass modal state
   const [activeTicket, setActiveTicket] = useState<{ booking: BookingResponse; ticket: TicketItem } | null>(null);
@@ -77,14 +98,56 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
     }
   }, [currentUser, guestEmail]);
 
+  const loadWaitlists = useCallback(async (emailOverride?: string) => {
+    setWaitlistLoading(true);
+    try {
+      const emailToUse = emailOverride !== undefined ? emailOverride : (currentUser?.email || guestEmail);
+      const list = await fetchUserWaitlists({
+        userId: currentUser?.id,
+        email: emailToUse || undefined,
+      });
+      setWaitlistEntries(list);
+    } catch {
+      // Ignore waitlist fetch errors silently
+    } finally {
+      setWaitlistLoading(false);
+    }
+  }, [currentUser, guestEmail]);
+
   useEffect(() => {
     if (isOpen) {
       if (currentUser?.email) {
         setGuestEmail(currentUser.email);
       }
       loadBookings();
+      loadWaitlists();
     }
-  }, [isOpen, currentUser, loadBookings]);
+  }, [isOpen, currentUser, loadBookings, loadWaitlists]);
+
+  const handleCancelWaitlist = async (id: string) => {
+    try {
+      await cancelWaitlistEntry(id, currentUser?.id);
+      setWaitlistEntries((prev) => prev.filter((w) => w.id !== id));
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message || 'Failed to cancel waitlist entry';
+      setError(msg);
+    }
+  };
+
+  const handleClaimWaitlist = async (id: string) => {
+    setClaimingWaitlistId(id);
+    setError(null);
+    try {
+      await claimWaitlistReservation(id);
+      await Promise.all([loadBookings(), loadWaitlists()]);
+      setFilterTab('CONFIRMED');
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message || 'Failed to claim waitlist hold';
+      setError(msg);
+    } finally {
+      setClaimingWaitlistId(null);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -210,7 +273,7 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
 
           {/* Filter Tabs */}
           <div className="px-6 py-2.5 bg-slate-950/40 border-b border-indigo-950 flex items-center gap-2">
-            {(['ALL', 'CONFIRMED', 'CANCELLED'] as const).map((tab) => (
+            {(['ALL', 'CONFIRMED', 'CANCELLED', 'WAITLIST'] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -221,12 +284,16 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                {tab === 'ALL' ? 'All Bookings' : tab.charAt(0) + tab.slice(1).toLowerCase()}
+                {tab === 'ALL'
+                  ? 'All Bookings'
+                  : tab === 'WAITLIST'
+                  ? `Waitlist Queue (${waitlistEntries.length})`
+                  : tab.charAt(0) + tab.slice(1).toLowerCase()}
               </button>
             ))}
           </div>
 
-          {/* Main Bookings List */}
+          {/* Main Bookings List or Waitlist List */}
           <div className="p-6 overflow-y-auto space-y-4 flex-1">
             {error && (
               <div className="p-3 rounded-xl border border-rose-500/40 bg-rose-950/40 text-rose-200 flex items-center gap-2 text-xs">
@@ -235,7 +302,132 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
               </div>
             )}
 
-            {loading ? (
+            {filterTab === 'WAITLIST' ? (
+              waitlistLoading ? (
+                <div className="py-12 text-center text-slate-400 text-sm">
+                  <RefreshCwIcon size={24} className="animate-spin mx-auto mb-2 text-cyan-400" />
+                  Checking waitlist queue status...
+                </div>
+              ) : waitlistEntries.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 space-y-3">
+                  <div className="p-4 rounded-full bg-slate-800/40 w-16 h-16 mx-auto flex items-center justify-center text-slate-500">
+                    <ClockIcon size={32} />
+                  </div>
+                  <h4 className="text-base font-semibold text-slate-200">No active waitlist requests</h4>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    When high-demand events sell out, you can join the queue to be allocated tickets automatically.
+                  </p>
+                  {onBrowseEvents && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onBrowseEvents();
+                      }}
+                      className="mt-2 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition-colors cursor-pointer"
+                    >
+                      Browse Events
+                    </button>
+                  )}
+                </div>
+              ) : (
+                waitlistEntries.map((w) => {
+                  const isPromoted = w.status === 'PROMOTED';
+                  const isPending = w.status === 'PENDING';
+                  const isExpired = w.status === 'EXPIRED';
+
+                  return (
+                    <div
+                      key={w.id}
+                      className={`p-5 rounded-2xl border transition-all ${
+                        isPromoted
+                          ? 'bg-gradient-to-br from-emerald-950/70 via-slate-900 to-cyan-950/70 border-emerald-500/60 shadow-xl shadow-emerald-950/50'
+                          : 'bg-slate-950/60 border-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-400 block mb-0.5">
+                            Priority Queue Request
+                          </span>
+                          <h4 className="text-base font-bold text-slate-100">{w.eventTitle || 'Event'}</h4>
+                          <p className="text-xs text-slate-400">
+                            Requested by: {w.customerName} ({w.customerEmail})
+                          </p>
+                        </div>
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase ${
+                            isPromoted
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse'
+                              : isExpired
+                              ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                              : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                          }`}
+                        >
+                          {w.status}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs bg-slate-900/60 p-3 rounded-xl border border-slate-800 mb-3">
+                        <div>
+                          <span className="block text-slate-400 text-[10px] uppercase">Queue Position</span>
+                          <span className="font-mono font-bold text-sm text-cyan-300">
+                            {isPromoted ? 'Allocated! 🎉' : `#${w.position || 1} in line`}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="block text-slate-400 text-[10px] uppercase">Seats Needed</span>
+                          <span className="font-bold text-slate-200">{w.quantity} seat{w.quantity > 1 ? 's' : ''}</span>
+                        </div>
+                        <div>
+                          <span className="block text-slate-400 text-[10px] uppercase">Tier</span>
+                          <span className="text-slate-200">{w.tierName || 'Standard'}</span>
+                        </div>
+                      </div>
+
+                      {isPromoted && (
+                        <div className="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-xs text-emerald-200 space-y-1.5 mb-3">
+                          <div className="flex items-center gap-2 font-semibold">
+                            <CheckIcon size={16} className="text-emerald-400" />
+                            <span>Seats successfully reserved for you! 15-Minute Purchase Window.</span>
+                          </div>
+                          {w.expiresAt && (
+                            <div className="flex items-center gap-1.5 text-slate-300 text-[11px]">
+                              <ClockIcon size={13} className="text-amber-400" />
+                              <span>Expires at: {new Date(w.expiresAt).toLocaleTimeString()}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex justify-end items-center gap-2">
+                        {isPromoted && (
+                          <button
+                            type="button"
+                            onClick={() => handleClaimWaitlist(w.id)}
+                            disabled={claimingWaitlistId === w.id}
+                            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-lg shadow-emerald-900/30 cursor-pointer disabled:opacity-50"
+                          >
+                            <CheckIcon size={14} />
+                            {claimingWaitlistId === w.id ? 'Claiming Hold...' : 'Claim & Confirm Ticket'}
+                          </button>
+                        )}
+                        {isPending && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelWaitlist(w.id)}
+                            className="px-3 py-1.5 rounded-xl border border-rose-500/30 hover:border-rose-500 bg-rose-950/20 hover:bg-rose-900/40 text-rose-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <TrashIcon size={14} />
+                            Leave Waitlist
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )
+            ) : loading ? (
               <div className="py-12 text-center text-slate-400 text-sm">
                 <RefreshCwIcon size={24} className="animate-spin mx-auto mb-2 text-amber-400" />
                 Retrieving your reservations...
@@ -369,14 +561,32 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
                                   {t.ticketCode}
                                 </span>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => setActiveTicket({ booking: b, ticket: t })}
-                                className="px-2.5 py-1 rounded-lg bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 hover:text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                              >
-                                <QrCodeIcon size={12} />
-                                View Pass
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                {t.status === 'VALID' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setTransferTicketState({ booking: b, ticket: t })}
+                                    className="px-2.5 py-1 rounded-lg bg-amber-900/40 hover:bg-amber-800 text-amber-300 hover:text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer border border-amber-500/30"
+                                    title="Transfer ticket to friend"
+                                  >
+                                    <Share2Icon size={12} />
+                                    Transfer
+                                  </button>
+                                )}
+                                {t.status === 'TRANSFERRED' && (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700">
+                                    TRANSFERRED
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveTicket({ booking: b, ticket: t })}
+                                  className="px-2.5 py-1 rounded-lg bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 hover:text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                                >
+                                  <QrCodeIcon size={12} />
+                                  View Pass
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -421,6 +631,7 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
           ticket={activeTicket.ticket}
           isOpen={Boolean(activeTicket)}
           onClose={() => setActiveTicket(null)}
+          onTransferTicket={(b, t) => setTransferTicketState({ booking: b, ticket: t })}
           onTicketStatusUpdated={(code, newStatus) => {
             setBookings((prev) =>
               prev.map((b) => ({
@@ -430,6 +641,21 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
                 ),
               }))
             );
+          }}
+        />
+      )}
+
+      {/* Ticket Transfer Modal */}
+      {transferTicketState && (
+        <TicketTransferModal
+          isOpen={Boolean(transferTicketState)}
+          booking={transferTicketState.booking}
+          ticket={transferTicketState.ticket}
+          currentUser={currentUser}
+          onClose={() => setTransferTicketState(null)}
+          onTicketTransferred={async () => {
+            setTransferTicketState(null);
+            await loadBookings();
           }}
         />
       )}

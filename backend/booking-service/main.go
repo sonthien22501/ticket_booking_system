@@ -1280,6 +1280,18 @@ func (s *Server) handleVerifyTicket(w http.ResponseWriter, r *http.Request) {
 	// Action handling: CHECK_IN vs VERIFY
 	action := strings.ToUpper(strings.TrimSpace(req.Action))
 	if action == "CHECK_IN" {
+		if tkt.Status == "TRANSFERRED" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(VerifyTicketResponse{
+				Valid:   false,
+				Status:  "TRANSFERRED",
+				Message: "Admission denied: Ticket has been transferred to another attendee and is no longer valid",
+				Ticket:  &tkt,
+				Booking: &b,
+			})
+			return
+		}
 		if tkt.Status == "USED" {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusConflict)
@@ -1314,12 +1326,21 @@ func (s *Server) handleVerifyTicket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Default: VERIFY
+	verifyMsg := "Ticket is valid for admission"
+	if tkt.Status == "TRANSFERRED" {
+		verifyMsg = "Ticket has been transferred to another attendee and is no longer valid"
+	} else if tkt.Status == "USED" {
+		verifyMsg = "Ticket has already been redeemed and checked in"
+	} else if tkt.Status == "CANCELLED" {
+		verifyMsg = "Ticket has been cancelled"
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(VerifyTicketResponse{
 		Valid:   tkt.Status == "VALID",
 		Status:  tkt.Status,
-		Message: "Ticket is valid for admission",
+		Message: verifyMsg,
 		Ticket:  &tkt,
 		Booking: &b,
 	})
@@ -1815,6 +1836,9 @@ func main() {
 	if err := srv.initVoucherSchema(context.Background()); err != nil {
 		log.Printf("Warning: failed to init voucher schema: %v", err)
 	}
+	if err := srv.initTicketTransferSchema(context.Background()); err != nil {
+		log.Printf("Warning: failed to init ticket transfer schema: %v", err)
+	}
 
 	// Initialize Partner Webhook Manager (Milestone 19 / R26, R22)
 	srv.webhookManager = NewWebhookManager(srv.db, srv.rmq)
@@ -1838,6 +1862,12 @@ func main() {
 	// Ticket verification and pass check-in routes (Milestone 23)
 	mux.HandleFunc("/bookings/verify-ticket", srv.handleVerifyTicket)
 	mux.HandleFunc("/api/bookings/verify-ticket", srv.handleVerifyTicket)
+
+	// Digital Ticket Transfer routes (Milestone 27)
+	mux.HandleFunc("/tickets/transfer", srv.handleTransferTicket)
+	mux.HandleFunc("/api/tickets/transfer", srv.handleTransferTicket)
+	mux.HandleFunc("/tickets/transfers", srv.handleListTransfers)
+	mux.HandleFunc("/api/tickets/transfers", srv.handleListTransfers)
 
 	// Admin and Organizer Analytics (Milestone 24)
 	mux.HandleFunc("/admin/analytics", srv.handleAdminAnalytics)

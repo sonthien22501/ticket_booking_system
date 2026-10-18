@@ -8,6 +8,7 @@ import {
   CheckCircleIcon,
   AlertCircleIcon,
   ScanIcon,
+  Share2Icon,
 } from './Icons';
 
 interface TicketPassModalProps {
@@ -16,6 +17,7 @@ interface TicketPassModalProps {
   isOpen: boolean;
   onClose: () => void;
   onTicketStatusUpdated?: (ticketCode: string, newStatus: string) => void;
+  onTransferTicket?: (booking: BookingResponse, ticket: TicketItem) => void;
 }
 
 export const TicketPassModal: React.FC<TicketPassModalProps> = ({
@@ -24,6 +26,7 @@ export const TicketPassModal: React.FC<TicketPassModalProps> = ({
   isOpen,
   onClose,
   onTicketStatusUpdated,
+  onTransferTicket,
 }) => {
   const [currentStatus, setCurrentStatus] = useState<string>(ticket.status || 'VALID');
   const [checkingIn, setCheckingIn] = useState<boolean>(false);
@@ -193,6 +196,19 @@ export const TicketPassModal: React.FC<TicketPassModalProps> = ({
               >
                 <ScanIcon size={16} />
                 {checkingIn ? 'Verifying...' : 'Simulate Gate Check-In'}
+              </button>
+            )}
+            {!isCancelled && !isUsed && currentStatus === 'VALID' && onTransferTicket && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onTransferTicket(booking, ticket);
+                }}
+                className="py-2.5 px-4 rounded-xl bg-indigo-900/60 hover:bg-indigo-800 text-amber-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-amber-500/30"
+              >
+                <Share2Icon size={14} />
+                Transfer
               </button>
             )}
             <button

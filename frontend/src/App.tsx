@@ -9,6 +9,7 @@ import { BookingModal } from './components/BookingModal';
 import { AuthModal } from './components/AuthModal';
 import { MyBookingsModal } from './components/MyBookingsModal';
 import { AdminDashboardModal } from './components/AdminDashboardModal';
+import { WaitlistModal } from './components/WaitlistModal';
 import { AlertNotification } from './components/AlertNotification';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { Theme, getInitialTheme, applyThemeToDocument, toggleThemeValue } from './services/theme';
@@ -27,6 +28,7 @@ export const App: React.FC = () => {
   const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login');
   const [isMyBookingsOpen, setIsMyBookingsOpen] = useState<boolean>(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
+  const [waitlistEvent, setWaitlistEvent] = useState<EventItem | null>(null);
 
   // Catalog State
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -386,6 +388,7 @@ export const App: React.FC = () => {
             error={eventsError}
             onRefresh={loadEvents}
             onSelectEvent={handleSelectEvent}
+            onJoinWaitlist={(event) => setWaitlistEvent(event)}
           />
         )}
       </main>
@@ -486,6 +489,23 @@ export const App: React.FC = () => {
           }
         }}
       />
+
+      {/* Priority Waitlist Modal (Milestone 27) */}
+      {waitlistEvent && (
+        <WaitlistModal
+          isOpen={Boolean(waitlistEvent)}
+          event={waitlistEvent}
+          currentUser={currentUser}
+          onClose={() => setWaitlistEvent(null)}
+          onOpenPassbook={() => setIsMyBookingsOpen(true)}
+          onWaitlistJoined={(entry) => {
+            setGeneralAlert({
+              type: 'success',
+              message: `You're on the waitlist for ${waitlistEvent.title}! Position #${entry.position || 1} in queue.`,
+            });
+          }}
+        />
+      )}
 
       {/* Organizer Studio & Live Telemetry Modal (Milestone 24) */}
       <AdminDashboardModal

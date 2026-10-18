@@ -11,6 +11,7 @@ interface EventCatalogProps {
   error: string | null;
   onRefresh: () => void;
   onSelectEvent: (event: EventItem) => void;
+  onJoinWaitlist?: (event: EventItem) => void;
 }
 
 export const EventCatalog: React.FC<EventCatalogProps> = ({
@@ -19,6 +20,7 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
   error,
   onRefresh,
   onSelectEvent,
+  onJoinWaitlist,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -111,7 +113,12 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
       {!loading && filteredEvents.length > 0 && (
         <div className="events-grid">
           {filteredEvents.map((evt) => (
-            <EventCard key={evt.id} event={evt} onSelectEvent={onSelectEvent} />
+            <EventCard
+              key={evt.id}
+              event={evt}
+              onSelectEvent={onSelectEvent}
+              onJoinWaitlist={onJoinWaitlist}
+            />
           ))}
         </div>
       )}
