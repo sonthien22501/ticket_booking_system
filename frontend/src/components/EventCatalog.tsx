@@ -65,12 +65,14 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
             />
           </div>
 
-          <div className="category-pills">
+          <div className="category-pills" role="tablist" aria-label="Event category filter">
             {categories.map((cat) => (
               <button
                 key={cat}
                 type="button"
-                className={`category-pill ${selectedCategory === cat ? 'active' : ''}`}
+                role="tab"
+                aria-selected={selectedCategory === cat}
+                className={`category-pill cursor-pointer ${selectedCategory === cat ? 'active' : ''}`}
                 onClick={() => setSelectedCategory(cat)}
               >
                 {cat}
@@ -99,7 +101,7 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
       {!loading && !error && filteredEvents.length === 0 && (
         <div className="empty-catalog-state">
           <p className="empty-title">No events found matching your criteria.</p>
-          <button type="button" onClick={onRefresh} className="btn-refresh">
+          <button type="button" onClick={onRefresh} className="btn-refresh cursor-pointer">
             <RefreshCwIcon size={16} className="mr-2" />
             Refresh Catalog
           </button>

@@ -125,7 +125,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </p>
           <button
             type="button"
-            className="modal-close-btn"
+            className="modal-close-btn cursor-pointer"
             onClick={onClose}
             aria-label="Close authentication modal"
           >
@@ -139,7 +139,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             type="button"
             role="tab"
             aria-selected={activeTab === 'login'}
-            className={`auth-tab ${activeTab === 'login' ? 'active' : ''}`}
+            className={`auth-tab cursor-pointer ${activeTab === 'login' ? 'active' : ''}`}
             onClick={() => {
               setActiveTab('login');
               setErrorMsg(null);
@@ -151,7 +151,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             type="button"
             role="tab"
             aria-selected={activeTab === 'register'}
-            className={`auth-tab ${activeTab === 'register' ? 'active' : ''}`}
+            className={`auth-tab cursor-pointer ${activeTab === 'register' ? 'active' : ''}`}
             onClick={() => {
               setActiveTab('register');
               setErrorMsg(null);
@@ -237,7 +237,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </label>
               <select
                 id="auth-role"
-                className="form-input"
+                className="form-input cursor-pointer"
                 value={role}
                 onChange={(e) => setRole(e.target.value as 'customer' | 'admin')}
                 disabled={loading}
@@ -251,7 +251,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div className="auth-actions">
             <button
               type="submit"
-              className="btn btn-primary auth-submit-btn"
+              className="btn btn-primary auth-submit-btn cursor-pointer"
               disabled={loading}
             >
               {loading ? (

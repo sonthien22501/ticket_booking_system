@@ -26,13 +26,25 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="site-header">
       <div className="header-container">
-        <div className="header-brand" onClick={onHomeClick} role="button" tabIndex={0}>
+        <div
+          className="header-brand cursor-pointer"
+          onClick={onHomeClick}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if ((e.key === 'Enter' || e.key === ' ') && onHomeClick) {
+              e.preventDefault();
+              onHomeClick();
+            }
+          }}
+          aria-label="TicketVerse Home"
+        >
           <div className="brand-icon-badge">
             <TicketIcon size={24} className="text-brand-accent" />
           </div>
           <div className="brand-text">
             <h1 className="brand-title">TicketVerse</h1>
-            <span className="brand-subtitle">Microservices Ticket Booking</span>
+            <span className="brand-subtitle">Cinematic Live Ticket Booking</span>
           </div>
         </div>
 
@@ -41,10 +53,13 @@ export const Header: React.FC<HeaderProps> = ({
             <ThemeToggle theme={theme} onToggle={onToggleTheme} />
           )}
 
-          <div className={`gateway-pill ${apiConnected ? 'pill-online' : 'pill-offline'}`}>
+          <div
+            className={`gateway-pill ${apiConnected ? 'pill-online' : 'pill-offline'}`}
+            title={apiConnected ? 'Gateway Port 8080 Active' : 'Gateway Offline / Reconnecting'}
+          >
             <span className="status-dot"></span>
             <span className="status-label">
-              {apiConnected ? 'API Gateway Connected' : 'Connecting to Gateway...'}
+              {apiConnected ? 'Gateway Connected' : 'Connecting to Gateway...'}
             </span>
           </div>
 
@@ -63,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
               {onLogout && (
                 <button
                   type="button"
-                  className="btn-logout"
+                  className="btn-logout cursor-pointer"
                   onClick={onLogout}
                   title="Sign Out"
                   aria-label="Sign Out"
@@ -78,7 +93,7 @@ export const Header: React.FC<HeaderProps> = ({
             onOpenAuth && (
               <button
                 type="button"
-                className="btn-auth-signin"
+                className="btn-auth-signin cursor-pointer"
                 onClick={() => onOpenAuth('login')}
                 data-testid="signin-btn"
               >

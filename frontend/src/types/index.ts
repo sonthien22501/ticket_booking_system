@@ -1,4 +1,4 @@
-export type SeatStatus = 'AVAILABLE' | 'HOLD' | 'BOOKED' | 'SELECTED' | 'BLOCKED';
+export type SeatStatus = 'AVAILABLE' | 'HOLD' | 'BOOKED' | 'SELECTED' | 'BLOCKED' | 'WAITLIST';
 
 export interface TicketTier {
   id: string;

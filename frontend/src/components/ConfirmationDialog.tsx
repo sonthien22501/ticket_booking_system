@@ -72,7 +72,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
             <button
               type="button"
               onClick={onCancel}
-              className="modal-btn-close"
+              className="modal-btn-close cursor-pointer"
               aria-label="Close dialog"
             >
               <XIcon size={18} />
@@ -90,7 +90,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="btn-dialog-cancel"
+            className="btn-dialog-cancel cursor-pointer"
           >
             {cancelLabel}
           </button>
@@ -98,7 +98,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className={`btn-dialog-confirm ${btnVariantClass}`}
+            className={`btn-dialog-confirm cursor-pointer ${btnVariantClass}`}
           >
             {loading ? <LoadingSpinner size="sm" message="Processing..." /> : confirmLabel}
           </button>
