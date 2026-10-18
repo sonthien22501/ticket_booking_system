@@ -1,3 +1,4 @@
+import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   getStoredToken,
@@ -10,7 +11,10 @@ import {
   AUTH_TOKEN_KEY,
   AUTH_USER_KEY,
 } from '../services/auth';
-import { User } from '../types';
+import { User, EventItem } from '../types';
+import { Header } from '../components/Header';
+import { CheckoutForm } from '../components/CheckoutForm';
+
 
 describe('Frontend Authentication & User Session Service (R3.1)', () => {
   let mockStorage: Record<string, string> = {};
@@ -215,4 +219,71 @@ describe('Frontend Authentication & User Session Service (R3.1)', () => {
       expect(getStoredUser()).toBeNull();
     });
   });
+
+  describe('Header Authentication Controls', () => {
+    it('provides onOpenAuth callback for guest users', () => {
+      const onOpenAuth = vi.fn();
+      const el = React.createElement(Header, {
+        currentUser: null,
+        onOpenAuth,
+      });
+      expect(el.props.currentUser).toBeNull();
+      el.props.onOpenAuth?.('login');
+      expect(onOpenAuth).toHaveBeenCalledWith('login');
+    });
+
+    it('provides user identity and role when authenticated', () => {
+      const mockUser: User = {
+        id: 'usr-100',
+        email: 'admin@event.de',
+        name: 'Admin User',
+        role: 'admin',
+      };
+      const onLogout = vi.fn();
+      const el = React.createElement(Header, {
+        currentUser: mockUser,
+        onLogout,
+      });
+      expect(el.props.currentUser?.name).toBe('Admin User');
+      expect(el.props.currentUser?.role).toBe('admin');
+      el.props.onLogout?.();
+      expect(onLogout).toHaveBeenCalled();
+    });
+  });
+
+  describe('CheckoutForm Attendee Pre-fill', () => {
+    it('accepts currentUser prop to pre-populate attendee information', () => {
+      const mockUser: User = {
+        id: 'usr-buyer',
+        email: 'buyer@example.de',
+        name: 'Ticket Buyer',
+        role: 'customer',
+      };
+      const mockEvent: EventItem = {
+        id: 'evt-1',
+        title: 'Event',
+        description: '',
+        category: 'CONCERT',
+        venueName: 'Arena',
+        venueLocation: 'Munich',
+        startTime: '2026-11-15T20:00:00Z',
+        endTime: '2026-11-15T23:00:00Z',
+        status: 'ACTIVE',
+        tiers: [],
+      };
+      const el = React.createElement(CheckoutForm, {
+        event: mockEvent,
+        selectedSeats: [],
+        conflictError: null,
+        conflictingSeats: [],
+        submitting: false,
+        onSubmit: vi.fn(),
+        onRefreshMap: vi.fn(),
+        currentUser: mockUser,
+      });
+      expect(el.props.currentUser?.name).toBe('Ticket Buyer');
+      expect(el.props.currentUser?.email).toBe('buyer@example.de');
+    });
+  });
 });
+

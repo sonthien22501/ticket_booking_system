@@ -56,6 +56,7 @@ export interface BookingRequest {
   seats: string[];
   customerName: string;
   customerEmail: string;
+  userId?: string;
   paymentInfo?: {
     method: string;
     cardToken?: string;

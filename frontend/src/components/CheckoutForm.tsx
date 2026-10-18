@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { EventItem, SeatItem } from '../types';
-import { UserIcon, MailIcon, CreditCardIcon, AlertCircleIcon, RefreshCwIcon } from './Icons';
+import React, { useState, useEffect } from 'react';
+import { EventItem, SeatItem, User } from '../types';
+import { UserIcon, MailIcon, CreditCardIcon, AlertCircleIcon, RefreshCwIcon, CheckCircleIcon } from './Icons';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ConfirmationDialog } from './ConfirmationDialog';
 
@@ -12,6 +12,7 @@ interface CheckoutFormProps {
   submitting: boolean;
   onSubmit: (customerName: string, customerEmail: string) => void;
   onRefreshMap: () => void;
+  currentUser?: User | null;
 }
 
 export const CheckoutForm: React.FC<CheckoutFormProps> = ({
@@ -22,12 +23,21 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
   submitting,
   onSubmit,
   onRefreshMap,
+  currentUser = null,
 }) => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState(currentUser?.name || '');
+  const [email, setEmail] = useState(currentUser?.email || '');
   const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [isPaymentConfirmOpen, setIsPaymentConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    if (currentUser) {
+      setName((prev) => prev || currentUser.name);
+      setEmail((prev) => prev || currentUser.email);
+    }
+  }, [currentUser]);
+
 
   const totalPrice = selectedSeats.reduce((sum, s) => sum + (s.price || 0), 0);
 
@@ -92,6 +102,12 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       {/* Customer Info Section */}
       <div className="checkout-section">
         <h3 className="section-title">1. Attendee Information</h3>
+        {currentUser && (
+          <div className="checkout-user-badge" data-testid="checkout-user-badge">
+            <CheckCircleIcon size={16} className="text-emerald" />
+            <span>Logged in as <strong>{currentUser.name}</strong> ({currentUser.email})</span>
+          </div>
+        )}
         <div className="form-group">
           <label htmlFor="customer-name" className="form-label">
             Full Name <span className="text-required">*</span>

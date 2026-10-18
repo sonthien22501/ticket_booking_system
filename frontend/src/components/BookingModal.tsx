@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { EventItem, SeatItem, BookingResponse } from '../types';
+import { EventItem, SeatItem, BookingResponse, User } from '../types';
 import { CheckoutForm } from './CheckoutForm';
 import { BookingConfirmation } from './BookingConfirmation';
 import { XIcon } from './Icons';
@@ -16,6 +16,7 @@ interface BookingModalProps {
   onSubmitBooking: (customerName: string, customerEmail: string) => void;
   onRefreshMap: () => void;
   onResetBooking: () => void;
+  currentUser?: User | null;
 }
 
 export const BookingModal: React.FC<BookingModalProps> = ({
@@ -30,6 +31,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   onSubmitBooking,
   onRefreshMap,
   onResetBooking,
+  currentUser = null,
 }) => {
   // Close on Escape key
   useEffect(() => {
@@ -88,6 +90,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               submitting={submitting}
               onSubmit={onSubmitBooking}
               onRefreshMap={onRefreshMap}
+              currentUser={currentUser}
             />
           )}
         </div>

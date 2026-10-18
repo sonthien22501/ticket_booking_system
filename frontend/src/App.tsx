@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { EventItem, SeatItem, BookingResponse, ApiError } from './types';
+import { EventItem, SeatItem, BookingResponse, ApiError, User } from './types';
 import { fetchEvents, fetchSeats, createBooking } from './services/api';
+import { getStoredUser, verifyStoredSession, clearStoredSession } from './services/auth';
 import { Header } from './components/Header';
 import { EventCatalog } from './components/EventCatalog';
 import { VenueSeatMap } from './components/VenueSeatMap';
 import { BookingModal } from './components/BookingModal';
+import { AuthModal } from './components/AuthModal';
 import { AlertNotification } from './components/AlertNotification';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { Theme, getInitialTheme, applyThemeToDocument, toggleThemeValue } from './services/theme';
@@ -12,6 +14,11 @@ import { Theme, getInitialTheme, applyThemeToDocument, toggleThemeValue } from '
 export const App: React.FC = () => {
   // Theme State (R28)
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
+
+  // Authentication State (R3.1)
+  const [currentUser, setCurrentUser] = useState<User | null>(getStoredUser);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login');
 
   // Catalog State
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -37,6 +44,7 @@ export const App: React.FC = () => {
   const [confirmedBooking, setConfirmedBooking] = useState<BookingResponse | null>(null);
   const [generalAlert, setGeneralAlert] = useState<{ type: 'info' | 'success' | 'warning' | 'error'; message: string } | null>(null);
 
+
   /**
    * Load events on initial render
    */
@@ -61,6 +69,43 @@ export const App: React.FC = () => {
   useEffect(() => {
     loadEvents();
   }, [loadEvents]);
+
+  // Auto-verify stored JWT session on mount (R3.1)
+  useEffect(() => {
+    verifyStoredSession()
+      .then((user) => {
+        if (user) {
+          setCurrentUser(user);
+        } else {
+          setCurrentUser(null);
+        }
+      })
+      .catch(() => {
+        setCurrentUser(null);
+      });
+  }, []);
+
+  const handleOpenAuth = (tab: 'login' | 'register' = 'login') => {
+    setAuthModalTab(tab);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleLogout = () => {
+    clearStoredSession();
+    setCurrentUser(null);
+    setGeneralAlert({
+      type: 'info',
+      message: 'You have been successfully signed out.',
+    });
+  };
+
+  const handleAuthSuccess = (user: User) => {
+    setCurrentUser(user);
+    setGeneralAlert({
+      type: 'success',
+      message: `Welcome, ${user.name}! You are now signed in.`,
+    });
+  };
 
   /**
    * Load seats when an event is selected
@@ -207,6 +252,7 @@ export const App: React.FC = () => {
         seats: seatIds,
         customerName,
         customerEmail,
+        userId: currentUser?.id,
       });
 
       // Booking confirmed successfully!
@@ -280,6 +326,9 @@ export const App: React.FC = () => {
         apiConnected={apiConnected}
         theme={theme}
         onToggleTheme={handleToggleTheme}
+        currentUser={currentUser}
+        onOpenAuth={handleOpenAuth}
+        onLogout={handleLogout}
       />
 
 
@@ -329,6 +378,7 @@ export const App: React.FC = () => {
           onSubmitBooking={handleSubmitBooking}
           onRefreshMap={handleRefreshSeats}
           onResetBooking={handleResetAfterBooking}
+          currentUser={currentUser}
         />
       )}
 
@@ -379,6 +429,14 @@ export const App: React.FC = () => {
         confirmVariant="warning"
         onConfirm={handleConfirmClearSelection}
         onCancel={() => setIsClearConfirmOpen(false)}
+      />
+
+      {/* Authentication Modal (R3.1) */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+        initialTab={authModalTab}
       />
     </div>
   );
