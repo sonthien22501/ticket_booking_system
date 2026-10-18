@@ -1,6 +1,6 @@
 import React from 'react';
 import { EventItem } from '../types';
-import { CalendarIcon, MapPinIcon, TicketIcon } from './Icons';
+import { CalendarIcon, MapPinIcon, TicketIcon, FilmIcon, SparklesIcon } from './Icons';
 
 interface EventCardProps {
   event: EventItem;
@@ -30,13 +30,40 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent }) =>
     ? Math.min(...event.tiers.map((t) => t.price))
     : 0;
 
+  // Cinematic theme category styling
+  const categoryLower = event.category.toLowerCase();
+  const isCinema = categoryLower.includes('cinema') || categoryLower.includes('movie');
+  const isTheater = categoryLower.includes('theater') || categoryLower.includes('play');
+
   return (
-    <div className="event-card">
-      <div className="event-card-header">
-        <span className="event-category-badge">{event.category}</span>
-        <span className={`event-status-badge status-${event.status.toLowerCase()}`}>
-          {event.status}
-        </span>
+    <div
+      className="event-card cursor-pointer"
+      onClick={() => onSelectEvent(event)}
+      tabIndex={0}
+      role="button"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelectEvent(event);
+        }
+      }}
+      aria-label={`Select seats for ${event.title}`}
+    >
+      {/* Cinematic Poster Header */}
+      <div className={`event-poster-banner banner-${categoryLower}`}>
+        <div className="poster-spotlight-beam"></div>
+        <div className="poster-icon-watermark">
+          {isCinema ? <FilmIcon size={56} /> : isTheater ? <SparklesIcon size={56} /> : <TicketIcon size={56} />}
+        </div>
+        <div className="event-card-header">
+          <span className="event-category-badge">
+            <SparklesIcon size={12} className="mr-1 inline-icon" />
+            {event.category}
+          </span>
+          <span className={`event-status-badge status-${event.status.toLowerCase()}`}>
+            {event.status}
+          </span>
+        </div>
       </div>
 
       <div className="event-card-body">
@@ -77,8 +104,12 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent }) =>
 
         <button
           type="button"
-          className="btn-select-seats"
-          onClick={() => onSelectEvent(event)}
+          className="btn-select-seats cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectEvent(event);
+          }}
+          aria-label={`Select Seats for ${event.title}`}
         >
           <TicketIcon size={18} className="mr-2" />
           Select Seats

@@ -31,8 +31,30 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
     return Array.from(rowMap.entries());
   }, [seats]);
 
+  // Determine max seat number for column indicators
+  const maxColumns = useMemo(() => {
+    let max = 0;
+    seats.forEach((s) => {
+      if (s.number > max) max = s.number;
+    });
+    return max || 12;
+  }, [seats]);
+
   return (
-    <div className="seat-grid-container">
+    <div className="seat-grid-container" role="region" aria-label="Interactive Theater Seating Matrix">
+      {/* Column number indicators */}
+      <div className="seat-column-indicators" aria-hidden="true">
+        <div className="column-label-spacer"></div>
+        <div className="column-numbers-row">
+          {Array.from({ length: maxColumns }, (_, i) => i + 1).map((col) => (
+            <span key={col} className="column-number-badge">
+              {col}
+            </span>
+          ))}
+        </div>
+        <div className="column-label-spacer"></div>
+      </div>
+
       {groupedRows.map(([rowLabel, rowSeats]) => {
         const isVipRow = rowLabel === 'A' || rowLabel === 'B' || rowSeats[0]?.tierId?.includes('vip');
         return (
@@ -55,6 +77,7 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
 
             <div className="seat-row-label-right">
               <span className="row-letter">{rowLabel}</span>
+              {isVipRow && <span className="row-badge-vip">VIP</span>}
             </div>
           </div>
         );

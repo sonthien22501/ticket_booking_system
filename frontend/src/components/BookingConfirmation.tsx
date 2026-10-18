@@ -90,14 +90,14 @@ export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({ bookin
         <button
           type="button"
           onClick={() => window.print()}
-          className="btn-print-ticket"
+          className="btn-print-ticket cursor-pointer"
         >
           Print Tickets / PDF
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="btn-done-booking"
+          className="btn-done-booking cursor-pointer"
         >
           Book Another Event
         </button>

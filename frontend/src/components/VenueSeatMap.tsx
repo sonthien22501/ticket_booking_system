@@ -44,7 +44,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
     <div className="venue-seatmap-page">
       {/* Top Navigation & Event Header */}
       <div className="seatmap-top-bar">
-        <button type="button" onClick={onBackToCatalog} className="btn-back">
+        <button type="button" onClick={onBackToCatalog} className="btn-back cursor-pointer">
           <ArrowLeftIcon size={18} className="mr-2" />
           Back to Events
         </button>
@@ -73,7 +73,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
         <button
           type="button"
           onClick={onRefreshSeats}
-          className="btn-refresh-seats"
+          className="btn-refresh-seats cursor-pointer"
           title="Refresh seat availability"
         >
           <RefreshCwIcon size={16} className="mr-1" />
@@ -83,35 +83,41 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
 
       {/* Main Seat Map Area */}
       <div className="seatmap-viewport">
-        {/* Stage Curved Banner */}
-        <div className="stage-container">
-          <div className="stage-curve">
-            <span className="stage-title">STAGE / PERFORMANCE AREA</span>
+        {/* Premium Curved Cinema Screen Canvas */}
+        <div className="stage-container cinema-screen-container">
+          <div className="cinema-projector-light"></div>
+          <div className="stage-curve cinema-screen-curve">
+            <div className="screen-reflection"></div>
+            <span className="stage-title">CURVED CINEMA SCREEN / STAGE</span>
           </div>
-          <div className="stage-lights"></div>
+          <div className="stage-lights cinema-screen-glow"></div>
         </div>
 
         {/* Legend */}
-        <div className="seatmap-legend">
-          <div className="legend-item">
+        <div className="seatmap-legend" role="list" aria-label="Seat Map Legend">
+          <div className="legend-item" role="listitem">
             <span className="legend-dot dot-available"></span>
             <span>Available</span>
           </div>
-          <div className="legend-item">
+          <div className="legend-item" role="listitem">
             <span className="legend-dot dot-selected"></span>
             <span>Selected</span>
           </div>
-          <div className="legend-item">
+          <div className="legend-item" role="listitem">
             <span className="legend-dot dot-held"></span>
             <span>On Hold</span>
           </div>
-          <div className="legend-item">
+          <div className="legend-item" role="listitem">
             <span className="legend-dot dot-booked"></span>
-            <span>Booked / Reserved</span>
+            <span>Reserved / Sold</span>
           </div>
-          <div className="legend-item">
+          <div className="legend-item" role="listitem">
             <span className="legend-dot dot-vip"></span>
             <span>VIP Tier</span>
+          </div>
+          <div className="legend-item" role="listitem">
+            <span className="legend-dot dot-waitlist"></span>
+            <span>Waitlist</span>
           </div>
         </div>
 
@@ -158,7 +164,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
             <button
               type="button"
               onClick={onClearSelection}
-              className="btn-clear-selection"
+              className="btn-clear-selection cursor-pointer"
             >
               Clear
             </button>
@@ -166,7 +172,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
 
           <button
             type="button"
-            className="btn-checkout"
+            className="btn-checkout cursor-pointer"
             disabled={selectedSeatsList.length === 0}
             onClick={onProceedToCheckout}
           >

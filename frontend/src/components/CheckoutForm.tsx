@@ -91,7 +91,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
           <button
             type="button"
             onClick={onRefreshMap}
-            className="btn-conflict-refresh"
+            className="btn-conflict-refresh cursor-pointer"
           >
             <RefreshCwIcon size={14} className="mr-1" />
             Refresh Seat Map & Select Alternative
@@ -201,7 +201,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
         <button
           type="submit"
           disabled={submitting || selectedSeats.length === 0}
-          className="btn-submit-booking"
+          className={`btn-submit-booking ${!submitting && selectedSeats.length > 0 ? 'cursor-pointer' : ''}`}
         >
           {submitting ? (
             <LoadingSpinner message="Locking seats & reserving..." size="sm" />
