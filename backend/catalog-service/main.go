@@ -286,6 +286,10 @@ func (s *Server) handleEventByID(w http.ResponseWriter, r *http.Request) {
 
 	path := strings.TrimPrefix(r.URL.Path, "/api/events/")
 	path = strings.TrimPrefix(path, "/events/")
+	if strings.HasSuffix(path, "/pricing") {
+		s.handleEventPricing(w, r)
+		return
+	}
 	eventID := strings.TrimSpace(path)
 
 	if eventID == "" {

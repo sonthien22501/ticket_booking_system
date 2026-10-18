@@ -15,7 +15,7 @@ An event ticket booking system built with a microservices architecture. It inclu
 Explanation: Implement a web frontend using React and TypeScript that consumes the backend APIs. Users should be able to view available events and book seats.
 
 
-**R2: The system must provide a microservices architecture backend.**  
+**R2: The system must provide a microservices architecture backend.** ✅ (Done successfully)  
 Explanation: Core business domains are strictly separated into autonomous services including at least an Event Catalog Service, a Seat Inventory Service, and a Booking Service.
 
 **R3: The system must provide an API Gateway for request routing.** ✅ (Done successfully)  
@@ -24,8 +24,9 @@ Explanation: The API Gateway serves as the single entry point for external clien
 **R3.1: The system must implement robust Authentication and Authorization.** ✅ (Done successfully)  
 Explanation: Implement stateless authentication (e.g., JWT). The API Gateway must validate tokens, and a dedicated Auth/User Service should handle user registration and credential verification to ensure tickets are securely tied to user identities.
 
-**R4: The system must use PostgreSQL as a database system for data storage.**  
+**R4: The system must use PostgreSQL as a database system for data storage.** ✅ (Done successfully)  
 Explanation: Relational database instances ensure ACID transactions and persistent state for event, seat, and booking records.
+
 
 **R5: The system must be fully containerized using Docker and Docker Compose.** ✅ (Done successfully)  
 Explanation: The entire system (all microservices, the frontend, databases, and message brokers) must be orchestratable via a single `docker-compose.yml` file.
@@ -105,7 +106,7 @@ Explanation: Renders an interactive 2D floor grid allowing users to click and se
 Explanation: Emits HTTP callbacks to third-party event organizers when an event reaches maximum capacity or triggers specific revenue thresholds.
 
 
-**R27: The system can provide dynamic surge pricing for highly contested events.**  
+**R27: The system can provide dynamic surge pricing for highly contested events.** ✅ (Done successfully)  
 Explanation: Adjusts real-time ticket pricing based on inventory scarcity and current booking velocity.
 
 **R28: The system can provide dark mode interface toggle functionality to users.** ✅ (Done successfully)  
@@ -125,6 +126,5 @@ Explanation: The API Gateway restricts individual IP addresses or user accounts 
 **R32: The system shall be usable on modern desktop browsers for users.** ✅ (Done successfully)  
 Explanation: The React frontend complies with modern web standards and renders correctly on current versions of Chromium, Firefox, and WebKit browsers.
 
-
-**R33: The system shall provide service isolation and fault tolerance.**  
+**R33: The system shall provide service isolation and fault tolerance.** ✅ (Done successfully)  
 Explanation: Failure of an isolated downstream service (e.g., Event Catalog) must not cause cascading unhandled crashes in unrelated services (e.g., Seat Inventory).

@@ -2692,6 +2692,33 @@
           }
         }
       }
+    },
+    "/api/events/{id}/pricing": {
+      "get": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Get dynamic surge pricing for event (R27, R33)",
+        "description": "Returns real-time dynamic ticket pricing calculated from seat inventory scarcity and booking velocity, with service isolation fallback.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dynamic surge pricing analysis"
+          },
+          "404": {
+            "description": "Event not found"
+          }
+        }
+      }
     }
   },
   "servers": [
