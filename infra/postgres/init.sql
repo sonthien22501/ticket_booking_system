@@ -183,6 +183,30 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS event_addons (
+    id VARCHAR(64) PRIMARY KEY,
+    event_id VARCHAR(64) NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    price NUMERIC(10,2) NOT NULL,
+    category VARCHAR(64) NOT NULL,
+    total_inventory INT NOT NULL DEFAULT 100,
+    available_inventory INT NOT NULL DEFAULT 100,
+    active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS booking_addons (
+    id VARCHAR(64) PRIMARY KEY,
+    booking_id VARCHAR(64) NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    addon_id VARCHAR(64) NOT NULL REFERENCES event_addons(id),
+    name VARCHAR(255) NOT NULL,
+    unit_price NUMERIC(10,2) NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    total_price NUMERIC(10,2) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Index creation for high-performance lookup
 CREATE INDEX IF NOT EXISTS idx_seat_items_event_status ON seat_items(event_id, status);
 CREATE INDEX IF NOT EXISTS idx_seat_items_hold_expires ON seat_items(status, hold_expires_at) WHERE status = 'HOLD';
@@ -201,8 +225,12 @@ CREATE INDEX IF NOT EXISTS idx_ticket_transfers_recipient ON ticket_transfers(re
 CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_email);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read);
+CREATE INDEX IF NOT EXISTS idx_event_addons_event ON event_addons(event_id, active);
+CREATE INDEX IF NOT EXISTS idx_booking_addons_bkg ON booking_addons(booking_id);
 
 -- Truncate all tables for clean idempotent re-seeding
+TRUNCATE TABLE booking_addons CASCADE;
+TRUNCATE TABLE event_addons CASCADE;
 TRUNCATE TABLE notifications CASCADE;
 TRUNCATE TABLE waitlist CASCADE;
 TRUNCATE TABLE tickets CASCADE;
@@ -612,3 +640,17 @@ VALUES
 ('notif-demo-002', 'usr-demo-customer', 'user@tickets.com', 'SYSTEM_ALERT', 'Venue Gates Open at 6:00 PM', 'Grand Arena gates open early tonight for Neon Symphony 2026. Please have your QR ticket pass ready.', '{"eventId":"evt-101"}'::jsonb, false, NOW() - interval '1 hour'),
 ('notif-maria-003', 'usr-maria-garcia', 'maria.garcia@madrid.es', 'WAITLIST_PROMOTED', 'You Are Off The Waitlist!', 'A front-row seat opened up for Stand-Up Comedy All-Stars. You have 15 minutes to claim your hold.', '{"eventId":"evt-106","reservationId":"res-wl-promoted-003"}'::jsonb, false, NOW() - interval '5 minutes'),
 ('notif-sarah-004', 'usr-sarah-connor', 'sarah.connor@cyberdyne.io', 'BOOKING_CONFIRMED', 'Corporate Invoice Ready', 'Your corporate B2B tax invoice for Global Tech Summit 2026 is ready for download.', '{"bookingId":"bkg-sarah-004","eventId":"evt-102"}'::jsonb, true, NOW() - interval '1 day');
+
+-- ============================================================================
+-- 12. EVENT ADD-ONS (VIP Add-ons, Merchandise & Concessions for Milestone 29)
+-- ============================================================================
+INSERT INTO event_addons (id, event_id, name, description, price, category, total_inventory, available_inventory, active)
+VALUES
+('addon-parking-101', 'evt-101', 'VIP Reserved Parking Pass', 'Guaranteed spot in the covered underground arena deck with express exit lane.', 25.00, 'PARKING', 100, 95, true),
+('addon-tshirt-101', 'evt-101', 'Neon Symphony Tour T-Shirt (L)', 'Limited edition heavyweight cotton tour graphic tee with glow-in-the-dark print.', 35.00, 'MERCHANDISE', 200, 185, true),
+('addon-lounge-101', 'evt-101', 'Backstage VIP Lounge & Open Bar', 'Pre-show access to private lounge, curated hors doeuvres, and craft cocktails.', 55.00, 'HOSPITALITY', 50, 42, true),
+('addon-keynote-102', 'evt-102', 'Executive Networking Luncheon', 'Private seated luncheon with keynote tech speakers and venture partners.', 75.00, 'HOSPITALITY', 60, 50, true),
+('addon-merch-102', 'evt-102', 'Conference Swag Pack & Hoodie', 'Premium technical fleece hoodie, RFID cardholder, and conference notebook.', 40.00, 'MERCHANDISE', 150, 130, true),
+('addon-buffet-103', 'evt-103', 'Champions Matchday Buffet', 'Gourmet matchday dining buffet in the Olympiastadion stadium sky lounge.', 65.00, 'CONCESSIONS', 80, 70, true),
+('addon-champagne-104', 'evt-104', 'Intermission Champagne Service', 'Chilled Moët & Chandon champagne delivered to your seat during intermission.', 30.00, 'CONCESSIONS', 100, 88, true),
+('addon-poster-105', 'evt-105', 'Holographic Anime Foil Poster', 'Numbered holographic commemorative art print signed by the synth producers.', 28.00, 'MERCHANDISE', 120, 110, true);

@@ -41,6 +41,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | F26 | Multi-Currency Checkout & PDF Invoicing | Multi-currency conversions (USD, EUR, GBP, JPY, CAD, AUD), automated regional VAT/sales tax, corporate billing, and downloadable/printable PDF tax invoices | M26 | Survey / R4 |
 | F27 | Waitlist Self-Service & Secure Ticket Transfer | Frontend sold-out detection, waitlist queue joining, live position tracker in Passbook, atomic ticket transfer with code rotation & anti-fraud gate admission | M27 | Acceptance Criteria |
 | F28 | In-App Notification Center & Calendar Sync | Real-time in-app notification center (bell badge, order alerts, waitlist promotions, ticket transfers) & standard RFC 5545 iCalendar (.ics) pass export | M28 | Acceptance Criteria |
+| F29 | VIP Add-ons, Merchandise & Concessions | Curated upsells (priority parking, event t-shirts, VIP lounge access), atomic inventory deduction, cart subtotal itemization & confirmation | M29 | Acceptance Criteria |
 
 ---
 
@@ -63,6 +64,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | M26 | Multi-Currency Checkout & PDF Invoicing | Currency conversion engine, regional tax calculation, corporate expense billing, pure Go vector PDF invoices (%PDF-1.4), frontend currency picker, and 1-click invoice downloads | M4, M5, M6, M21, M25 | DONE |
 | M27 | Waitlist Self-Service & Secure Ticket Transfer | Sold-out event waitlist join modal, queue position tracking, promoted hold claim flow, atomic ticket transfer with QR code invalidation & gate check-in verification | M4, M5, M6, M21, M23, M26 | DONE |
 | M28 | In-App Notification Center & Calendar Sync | Persistent notifications store, automated event triggers, unread counter badges, glassmorphism activity drawer, and RFC 5545 iCalendar (.ics) pass downloads | M4, M5, M6, M21, M23, M27 | DONE |
+| M29 | VIP Add-ons, Merchandise & Concessions | Curated upsells, atomic inventory locking/deduction, order itemization, and checkout upsell engine | M4, M5, M6, M21, M25, M28 | DONE |
 
 ---
 
@@ -101,6 +103,8 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 - `GET /api/notifications` -> `http://booking-service:8083/notifications` (queries notifications and unread badge count)
 - `POST /api/notifications/:id/read` -> `http://booking-service:8083/notifications/:id/read` (marks specific notification as read)
 - `POST /api/notifications/read-all` -> `http://booking-service:8083/notifications/read-all` (marks all user notifications as read)
+- `GET /api/events/:id/addons` -> `http://booking-service:8083/events/:id/addons` (lists available VIP add-ons and event merchandise with inventory)
+- `GET /api/addons` -> `http://booking-service:8083/addons` (retrieves all system add-on packages)
 
 ### 2. Booking Service ↔ Inventory Service
 - **Reserve Hold**: `POST http://inventory-service:8082/inventory/reserve`

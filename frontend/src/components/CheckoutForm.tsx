@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { EventItem, SeatItem, User, VoucherValidationResult } from '../types';
-import { UserIcon, MailIcon, CreditCardIcon, AlertCircleIcon, RefreshCwIcon, CheckCircleIcon, TagIcon, XIcon, BuildingOfficeIcon } from './Icons';
+import { EventItem, SeatItem, User, VoucherValidationResult, EventAddon, SelectedAddonItem } from '../types';
+import { UserIcon, MailIcon, CreditCardIcon, AlertCircleIcon, RefreshCwIcon, CheckCircleIcon, TagIcon, XIcon, BuildingOfficeIcon, SparklesIcon } from './Icons';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ConfirmationDialog } from './ConfirmationDialog';
-import { validateVoucher } from '../services/api';
+import { validateVoucher, fetchEventAddons } from '../services/api';
 import { formatCurrency, calculateTax } from '../services/currency';
 
 interface CheckoutFormProps {
@@ -17,7 +17,8 @@ interface CheckoutFormProps {
     customerEmail: string,
     voucherCode?: string,
     currency?: string,
-    corporateDetails?: { companyName?: string; taxId?: string; billingAddress?: string }
+    corporateDetails?: { companyName?: string; taxId?: string; billingAddress?: string },
+    addons?: SelectedAddonItem[]
   ) => void;
   onRefreshMap: () => void;
   currentUser?: User | null;
@@ -41,6 +42,11 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [emailError, setEmailError] = useState('');
   const [isPaymentConfirmOpen, setIsPaymentConfirmOpen] = useState(false);
 
+  // VIP Add-ons state (Milestone 29)
+  const [availableAddons, setAvailableAddons] = useState<EventAddon[]>([]);
+  const [selectedAddons, setSelectedAddons] = useState<Record<string, number>>({});
+  const [loadingAddons, setLoadingAddons] = useState(false);
+
   // Voucher / Coupon state (Milestone 25)
   const [voucherCodeInput, setVoucherCodeInput] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState<VoucherValidationResult | null>(null);
@@ -60,9 +66,67 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     }
   }, [currentUser]);
 
-  const subtotal = selectedSeats.reduce((sum, s) => sum + (s.price || 0), 0);
+  // Load VIP Add-ons for current event
+  useEffect(() => {
+    let isMounted = true;
+    setLoadingAddons(true);
+    fetchEventAddons(event.id)
+      .then((addons) => {
+        if (isMounted) {
+          setAvailableAddons(addons || []);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load addons for event:', err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingAddons(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [event.id]);
+
+  const handleAddonQuantityChange = (addonId: string, delta: number) => {
+    const addon = availableAddons.find((a) => a.id === addonId);
+    if (!addon) return;
+
+    setSelectedAddons((prev) => {
+      const currentQty = prev[addonId] || 0;
+      const nextQty = Math.max(0, currentQty + delta);
+      const maxLimit = addon.maxQuantityPerBooking && addon.maxQuantityPerBooking > 0 ? addon.maxQuantityPerBooking : 10;
+      const effectiveMax = addon.availableInventory >= 0 ? Math.min(maxLimit, addon.availableInventory) : maxLimit;
+
+      if (nextQty > effectiveMax) {
+        return prev;
+      }
+
+      if (nextQty === 0) {
+        const copy = { ...prev };
+        delete copy[addonId];
+        return copy;
+      }
+      return { ...prev, [addonId]: nextQty };
+    });
+  };
+
+  const ticketsSubtotal = selectedSeats.reduce((sum, s) => sum + (s.price || 0), 0);
+  const addonsSubtotal = availableAddons.reduce((sum, a) => {
+    const qty = selectedAddons[a.id] || 0;
+    return sum + (a.price || 0) * qty;
+  }, 0);
+  const subtotal = ticketsSubtotal + addonsSubtotal;
   const discountAmount = appliedVoucher?.discountAmount || 0;
   const taxDetails = calculateTax(subtotal, discountAmount, currentCurrency);
+
+  const getChosenAddonList = (): SelectedAddonItem[] => {
+    return availableAddons
+      .filter((a) => (selectedAddons[a.id] || 0) > 0)
+      .map((a) => ({
+        addonId: a.id,
+        quantity: selectedAddons[a.id],
+      }));
+  };
 
   const handleApplyVoucher = async () => {
     const trimmed = voucherCodeInput.trim().toUpperCase();
@@ -122,6 +186,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
   const handleConfirmPayment = () => {
     setIsPaymentConfirmOpen(false);
+    const chosenAddons = getChosenAddonList();
     onSubmit(
       name.trim(),
       email.trim(),
@@ -133,7 +198,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
             taxId: taxId.trim(),
             billingAddress: billingAddress.trim(),
           }
-        : undefined
+        : undefined,
+      chosenAddons.length > 0 ? chosenAddons : undefined
     );
   };
 
@@ -219,9 +285,107 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
         </div>
       </div>
 
+      {/* VIP Add-ons, Merchandise & Concessions Section (Milestone 29) */}
+      {(loadingAddons || availableAddons.length > 0) && (
+        <div className="checkout-section" data-testid="vip-addons-section">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="section-title mb-0 flex items-center gap-1.5">
+              <SparklesIcon size={18} className="text-amber-400" />
+              <span>2. VIP Upgrades & Event Merchandise</span>
+            </h3>
+            <span className="text-xs text-amber-400/80 font-medium">Optional Extras</span>
+          </div>
+          <p className="text-xs text-slate-400 mb-3">
+            Enhance your experience with priority parking, commemorative merch, and VIP lounge hospitality.
+          </p>
+
+          {loadingAddons ? (
+            <div className="py-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+              <LoadingSpinner size="sm" />
+              <span>Loading add-ons...</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {availableAddons.map((addon) => {
+                const qty = selectedAddons[addon.id] || 0;
+                const isSoldOut = addon.availableInventory === 0;
+                const maxAllowed = addon.maxQuantityPerBooking && addon.maxQuantityPerBooking > 0 ? addon.maxQuantityPerBooking : 10;
+                const reachedMax = qty >= maxAllowed || (addon.availableInventory >= 0 && qty >= addon.availableInventory);
+
+                return (
+                  <div
+                    key={addon.id}
+                    data-testid={`addon-item-${addon.id}`}
+                    className={`p-3 rounded-xl border transition-all ${
+                      qty > 0
+                        ? 'bg-amber-950/20 border-amber-500/50 shadow-md shadow-amber-950/20'
+                        : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider bg-slate-800 text-cyan-400 border border-slate-700">
+                            {addon.category}
+                          </span>
+                          {isSoldOut && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                              Sold Out
+                            </span>
+                          )}
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-100 mt-1">{addon.name}</h4>
+                        <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{addon.description}</p>
+                      </div>
+                      <span className="text-sm font-bold text-amber-300 whitespace-nowrap">
+                        {formatCurrency(addon.price, currentCurrency)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-800/80">
+                      <span className="text-[11px] text-slate-400">
+                        {addon.availableInventory >= 0 ? `${addon.availableInventory} in stock` : 'Available'}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={submitting || qty === 0}
+                          onClick={() => handleAddonQuantityChange(addon.id, -1)}
+                          data-testid={`addon-dec-${addon.id}`}
+                          className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center font-bold text-sm cursor-pointer transition-colors"
+                          aria-label={`Decrease ${addon.name}`}
+                        >
+                          -
+                        </button>
+                        <span
+                          data-testid={`addon-qty-${addon.id}`}
+                          className="font-mono font-bold text-sm text-slate-100 min-w-[20px] text-center"
+                        >
+                          {qty}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={submitting || isSoldOut || reachedMax}
+                          onClick={() => handleAddonQuantityChange(addon.id, 1)}
+                          data-testid={`addon-inc-${addon.id}`}
+                          className="w-7 h-7 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center font-bold text-sm cursor-pointer transition-colors"
+                          aria-label={`Increase ${addon.name}`}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Payment Simulation Section */}
       <div className="checkout-section">
-        <h3 className="section-title">2. Payment Simulation</h3>
+        <h3 className="section-title">3. Payment Simulation</h3>
         <div className="payment-method-card">
           <div className="payment-card-left">
             <CreditCardIcon size={24} className="text-brand-accent" />
@@ -236,7 +400,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
       {/* Promotional Voucher / Coupon Section (Milestone 25) */}
       <div className="checkout-section voucher-section">
-        <h3 className="section-title">3. Promotional Voucher</h3>
+        <h3 className="section-title">4. Promotional Voucher</h3>
         {appliedVoucher ? (
           <div className="voucher-applied-card flex items-center justify-between p-3 rounded-lg border border-emerald-500/30 bg-emerald-950/20">
             <div className="flex items-center gap-2">
@@ -309,7 +473,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       {/* Corporate Tax Invoice & Business Details (Milestone 26) */}
       <div className="checkout-section">
         <div className="flex items-center justify-between">
-          <h3 className="section-title mb-0">4. Corporate Expense & Tax Receipt</h3>
+          <h3 className="section-title mb-0">5. Corporate Expense & Tax Receipt</h3>
           <button
             type="button"
             onClick={() => setShowCorporateFields(!showCorporateFields)}
@@ -376,7 +540,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
       {/* Order Summary Section */}
       <div className="checkout-section order-summary-section">
-        <h3 className="section-title">5. Order Summary</h3>
+        <h3 className="section-title">6. Order Summary</h3>
         <div className="summary-row">
           <span className="summary-label">Event:</span>
           <span className="summary-value font-medium">{event.title}</span>
@@ -392,9 +556,23 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
           </span>
         </div>
         <div className="summary-row">
-          <span className="summary-label">Quantity:</span>
-          <span className="summary-value">{selectedSeats.length} ticket(s)</span>
+          <span className="summary-label">Tickets:</span>
+          <span className="summary-value">
+            {selectedSeats.length} ticket(s) ({formatCurrency(ticketsSubtotal, currentCurrency)})
+          </span>
         </div>
+        {availableAddons
+          .filter((a) => (selectedAddons[a.id] || 0) > 0)
+          .map((a) => (
+            <div key={a.id} className="summary-row text-amber-300">
+              <span className="summary-label">
+                + {a.name} (x{selectedAddons[a.id]}):
+              </span>
+              <span className="summary-value font-medium">
+                +{formatCurrency(a.price * (selectedAddons[a.id] || 0), currentCurrency)}
+              </span>
+            </div>
+          ))}
         <div className="summary-row">
           <span className="summary-label">Subtotal ({currentCurrency}):</span>
           <span className="summary-value">{formatCurrency(subtotal, currentCurrency)}</span>
@@ -471,6 +649,18 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
               {selectedSeats.map((s) => `${s.row}${s.number}`).join(', ')}
             </span>
           </div>
+          {availableAddons
+            .filter((a) => (selectedAddons[a.id] || 0) > 0)
+            .map((a) => (
+              <div key={a.id} className="summary-row text-amber-300">
+                <span className="summary-label">
+                  + {a.name} (x{selectedAddons[a.id]}):
+                </span>
+                <span className="summary-value font-medium">
+                  +{formatCurrency(a.price * (selectedAddons[a.id] || 0), currentCurrency)}
+                </span>
+              </div>
+            ))}
           {appliedVoucher && (
             <div className="summary-row text-emerald-400">
               <span className="summary-label">Promo Discount ({appliedVoucher.code}):</span>

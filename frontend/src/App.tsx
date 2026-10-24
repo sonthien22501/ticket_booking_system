@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { EventItem, SeatItem, BookingResponse, ApiError, User, AppNotification } from './types';
+import { EventItem, SeatItem, BookingResponse, ApiError, User, AppNotification, SelectedAddonItem } from './types';
 import { fetchEvents, fetchSeats, createBooking, fetchNotifications } from './services/api';
 import { getStoredUser, verifyStoredSession, clearStoredSession } from './services/auth';
 import { Header } from './components/Header';
@@ -275,7 +275,8 @@ export const App: React.FC = () => {
     customerEmail: string,
     voucherCode?: string,
     currency?: string,
-    corporateDetails?: { companyName?: string; taxId?: string; billingAddress?: string }
+    corporateDetails?: { companyName?: string; taxId?: string; billingAddress?: string },
+    addons?: SelectedAddonItem[]
   ) => {
     if (!selectedEvent || selectedSeatIds.size === 0) return;
 
@@ -298,6 +299,7 @@ export const App: React.FC = () => {
         companyName: corporateDetails?.companyName,
         taxId: corporateDetails?.taxId,
         billingAddress: corporateDetails?.billingAddress,
+        addons,
       });
 
       // Booking confirmed successfully!

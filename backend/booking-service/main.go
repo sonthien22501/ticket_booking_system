@@ -34,36 +34,37 @@ type PaymentInfo struct {
 }
 
 type CreateBookingRequest struct {
-	EventID           string       `json:"eventId"`
-	EventIDAlt        string       `json:"event_id"`
-	UserID            string       `json:"userId"`
-	UserIDAlt         string       `json:"user_id"`
-	CustomerName      string       `json:"customerName"`
-	CustomerNameAlt   string       `json:"customer_name"`
-	CustomerEmail     string       `json:"customerEmail"`
-	CustomerEmailAlt  string       `json:"customer_email"`
-	TierID            string       `json:"tierId"`
-	TierIDAlt         string       `json:"tier_id"`
-	Seats             []string     `json:"seats"`
-	SeatIDsAlt        []string     `json:"seat_ids"`
-	TicketCount       int          `json:"ticketCount"`
-	QuantityAlt       int          `json:"quantity"`
-	PaymentInfo       *PaymentInfo `json:"paymentInfo"`
-	PaymentInfoAlt    *PaymentInfo `json:"payment_info"`
-	IdempotencyKey    string       `json:"idempotencyKey"`
-	IdempotencyKeyAlt string       `json:"idempotency_key"`
-	HoldSeconds       int          `json:"holdSeconds"`
-	HoldSecondsAlt    int          `json:"hold_seconds"`
-	VoucherCode       string       `json:"voucherCode,omitempty"`
-	VoucherCodeAlt    string       `json:"voucher_code,omitempty"`
-	Currency          string       `json:"currency,omitempty"`
-	CurrencyAlt       string       `json:"currency_code,omitempty"`
-	CompanyName       string       `json:"companyName,omitempty"`
-	CompanyNameAlt    string       `json:"company_name,omitempty"`
-	TaxID             string       `json:"taxId,omitempty"`
-	TaxIDAlt          string       `json:"tax_id,omitempty"`
-	BillingAddress    string       `json:"billingAddress,omitempty"`
-	BillingAddressAlt string       `json:"billing_address,omitempty"`
+	EventID           string             `json:"eventId"`
+	EventIDAlt        string             `json:"event_id"`
+	UserID            string             `json:"userId"`
+	UserIDAlt         string             `json:"user_id"`
+	CustomerName      string             `json:"customerName"`
+	CustomerNameAlt   string             `json:"customer_name"`
+	CustomerEmail     string             `json:"customerEmail"`
+	CustomerEmailAlt  string             `json:"customer_email"`
+	TierID            string             `json:"tierId"`
+	TierIDAlt         string             `json:"tier_id"`
+	Seats             []string           `json:"seats"`
+	SeatIDsAlt        []string           `json:"seat_ids"`
+	TicketCount       int                `json:"ticketCount"`
+	QuantityAlt       int                `json:"quantity"`
+	PaymentInfo       *PaymentInfo       `json:"paymentInfo"`
+	PaymentInfoAlt    *PaymentInfo       `json:"payment_info"`
+	IdempotencyKey    string             `json:"idempotencyKey"`
+	IdempotencyKeyAlt string             `json:"idempotency_key"`
+	HoldSeconds       int                `json:"holdSeconds"`
+	HoldSecondsAlt    int                `json:"hold_seconds"`
+	VoucherCode       string             `json:"voucherCode,omitempty"`
+	VoucherCodeAlt    string             `json:"voucher_code,omitempty"`
+	Currency          string             `json:"currency,omitempty"`
+	CurrencyAlt       string             `json:"currency_code,omitempty"`
+	CompanyName       string             `json:"companyName,omitempty"`
+	CompanyNameAlt    string             `json:"company_name,omitempty"`
+	TaxID             string             `json:"taxId,omitempty"`
+	TaxIDAlt          string             `json:"tax_id,omitempty"`
+	BillingAddress    string             `json:"billingAddress,omitempty"`
+	BillingAddressAlt string             `json:"billing_address,omitempty"`
+	Addons            []AddonItemRequest `json:"addons,omitempty"`
 }
 
 type Ticket struct {
@@ -79,35 +80,36 @@ type Ticket struct {
 }
 
 type Booking struct {
-	ID               string    `json:"id"`
-	BookingID        string    `json:"bookingId"`
-	BookingReference string    `json:"bookingReference"`
-	UserID           string    `json:"userId"`
-	CustomerName     string    `json:"customerName"`
-	CustomerEmail    string    `json:"customerEmail"`
-	EventID          string    `json:"eventId"`
-	EventTitle       string    `json:"eventTitle"`
-	TierID           string    `json:"tierId"`
-	Quantity         int       `json:"quantity"`
-	SeatIDs          []string  `json:"seatIds"`
-	TotalAmount      float64   `json:"totalAmount"`
-	TotalAmountAlt   float64   `json:"total_price"`
-	Status           string    `json:"status"` // CONFIRMED, PENDING, CANCELLED
-	ReservationID    string    `json:"reservationId"`
-	PaymentStatus    string    `json:"paymentStatus"`
-	IdempotencyKey   string    `json:"idempotencyKey,omitempty"`
-	Tickets          []Ticket  `json:"tickets"`
-	VoucherCode      string    `json:"voucherCode,omitempty"`
-	DiscountAmount   float64   `json:"discountAmount,omitempty"`
-	Currency         string    `json:"currency,omitempty"`
-	ExchangeRate     float64   `json:"exchangeRate,omitempty"`
-	TaxRate          float64   `json:"taxRate,omitempty"`
-	TaxAmount        float64   `json:"taxAmount,omitempty"`
-	CompanyName      string    `json:"companyName,omitempty"`
-	TaxID            string    `json:"taxId,omitempty"`
-	BillingAddress   string    `json:"billingAddress,omitempty"`
-	CreatedAt        time.Time `json:"createdAt"`
-	UpdatedAt        time.Time `json:"updatedAt"`
+	ID               string         `json:"id"`
+	BookingID        string         `json:"bookingId"`
+	BookingReference string         `json:"bookingReference"`
+	UserID           string         `json:"userId"`
+	CustomerName     string         `json:"customerName"`
+	CustomerEmail    string         `json:"customerEmail"`
+	EventID          string         `json:"eventId"`
+	EventTitle       string         `json:"eventTitle"`
+	TierID           string         `json:"tierId"`
+	Quantity         int            `json:"quantity"`
+	SeatIDs          []string       `json:"seatIds"`
+	TotalAmount      float64        `json:"totalAmount"`
+	TotalAmountAlt   float64        `json:"total_price"`
+	Status           string         `json:"status"` // CONFIRMED, PENDING, CANCELLED
+	ReservationID    string         `json:"reservationId"`
+	PaymentStatus    string         `json:"paymentStatus"`
+	IdempotencyKey   string         `json:"idempotencyKey,omitempty"`
+	Tickets          []Ticket       `json:"tickets"`
+	VoucherCode      string         `json:"voucherCode,omitempty"`
+	DiscountAmount   float64        `json:"discountAmount,omitempty"`
+	Currency         string         `json:"currency,omitempty"`
+	ExchangeRate     float64        `json:"exchangeRate,omitempty"`
+	TaxRate          float64        `json:"taxRate,omitempty"`
+	TaxAmount        float64        `json:"taxAmount,omitempty"`
+	CompanyName      string         `json:"companyName,omitempty"`
+	TaxID            string         `json:"taxId,omitempty"`
+	BillingAddress   string         `json:"billingAddress,omitempty"`
+	Addons           []BookingAddon `json:"addons,omitempty"`
+	CreatedAt        time.Time      `json:"createdAt"`
+	UpdatedAt        time.Time      `json:"updatedAt"`
 }
 
 type VerifyTicketRequest struct {
@@ -470,6 +472,24 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		totalAmount = 60.00 * float64(ticketCount)
 	}
 
+	// Process VIP Add-ons and Merchandise (Milestone 29)
+	var bookingAddons []BookingAddon
+	var addonsCost float64
+	if len(req.Addons) > 0 {
+		var aErr error
+		bookingAddons, addonsCost, aErr = s.processBookingAddons(r.Context(), eventID, bookingID, req.Addons)
+		if aErr != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"error":   "ADDON_ERROR",
+				"message": aErr.Error(),
+			})
+			return
+		}
+		totalAmount += addonsCost
+	}
+
 	voucherCode := strings.TrimSpace(req.VoucherCode)
 	if voucherCode == "" {
 		voucherCode = strings.TrimSpace(req.VoucherCodeAlt)
@@ -598,6 +618,7 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 		Status:           "PENDING",
 		PaymentStatus:    paymentStatus,
 		IdempotencyKey:   idempotencyKey,
+		Addons:           bookingAddons,
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
@@ -680,6 +701,7 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 				finalBooking.VoucherCode = voucherCode
 				finalBooking.DiscountAmount = discountAmount
 			}
+			finalBooking.Addons = bookingAddons
 		}
 
 		// Cache completed booking in Redis
@@ -1014,8 +1036,9 @@ func (s *Server) handleBookingByID(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.Unmarshal([]byte(seatsRaw), &b.SeatIDs)
 
-	// Fetch tickets
+	// Fetch tickets and addons
 	b.Tickets = s.fetchTicketsForBooking(b.ID)
+	b.Addons = s.fetchAddonsForBooking(r.Context(), b.ID)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(b)
@@ -1918,6 +1941,12 @@ func main() {
 	mux.HandleFunc("/api/notifications/read-all", srv.handleNotificationReadAll)
 	mux.HandleFunc("/notifications/", srv.handleNotificationByID)
 	mux.HandleFunc("/api/notifications/", srv.handleNotificationByID)
+
+	// VIP Add-ons & Merchandise routes (Milestone 29)
+	mux.HandleFunc("/addons", srv.handleAddons)
+	mux.HandleFunc("/api/addons", srv.handleAddons)
+	mux.HandleFunc("/events/", srv.handleEventAddons)
+	mux.HandleFunc("/api/events/", srv.handleEventAddons)
 
 	// Single booking routes
 	mux.HandleFunc("/bookings/", srv.handleBookingByID)

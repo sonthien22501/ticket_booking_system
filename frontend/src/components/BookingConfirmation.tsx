@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { BookingResponse, TicketItem } from '../types';
-import { CheckCircleIcon, TicketIcon, QrCodeIcon, FileTextIcon, CalendarIcon } from './Icons';
+import { CheckCircleIcon, TicketIcon, QrCodeIcon, FileTextIcon, CalendarIcon, SparklesIcon } from './Icons';
 import { TicketPassModal } from './TicketPassModal';
 import { downloadInvoicePdf, downloadBookingCalendarICS } from '../services/api';
 import { formatCurrency } from '../services/currency';
@@ -86,6 +86,28 @@ export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({ bookin
             </span>
           </div>
         </div>
+
+        {booking.addons && booking.addons.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-slate-800" data-testid="confirmed-addons-list">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-300 mb-2">
+              <SparklesIcon size={14} />
+              <span>VIP Add-ons & Event Merch</span>
+            </div>
+            <div className="space-y-1.5">
+              {booking.addons.map((a) => (
+                <div key={a.id || a.addonId} className="flex items-center justify-between text-xs bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-200">{a.addonName || 'Add-on Item'}</span>
+                    <span className="text-[11px] text-slate-400">x{a.quantity}</span>
+                  </div>
+                  <span className="font-mono text-amber-300 font-medium">
+                    {formatCurrency(a.totalPrice || a.unitPrice * a.quantity, booking.currency || 'USD')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="digital-tickets-container">

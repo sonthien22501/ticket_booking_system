@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { EventItem, SeatItem, BookingResponse, User } from '../types';
+import { EventItem, SeatItem, BookingResponse, User, SelectedAddonItem } from '../types';
 import { CheckoutForm } from './CheckoutForm';
 import { BookingConfirmation } from './BookingConfirmation';
 import { XIcon, CheckIcon } from './Icons';
@@ -18,7 +18,8 @@ interface BookingModalProps {
     customerEmail: string,
     voucherCode?: string,
     currency?: string,
-    corporateDetails?: { companyName?: string; taxId?: string; billingAddress?: string }
+    corporateDetails?: { companyName?: string; taxId?: string; billingAddress?: string },
+    addons?: SelectedAddonItem[]
   ) => void;
   onRefreshMap: () => void;
   onResetBooking: () => void;

@@ -18,6 +18,7 @@ import {
   TicketTransferPayload,
   TicketTransferResult,
   NotificationListResponse,
+  EventAddon,
 } from '../types';
 import { getStoredToken } from './auth';
 
@@ -271,6 +272,7 @@ export async function createBooking(req: BookingRequest): Promise<BookingRespons
     tax_id: req.taxId,
     billingAddress: req.billingAddress,
     billing_address: req.billingAddress,
+    addons: req.addons,
     paymentInfo: req.paymentInfo || { method: 'CREDIT_CARD', cardToken: 'tok_visa_success' },
     payment_info: req.paymentInfo || { method: 'CREDIT_CARD', card_token: 'tok_visa_success' },
     idempotencyKey: req.idempotencyKey || `idem-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
@@ -359,6 +361,17 @@ export async function createBooking(req: BookingRequest): Promise<BookingRespons
     customerName: String(body.customer_name || body.customerName || req.customerName),
     customerEmail: String(body.customer_email || body.customerEmail || req.customerEmail),
     tickets,
+    addons: Array.isArray(body.addons)
+      ? body.addons.map((a: Record<string, unknown>) => ({
+          id: String(a.id || a.addon_id || a.addonId || ''),
+          bookingId: String(a.booking_id || a.bookingId || ''),
+          addonId: String(a.addon_id || a.addonId || ''),
+          addonName: String(a.addon_name || a.addonName || ''),
+          unitPrice: Number(a.unit_price ?? a.unitPrice ?? 0),
+          quantity: Number(a.quantity ?? 0),
+          totalPrice: Number(a.total_price ?? a.totalPrice ?? 0),
+        }))
+      : undefined,
     createdAt: String(body.created_at || body.createdAt || new Date().toISOString()),
   };
 }
@@ -424,6 +437,17 @@ export async function fetchUserBookings(params: { userId?: string; email?: strin
       customerName: String(item.customerName || item.customer_name || ''),
       customerEmail: String(item.customerEmail || item.customer_email || ''),
       tickets,
+      addons: Array.isArray(item.addons)
+        ? (item.addons as Array<Record<string, unknown>>).map((a) => ({
+            id: String(a.id || a.addon_id || a.addonId || ''),
+            bookingId: String(a.booking_id || a.bookingId || ''),
+            addonId: String(a.addon_id || a.addonId || ''),
+            addonName: String(a.addon_name || a.addonName || ''),
+            unitPrice: Number(a.unit_price ?? a.unitPrice ?? 0),
+            quantity: Number(a.quantity ?? 0),
+            totalPrice: Number(a.total_price ?? a.totalPrice ?? 0),
+          }))
+        : undefined,
       createdAt: String(item.createdAt || item.created_at || new Date().toISOString()),
     };
   });
@@ -1074,5 +1098,66 @@ export async function downloadBookingCalendarICS(bookingId: string, eventTitle?:
     document.body.removeChild(a);
     window.URL.revokeObjectURL(blobUrl);
   }
+}
+
+/**
+ * Fetch available VIP Add-ons, Merch and Concessions for an event (Milestone 29)
+ */
+export async function fetchEventAddons(eventId: string): Promise<EventAddon[]> {
+  try {
+    const res = await fetch(`${API_BASE}/events/${eventId}/addons`);
+    if (res.ok) {
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : Array.isArray(data?.addons) ? data.addons : [];
+      if (list.length > 0) {
+        return list.map((a: Record<string, unknown>) => ({
+          id: String(a.id),
+          eventId: String(a.event_id || a.eventId || eventId),
+          name: String(a.name),
+          description: String(a.description || ''),
+          price: Number(a.price || 0),
+          category: (a.category as EventAddon['category']) || 'MERCHANDISE',
+          availableInventory: Number(a.available_inventory ?? a.availableInventory ?? 0),
+          maxQuantityPerBooking: Number(a.max_quantity_per_booking ?? a.maxQuantityPerBooking ?? 5),
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn(`Could not fetch addons for event ${eventId}:`, err);
+  }
+
+  // Graceful fallback for offline demo / decoupled mode
+  return [
+    {
+      id: `addon-parking-${eventId}`,
+      eventId,
+      name: 'Priority Venue Parking',
+      description: 'Dedicated reserved bay adjacent to VIP stadium entrance',
+      price: 25.0,
+      category: 'PARKING',
+      availableInventory: 50,
+      maxQuantityPerBooking: 2,
+    },
+    {
+      id: `addon-tshirt-${eventId}`,
+      eventId,
+      name: 'Limited Edition Tour T-Shirt',
+      description: 'Premium heavyweight cotton tour commemorative tee',
+      price: 35.0,
+      category: 'MERCHANDISE',
+      availableInventory: 100,
+      maxQuantityPerBooking: 4,
+    },
+    {
+      id: `addon-lounge-${eventId}`,
+      eventId,
+      name: 'Executive Lounge & Open Bar Pass',
+      description: 'Exclusive lounge access with complimentary craft beverages',
+      price: 75.0,
+      category: 'VIP_LOUNGE',
+      availableInventory: 30,
+      maxQuantityPerBooking: 4,
+    },
+  ];
 }
 
