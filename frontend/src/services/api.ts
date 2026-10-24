@@ -13,6 +13,10 @@ import {
   VoucherValidationResult,
   CreateVoucherPayload,
   InvoiceData,
+  WaitlistEntry,
+  JoinWaitlistPayload,
+  TicketTransferPayload,
+  TicketTransferResult,
 } from '../types';
 import { getStoredToken } from './auth';
 
@@ -815,4 +819,152 @@ export async function downloadInvoicePdf(bookingId: string, reference?: string):
   window.URL.revokeObjectURL(url);
 }
 
+/**
+ * Join event waitlist queue (Milestone 27)
+ */
+export async function joinWaitlist(payload: JoinWaitlistPayload): Promise<WaitlistEntry> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
+  const res = await fetch(`${API_BASE}/waitlist`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to join waitlist: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+/**
+ * Fetch waitlist entries for a user, email, or event (Milestone 27)
+ */
+export async function fetchUserWaitlists(params?: {
+  userId?: string;
+  email?: string;
+  eventId?: string;
+}): Promise<WaitlistEntry[]> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const queryParams = new URLSearchParams();
+  if (params?.userId) queryParams.set('userId', params.userId);
+  if (params?.email) queryParams.set('email', params.email);
+  if (params?.eventId) queryParams.set('eventId', params.eventId);
+
+  const url = `${API_BASE}/waitlist${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  const res = await fetch(url, { headers });
+
+  if (!res.ok) {
+    if (res.status === 404) return [];
+    throw new Error(`Failed to fetch waitlist: HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  if (!Array.isArray(data)) return [];
+
+  return data.map((item: Record<string, unknown>) => ({
+    id: String(item.id || ''),
+    eventId: String(item.eventId || item.event_id || ''),
+    eventTitle: String(item.eventTitle || item.event_title || ''),
+    tierId: item.tierId || item.tier_id ? String(item.tierId || item.tier_id) : undefined,
+    tierName: item.tierName || item.tier_name ? String(item.tierName || item.tier_name) : undefined,
+    seatId: item.seatId || item.seat_id ? String(item.seatId || item.seat_id) : undefined,
+    userId: String(item.userId || item.user_id || ''),
+    customerName: String(item.customerName || item.customer_name || ''),
+    customerEmail: String(item.customerEmail || item.customer_email || ''),
+    quantity: Number(item.quantity || 1),
+    status: (item.status || 'PENDING') as WaitlistEntry['status'],
+    reservationId: item.reservationId || item.reservation_id ? String(item.reservationId || item.reservation_id) : undefined,
+    promotedAt: item.promotedAt || item.promoted_at ? String(item.promotedAt || item.promoted_at) : undefined,
+    expiresAt: item.expiresAt || item.expires_at ? String(item.expiresAt || item.expires_at) : undefined,
+    position: item.position !== undefined ? Number(item.position) : undefined,
+    createdAt: String(item.createdAt || item.created_at || new Date().toISOString()),
+    updatedAt: String(item.updatedAt || item.updated_at || new Date().toISOString()),
+  }));
+}
+
+/**
+ * Cancel / leave waitlist entry (Milestone 27)
+ */
+export async function cancelWaitlistEntry(waitlistId: string, userId?: string): Promise<void> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const url = `${API_BASE}/waitlist/${waitlistId}${userId ? `?userId=${encodeURIComponent(userId)}` : ''}`;
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to cancel waitlist entry: HTTP ${res.status}`);
+  }
+}
+
+/**
+ * Claim a promoted waitlist reservation (Milestone 27)
+ */
+export async function claimWaitlistReservation(waitlistId: string): Promise<BookingResponse> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/waitlist/${waitlistId}/claim`, {
+    method: 'POST',
+    headers,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to claim waitlist hold: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+/**
+ * Initiate secure digital ticket transfer to another recipient (Milestone 27)
+ */
+export async function transferTicket(payload: TicketTransferPayload): Promise<TicketTransferResult> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/tickets/transfer`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to transfer ticket: HTTP ${res.status}`);
+  }
+  return res.json();
+}

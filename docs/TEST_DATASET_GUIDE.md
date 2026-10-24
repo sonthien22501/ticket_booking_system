@@ -151,22 +151,27 @@ Digital admission passes with unique QR ticket codes (`ticket_code`) to test gat
 | `TKT-USED-GATE99` | Row K, #1 (Keynote)| `REF-TECH-2026-004` | `USED` | ⚠️ **Double Entry Rejection** (Returns `valid: false`, status `USED`). |
 | `TKT-CANC-NEON03` | Row B, #2 (VIP) | `REF-CANC-2026-003` | `CANCELLED`| ❌ **Gate Rejection** (Returns `valid: false`, status `CANCELLED`). |
 
-### Example Gate Scanner Test Commands:
+### Example Gate Scanner & Ticket Transfer Commands:
 ```bash
 # 1. Verify Valid Admission Ticket
 curl -s -X POST http://localhost:8080/api/bookings/verify-ticket \
   -H "Content-Type: application/json" \
   -d '{"ticketCode":"TKT-VALID-VIP01"}' | jq .
 
-# 2. Verify Already Used Ticket (Anti-Passback check)
+# 2. Transfer Ticket to Friend
+curl -s -X POST http://localhost:8080/api/tickets/transfer \
+  -H "Content-Type: application/json" \
+  -d '{"ticketCode":"TKT-VALID-VIP01","recipientEmail":"friend@example.com","recipientName":"Lucky Friend"}' | jq .
+
+# 3. Verify Transferred Ticket (Old Code is permanently deactivated)
+curl -s -X POST http://localhost:8080/api/bookings/verify-ticket \
+  -H "Content-Type: application/json" \
+  -d '{"ticketCode":"TKT-VALID-VIP01"}' | jq .
+
+# 4. Verify Already Used Ticket (Anti-Passback check)
 curl -s -X POST http://localhost:8080/api/bookings/verify-ticket \
   -H "Content-Type: application/json" \
   -d '{"ticketCode":"TKT-USED-GATE99"}' | jq .
-
-# 3. Verify Cancelled Ticket
-curl -s -X POST http://localhost:8080/api/bookings/verify-ticket \
-  -H "Content-Type: application/json" \
-  -d '{"ticketCode":"TKT-CANC-NEON03"}' | jq .
 ```
 
 ---

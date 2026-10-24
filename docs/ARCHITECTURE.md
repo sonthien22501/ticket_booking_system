@@ -39,6 +39,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | F7 | Docker Compose Orchestration | Single `docker-compose.yml` with health checks, `condition: service_healthy` startup hierarchy across all 7 services | M7 | Survey / R3 |
 | F8 | Automated E2E Verification Harness | Python & Bash test harness executing against Gateway port 8080 (catalog fetch, booking creation, seat decrement verification, boundary conflicts) and Frontend port 3000 | M8 | Acceptance Criteria |
 | F26 | Multi-Currency Checkout & PDF Invoicing | Multi-currency conversions (USD, EUR, GBP, JPY, CAD, AUD), automated regional VAT/sales tax, corporate billing, and downloadable/printable PDF tax invoices | M26 | Survey / R4 |
+| F27 | Waitlist Self-Service & Secure Ticket Transfer | Frontend sold-out detection, waitlist queue joining, live position tracker in Passbook, atomic ticket transfer with code rotation & anti-fraud gate admission | M27 | Acceptance Criteria |
 
 ---
 
@@ -59,6 +60,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | M24 | Admin & Organizer Studio & Live Telemetry | Admin analytics API, automated event & 2D seat provisioning, event status management, and Organizer Studio modal | M2, M4, M5, M6, M21, M23 | DONE |
 | M25 | Promotional Voucher & Coupon Engine | Percentage/fixed discount codes, minimum spend thresholds, usage limits, and real-time checkout cart calculation with anti-stacking protection | M4, M5, M6, M21, M24 | DONE |
 | M26 | Multi-Currency Checkout & PDF Invoicing | Currency conversion engine, regional tax calculation, corporate expense billing, pure Go vector PDF invoices (%PDF-1.4), frontend currency picker, and 1-click invoice downloads | M4, M5, M6, M21, M25 | DONE |
+| M27 | Waitlist Self-Service & Secure Ticket Transfer | Sold-out event waitlist join modal, queue position tracking, promoted hold claim flow, atomic ticket transfer with QR code invalidation & gate check-in verification | M4, M5, M6, M21, M23, M26 | DONE |
 
 ---
 
@@ -87,6 +89,12 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 - `POST /api/currencies/convert` -> `http://booking-service:8083/currencies/convert` (real-time amount conversion)
 - `GET /api/bookings/:id/invoice` -> `http://booking-service:8083/bookings/:id/invoice` (structured invoice metadata)
 - `GET /api/bookings/:id/invoice/pdf` -> `http://booking-service:8083/bookings/:id/invoice/pdf` (binary %PDF-1.4 tax invoice download)
+- `POST /api/tickets/transfer` -> `http://booking-service:8083/tickets/transfer` (atomic ticket transfer, old code invalidation, new code generation)
+- `GET /api/tickets/transfers` -> `http://booking-service:8083/tickets/transfers` (audit transfer logs by user or booking)
+- `POST /api/waitlist` -> `http://booking-service:8083/waitlist` (join priority waitlist for sold-out events)
+- `GET /api/waitlist` -> `http://booking-service:8083/waitlist` (query waitlist entries and live queue positions)
+- `DELETE /api/waitlist/:id` -> `http://booking-service:8083/waitlist/:id` (cancel waitlist entry)
+- `POST /api/waitlist/:id/claim` -> `http://booking-service:8083/waitlist/:id/claim` (claim promoted hold and confirm booking)
 
 ### 2. Booking Service ↔ Inventory Service
 - **Reserve Hold**: `POST http://inventory-service:8082/inventory/reserve`

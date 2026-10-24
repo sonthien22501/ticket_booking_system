@@ -136,7 +136,7 @@ export interface RegisterCredentials {
 
 export interface VerifyTicketResult {
   valid: boolean;
-  status: 'VALID' | 'USED' | 'CANCELLED' | 'INVALID';
+  status: 'VALID' | 'USED' | 'CANCELLED' | 'TRANSFERRED' | 'INVALID';
   message: string;
   ticket?: TicketItem;
   booking?: {
@@ -286,6 +286,62 @@ export interface InvoiceData {
   issuerTaxId: string;
   issuerAddress: string;
   items: InvoiceItemData[];
+}
+
+export type WaitlistStatus = 'PENDING' | 'PROMOTED' | 'CLAIMED' | 'EXPIRED' | 'CANCELLED';
+
+export interface WaitlistEntry {
+  id: string;
+  eventId: string;
+  eventTitle?: string;
+  tierId?: string;
+  tierName?: string;
+  seatId?: string;
+  userId: string;
+  customerName: string;
+  customerEmail: string;
+  quantity: number;
+  status: WaitlistStatus;
+  reservationId?: string;
+  promotedAt?: string;
+  expiresAt?: string;
+  position?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JoinWaitlistPayload {
+  eventId: string;
+  tierId?: string;
+  userId?: string;
+  customerName: string;
+  customerEmail: string;
+  quantity: number;
+}
+
+export interface TicketTransferPayload {
+  ticketId?: string;
+  ticketCode?: string;
+  recipientEmail: string;
+  recipientName: string;
+  fromUserId?: string;
+  note?: string;
+}
+
+export interface TicketTransferResult {
+  transferId: string;
+  bookingId: string;
+  newBookingId: string;
+  oldTicketId: string;
+  newTicketId: string;
+  oldTicketCode: string;
+  newTicketCode: string;
+  recipientEmail: string;
+  recipientName: string;
+  seatLabel: string;
+  status: string;
+  transferredAt: string;
+  message: string;
 }
 
 

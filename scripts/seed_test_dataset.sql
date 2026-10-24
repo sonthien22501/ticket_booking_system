@@ -154,6 +154,23 @@ CREATE TABLE IF NOT EXISTS vouchers (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS ticket_transfers (
+    id VARCHAR(64) PRIMARY KEY,
+    original_ticket_id VARCHAR(64) NOT NULL,
+    original_ticket_code VARCHAR(128) NOT NULL,
+    new_ticket_id VARCHAR(64) NOT NULL,
+    new_ticket_code VARCHAR(128) NOT NULL,
+    booking_id VARCHAR(64) NOT NULL,
+    new_booking_id VARCHAR(64) NOT NULL,
+    from_user_id VARCHAR(64),
+    from_customer_email VARCHAR(255),
+    recipient_email VARCHAR(255) NOT NULL,
+    recipient_name VARCHAR(255) NOT NULL,
+    note TEXT,
+    status VARCHAR(32) NOT NULL DEFAULT 'COMPLETED',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Index creation for high-performance lookup
 CREATE INDEX IF NOT EXISTS idx_seat_items_event_status ON seat_items(event_id, status);
 CREATE INDEX IF NOT EXISTS idx_seat_items_hold_expires ON seat_items(status, hold_expires_at) WHERE status = 'HOLD';
@@ -167,6 +184,8 @@ CREATE INDEX IF NOT EXISTS idx_waitlist_user ON waitlist(user_id);
 CREATE INDEX IF NOT EXISTS idx_waitlist_reservation ON waitlist(reservation_id);
 CREATE INDEX IF NOT EXISTS idx_vouchers_code ON vouchers(code);
 CREATE INDEX IF NOT EXISTS idx_vouchers_active ON vouchers(active);
+CREATE INDEX IF NOT EXISTS idx_ticket_transfers_orig ON ticket_transfers(original_ticket_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_transfers_recipient ON ticket_transfers(recipient_email);
 
 -- Truncate all tables for clean idempotent re-seeding
 TRUNCATE TABLE waitlist CASCADE;

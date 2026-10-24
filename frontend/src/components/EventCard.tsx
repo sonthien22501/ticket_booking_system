@@ -1,13 +1,14 @@
 import React from 'react';
 import { EventItem } from '../types';
-import { CalendarIcon, MapPinIcon, TicketIcon, FilmIcon, SparklesIcon } from './Icons';
+import { CalendarIcon, MapPinIcon, TicketIcon, FilmIcon, SparklesIcon, ClockIcon } from './Icons';
 
 interface EventCardProps {
   event: EventItem;
   onSelectEvent: (event: EventItem) => void;
+  onJoinWaitlist?: (event: EventItem) => void;
 }
 
-export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent }) => {
+export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent, onJoinWaitlist }) => {
   // Format date nicely
   const formatDate = (dateStr: string) => {
     try {
@@ -30,21 +31,33 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent }) =>
     ? Math.min(...event.tiers.map((t) => t.price))
     : 0;
 
+  // Determine if event is sold out
+  const totalAvailable = event.tiers.reduce((acc, t) => acc + (t.availableSeats ?? 0), 0);
+  const isSoldOut = event.status === 'SOLD_OUT' || (event.tiers.length > 0 && totalAvailable === 0);
+
   // Cinematic theme category styling
   const categoryLower = event.category.toLowerCase();
   const isCinema = categoryLower.includes('cinema') || categoryLower.includes('movie');
   const isTheater = categoryLower.includes('theater') || categoryLower.includes('play');
 
+  const handleCardClick = () => {
+    if (isSoldOut && onJoinWaitlist) {
+      onJoinWaitlist(event);
+    } else {
+      onSelectEvent(event);
+    }
+  };
+
   return (
     <div
       className="event-card cursor-pointer"
-      onClick={() => onSelectEvent(event)}
+      onClick={handleCardClick}
       tabIndex={0}
       role="button"
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          onSelectEvent(event);
+          handleCardClick();
         }
       }}
       aria-label={`Select seats for ${event.title}`}
@@ -60,9 +73,15 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent }) =>
             <SparklesIcon size={12} className="mr-1 inline-icon" />
             {event.category}
           </span>
-          <span className={`event-status-badge status-${event.status.toLowerCase()}`}>
-            {event.status}
-          </span>
+          {isSoldOut ? (
+            <span className="event-status-badge status-sold-out bg-cyan-950/90 text-cyan-300 border border-cyan-500/50 shadow-sm shadow-cyan-500/20">
+              WAITLIST ACTIVE
+            </span>
+          ) : (
+            <span className={`event-status-badge status-${event.status.toLowerCase()}`}>
+              {event.status}
+            </span>
+          )}
         </div>
       </div>
 
@@ -102,18 +121,37 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent }) =>
           <span className="price-amount">${lowestPrice.toFixed(2)}</span>
         </div>
 
-        <button
-          type="button"
-          className="btn-select-seats cursor-pointer"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelectEvent(event);
-          }}
-          aria-label={`Select Seats for ${event.title}`}
-        >
-          <TicketIcon size={18} className="mr-2" />
-          Select Seats
-        </button>
+        {isSoldOut ? (
+          <button
+            type="button"
+            className="btn-select-seats cursor-pointer bg-cyan-700 hover:bg-cyan-600 text-cyan-50 border border-cyan-500/40 shadow-md shadow-cyan-900/30 font-semibold"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onJoinWaitlist) {
+                onJoinWaitlist(event);
+              } else {
+                onSelectEvent(event);
+              }
+            }}
+            aria-label={`Join Waitlist for ${event.title}`}
+          >
+            <ClockIcon size={18} className="mr-2 text-cyan-300" />
+            Join Waitlist
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn-select-seats cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectEvent(event);
+            }}
+            aria-label={`Select Seats for ${event.title}`}
+          >
+            <TicketIcon size={18} className="mr-2" />
+            Select Seats
+          </button>
+        )}
       </div>
     </div>
   );
