@@ -344,6 +344,33 @@ export interface TicketTransferResult {
   message: string;
 }
 
+export interface AppNotification {
+  id: string;
+  userId?: string;
+  recipientEmail: string;
+  type: 'WAITLIST_PROMOTED' | 'TICKET_TRANSFERRED' | 'BOOKING_CONFIRMED' | 'SYSTEM_ALERT';
+  title: string;
+  message: string;
+  data?: {
+    eventId?: string;
+    eventTitle?: string;
+    bookingId?: string;
+    ticketCode?: string;
+    seatLabel?: string;
+    reservationId?: string;
+    [key: string]: any;
+  };
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface NotificationListResponse {
+  notifications: AppNotification[];
+  total: number;
+  unreadCount: number;
+}
+
+
 
 
 

@@ -171,6 +171,18 @@ CREATE TABLE IF NOT EXISTS ticket_transfers (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS notifications (
+    id VARCHAR(64) PRIMARY KEY,
+    user_id VARCHAR(64),
+    recipient_email VARCHAR(255) NOT NULL,
+    type VARCHAR(64) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    data JSONB DEFAULT '{}'::jsonb,
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Index creation for high-performance lookup
 CREATE INDEX IF NOT EXISTS idx_seat_items_event_status ON seat_items(event_id, status);
 CREATE INDEX IF NOT EXISTS idx_seat_items_hold_expires ON seat_items(status, hold_expires_at) WHERE status = 'HOLD';
@@ -186,8 +198,12 @@ CREATE INDEX IF NOT EXISTS idx_vouchers_code ON vouchers(code);
 CREATE INDEX IF NOT EXISTS idx_vouchers_active ON vouchers(active);
 CREATE INDEX IF NOT EXISTS idx_ticket_transfers_orig ON ticket_transfers(original_ticket_id);
 CREATE INDEX IF NOT EXISTS idx_ticket_transfers_recipient ON ticket_transfers(recipient_email);
+CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_email);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read);
 
 -- Truncate all tables for clean idempotent re-seeding
+TRUNCATE TABLE notifications CASCADE;
 TRUNCATE TABLE waitlist CASCADE;
 TRUNCATE TABLE tickets CASCADE;
 TRUNCATE TABLE bookings CASCADE;
@@ -586,3 +602,13 @@ VALUES
 ('wl-002', 'evt-106', 'tier-comedy-106', NULL, 'usr-alex-chen', 'Alex Chen', 'alex.chen@technova.com', 1, 'PENDING', NULL, NULL, NULL, NOW() - interval '2 hours', NOW() - interval '2 hours'),
 ('wl-003', 'evt-106', 'tier-comedy-106', 'CA1', 'usr-maria-garcia', 'Maria Garcia', 'maria.garcia@madrid.es', 1, 'PROMOTED', 'res-wl-promoted-003', NOW() - interval '5 minutes', NOW() + interval '15 minutes', NOW() - interval '4 hours', NOW() - interval '5 minutes'),
 ('wl-004', 'evt-106', 'tier-comedy-106', NULL, 'usr-demo-customer', 'Alex Morgan (Demo Customer)', 'user@tickets.com', 1, 'EXPIRED', NULL, NOW() - interval '24 hours', NOW() - interval '23 hours', NOW() - interval '2 days', NOW() - interval '23 hours');
+
+-- ============================================================================
+-- 11. NOTIFICATIONS (In-App Notification Demonstrations for Milestone 28)
+-- ============================================================================
+INSERT INTO notifications (id, user_id, recipient_email, type, title, message, data, is_read, created_at)
+VALUES
+('notif-demo-001', 'usr-demo-customer', 'user@tickets.com', 'BOOKING_CONFIRMED', 'Booking Confirmed!', 'Your order #REF-NEON-2026-001 for Neon Symphony 2026 is confirmed.', '{"bookingId":"bkg-demo-001","eventId":"evt-101"}'::jsonb, false, NOW() - interval '2 hours'),
+('notif-demo-002', 'usr-demo-customer', 'user@tickets.com', 'SYSTEM_ALERT', 'Venue Gates Open at 6:00 PM', 'Grand Arena gates open early tonight for Neon Symphony 2026. Please have your QR ticket pass ready.', '{"eventId":"evt-101"}'::jsonb, false, NOW() - interval '1 hour'),
+('notif-maria-003', 'usr-maria-garcia', 'maria.garcia@madrid.es', 'WAITLIST_PROMOTED', 'You Are Off The Waitlist!', 'A front-row seat opened up for Stand-Up Comedy All-Stars. You have 15 minutes to claim your hold.', '{"eventId":"evt-106","reservationId":"res-wl-promoted-003"}'::jsonb, false, NOW() - interval '5 minutes'),
+('notif-sarah-004', 'usr-sarah-connor', 'sarah.connor@cyberdyne.io', 'BOOKING_CONFIRMED', 'Corporate Invoice Ready', 'Your corporate B2B tax invoice for Global Tech Summit 2026 is ready for download.', '{"bookingId":"bkg-sarah-004","eventId":"evt-102"}'::jsonb, true, NOW() - interval '1 day');

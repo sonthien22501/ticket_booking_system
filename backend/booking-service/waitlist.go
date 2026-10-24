@@ -899,4 +899,3 @@ func (s *Server) getBookingByWaitlistID(waitlistID, resID string) (*Booking, err
 	b.TotalAmountAlt = b.TotalAmount
 	return &b, nil
 }
-

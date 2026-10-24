@@ -324,6 +324,24 @@ func (s *Server) handleTransferTicket(w http.ResponseWriter, r *http.Request) {
 		Message:        fmt.Sprintf("Ticket successfully transferred to %s (%s). The original QR code is now permanently disabled.", recipientName, recipientEmail),
 	}
 
+	// Dispatch In-App Notification to Recipient (Milestone 28)
+	go func(r TicketTransferResponse) {
+		notifData, _ := json.Marshal(map[string]interface{}{
+			"transferId":     r.TransferID,
+			"bookingId":      r.NewBookingID,
+			"newTicketCode":  r.NewTicketCode,
+			"seatLabel":      r.SeatLabel,
+			"recipientEmail": r.RecipientEmail,
+		})
+		_ = s.dispatchNotification(context.Background(), Notification{
+			RecipientEmail: r.RecipientEmail,
+			Type:           "TICKET_TRANSFERRED",
+			Title:          "Ticket Received!",
+			Message:        fmt.Sprintf("You received a digital ticket for seat %s! Ticket code: %s", r.SeatLabel, r.NewTicketCode),
+			Data:           notifData,
+		})
+	}(resp)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(resp)

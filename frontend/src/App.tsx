@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { EventItem, SeatItem, BookingResponse, ApiError, User } from './types';
-import { fetchEvents, fetchSeats, createBooking } from './services/api';
+import { EventItem, SeatItem, BookingResponse, ApiError, User, AppNotification } from './types';
+import { fetchEvents, fetchSeats, createBooking, fetchNotifications } from './services/api';
 import { getStoredUser, verifyStoredSession, clearStoredSession } from './services/auth';
 import { Header } from './components/Header';
 import { EventCatalog } from './components/EventCatalog';
@@ -10,6 +10,7 @@ import { AuthModal } from './components/AuthModal';
 import { MyBookingsModal } from './components/MyBookingsModal';
 import { AdminDashboardModal } from './components/AdminDashboardModal';
 import { WaitlistModal } from './components/WaitlistModal';
+import { NotificationCenter } from './components/NotificationCenter';
 import { AlertNotification } from './components/AlertNotification';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { Theme, getInitialTheme, applyThemeToDocument, toggleThemeValue } from './services/theme';
@@ -29,6 +30,11 @@ export const App: React.FC = () => {
   const [isMyBookingsOpen, setIsMyBookingsOpen] = useState<boolean>(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
   const [waitlistEvent, setWaitlistEvent] = useState<EventItem | null>(null);
+
+  // Notifications State (Milestone 28)
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState<number>(0);
 
   // Catalog State
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -94,6 +100,24 @@ export const App: React.FC = () => {
         setCurrentUser(null);
       });
   }, []);
+
+  // Load notifications (Milestone 28)
+  const loadNotifications = useCallback(async () => {
+    try {
+      const email = currentUser?.email || 'user@tickets.com';
+      const res = await fetchNotifications(email, currentUser?.id);
+      setNotifications(res.notifications || []);
+      setUnreadNotificationsCount(res.unreadCount || 0);
+    } catch (err) {
+      // Quiet fail if API not connected
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [loadNotifications]);
 
   const handleOpenAuth = (tab: 'login' | 'register' = 'login') => {
     setAuthModalTab(tab);
@@ -357,6 +381,8 @@ export const App: React.FC = () => {
           setCurrentCurrency(curr);
           setStoredCurrency(curr);
         }}
+        onOpenNotifications={() => setIsNotificationsOpen(true)}
+        unreadNotificationsCount={unreadNotificationsCount}
       />
 
 
@@ -519,6 +545,17 @@ export const App: React.FC = () => {
             message: 'Catalog synchronized with newly published event!',
           });
         }}
+      />
+      {/* In-App Notification Center (Milestone 28) */}
+      <NotificationCenter
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        currentUser={currentUser || { email: 'user@tickets.com' }}
+        unreadCount={unreadNotificationsCount}
+        notifications={notifications}
+        onRefresh={loadNotifications}
+        onOpenWaitlist={() => setIsMyBookingsOpen(true)}
+        onOpenBookings={() => setIsMyBookingsOpen(true)}
       />
     </div>
   );

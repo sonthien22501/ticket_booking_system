@@ -726,6 +726,27 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 			}(finalBooking)
 		}
 
+		// Dispatch In-App Notification (Milestone 28)
+		go func(b *Booking) {
+			notifData, _ := json.Marshal(map[string]interface{}{
+				"bookingId":        b.ID,
+				"bookingReference": b.BookingReference,
+				"eventId":          b.EventID,
+				"eventTitle":       b.EventTitle,
+				"seats":            b.SeatIDs,
+				"totalAmount":      b.TotalAmount,
+				"currency":         b.Currency,
+			})
+			_ = s.dispatchNotification(context.Background(), Notification{
+				UserID:         b.UserID,
+				RecipientEmail: b.CustomerEmail,
+				Type:           "BOOKING_CONFIRMED",
+				Title:          "Booking Confirmed!",
+				Message:        fmt.Sprintf("Your order #%s for %s (%d seat(s)) is confirmed. View your digital passes anytime in Passbook.", b.BookingReference, b.EventTitle, len(b.SeatIDs)),
+				Data:           notifData,
+			})
+		}(finalBooking)
+
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(finalBooking)
 
@@ -866,6 +887,11 @@ func (s *Server) handleBookingByID(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/bookings/")
 	path = strings.TrimPrefix(path, "/bookings/")
 	path = strings.TrimPrefix(path, "/")
+
+	if strings.HasSuffix(path, "/calendar.ics") || strings.HasSuffix(path, ".ics") {
+		s.handleBookingCalendarICS(w, r)
+		return
+	}
 
 	isCancel := false
 	isInvoice := false
@@ -1884,6 +1910,14 @@ func main() {
 	mux.HandleFunc("/api/currencies/rates", srv.handleCurrencyRates)
 	mux.HandleFunc("/currencies/convert", srv.handleCurrencyConvert)
 	mux.HandleFunc("/api/currencies/convert", srv.handleCurrencyConvert)
+
+	// In-App Notification Center routes (Milestone 28)
+	mux.HandleFunc("/notifications", srv.handleNotifications)
+	mux.HandleFunc("/api/notifications", srv.handleNotifications)
+	mux.HandleFunc("/notifications/read-all", srv.handleNotificationReadAll)
+	mux.HandleFunc("/api/notifications/read-all", srv.handleNotificationReadAll)
+	mux.HandleFunc("/notifications/", srv.handleNotificationByID)
+	mux.HandleFunc("/api/notifications/", srv.handleNotificationByID)
 
 	// Single booking routes
 	mux.HandleFunc("/bookings/", srv.handleBookingByID)
