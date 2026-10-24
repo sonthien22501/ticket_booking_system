@@ -1942,11 +1942,13 @@ func main() {
 	mux.HandleFunc("/notifications/", srv.handleNotificationByID)
 	mux.HandleFunc("/api/notifications/", srv.handleNotificationByID)
 
-	// VIP Add-ons & Merchandise routes (Milestone 29)
+	// VIP Add-ons & Merchandise routes (Milestone 29) + Reviews & Ratings (Milestone 30)
 	mux.HandleFunc("/addons", srv.handleAddons)
 	mux.HandleFunc("/api/addons", srv.handleAddons)
-	mux.HandleFunc("/events/", srv.handleEventAddons)
-	mux.HandleFunc("/api/events/", srv.handleEventAddons)
+	mux.HandleFunc("/events/", srv.handleEventsDispatcher)
+	mux.HandleFunc("/api/events/", srv.handleEventsDispatcher)
+	mux.HandleFunc("/reviews/", srv.handleReviewsDispatcher)
+	mux.HandleFunc("/api/reviews/", srv.handleReviewsDispatcher)
 
 	// Single booking routes
 	mux.HandleFunc("/bookings/", srv.handleBookingByID)

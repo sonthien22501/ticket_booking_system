@@ -207,6 +207,21 @@ CREATE TABLE IF NOT EXISTS booking_addons (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS reviews (
+    id VARCHAR(64) PRIMARY KEY,
+    event_id VARCHAR(64) NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    user_id VARCHAR(64) REFERENCES users(id) ON DELETE SET NULL,
+    booking_id VARCHAR(64) REFERENCES bookings(id) ON DELETE SET NULL,
+    reviewer_name VARCHAR(128) NOT NULL,
+    reviewer_email VARCHAR(128) NOT NULL,
+    rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    title VARCHAR(255) NOT NULL,
+    comment TEXT NOT NULL,
+    verified_buyer BOOLEAN DEFAULT FALSE,
+    helpful_votes INT DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Index creation for high-performance lookup
 CREATE INDEX IF NOT EXISTS idx_seat_items_event_status ON seat_items(event_id, status);
 CREATE INDEX IF NOT EXISTS idx_seat_items_hold_expires ON seat_items(status, hold_expires_at) WHERE status = 'HOLD';
@@ -227,8 +242,11 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read);
 CREATE INDEX IF NOT EXISTS idx_event_addons_event ON event_addons(event_id, active);
 CREATE INDEX IF NOT EXISTS idx_booking_addons_bkg ON booking_addons(booking_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_event ON reviews(event_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews(user_id);
 
 -- Truncate all tables for clean idempotent re-seeding
+TRUNCATE TABLE reviews CASCADE;
 TRUNCATE TABLE booking_addons CASCADE;
 TRUNCATE TABLE event_addons CASCADE;
 TRUNCATE TABLE notifications CASCADE;
@@ -654,3 +672,15 @@ VALUES
 ('addon-buffet-103', 'evt-103', 'Champions Matchday Buffet', 'Gourmet matchday dining buffet in the Olympiastadion stadium sky lounge.', 65.00, 'CONCESSIONS', 80, 70, true),
 ('addon-champagne-104', 'evt-104', 'Intermission Champagne Service', 'Chilled Moët & Chandon champagne delivered to your seat during intermission.', 30.00, 'CONCESSIONS', 100, 88, true),
 ('addon-poster-105', 'evt-105', 'Holographic Anime Foil Poster', 'Numbered holographic commemorative art print signed by the synth producers.', 28.00, 'MERCHANDISE', 120, 110, true);
+
+-- ============================================================================
+-- 13. ATTENDEE REVIEWS & RATINGS (Social Proof Matrix for Milestone 30)
+-- ============================================================================
+INSERT INTO reviews (id, event_id, user_id, reviewer_name, reviewer_email, rating, title, comment, verified_buyer, helpful_votes, created_at)
+VALUES
+('rev-101-001', 'evt-101', 'usr-demo-customer', 'Alex Morgan', 'user@tickets.com', 5, 'Unbelievable audio fidelity and lighting!', 'Row A stage-front was an unforgettable sensory experience. Laser show synchronized to the orchestral drops flawlessly.', true, 24, NOW() - interval '2 days'),
+('rev-101-002', 'evt-101', 'usr-maria-garcia', 'Maria Garcia', 'maria.garcia@madrid.es', 5, 'Seamless digital ticket entry and pristine venue', 'Fast check-in via Apple Wallet passbook pass. Sound engineering in the Grand Hall was second to none.', true, 14, NOW() - interval '1 day'),
+('rev-101-003', 'evt-101', 'usr-alex-chen', 'Alex Chen', 'alex.chen@technova.com', 4, 'Masterclass musicianship, minor queue at concessions', 'The performance blew the roof off. Highly recommend grabbing VIP express parking add-on to skip arena congestion.', true, 8, NOW() - interval '12 hours'),
+('rev-102-001', 'evt-102', 'usr-sarah-connor', 'Sarah Connor', 'sarah.connor@cyberdyne.io', 5, 'Best enterprise AI keynote in years', 'Fascinating keynote panels on agentic workflows and real-time distributed systems. Great networking reception.', true, 31, NOW() - interval '3 days'),
+('rev-103-001', 'evt-103', 'usr-kenji-sato', 'Kenji Sato', 'kenji.sato@tokyo-synth.jp', 5, 'Atmosphere was electric!', 'Unmatched matchday atmosphere. The VIP skybox hospitality and catering exceeded all expectations.', true, 19, NOW() - interval '4 days'),
+('rev-104-001', 'evt-104', 'usr-demo-customer', 'Alex Morgan', 'user@tickets.com', 5, 'Breathtaking choreography and orchestra', 'Hamilton was pure poetry in motion. The live philharmonic was mesmerizing.', true, 16, NOW() - interval '2 days');

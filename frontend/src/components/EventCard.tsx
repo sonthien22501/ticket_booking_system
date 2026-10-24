@@ -1,14 +1,15 @@
 import React from 'react';
 import { EventItem } from '../types';
-import { CalendarIcon, MapPinIcon, TicketIcon, FilmIcon, SparklesIcon, ClockIcon } from './Icons';
+import { CalendarIcon, MapPinIcon, TicketIcon, FilmIcon, SparklesIcon, ClockIcon, StarIcon } from './Icons';
 
 interface EventCardProps {
   event: EventItem;
   onSelectEvent: (event: EventItem) => void;
   onJoinWaitlist?: (event: EventItem) => void;
+  onViewReviews?: (event: EventItem) => void;
 }
 
-export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent, onJoinWaitlist }) => {
+export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent, onJoinWaitlist, onViewReviews }) => {
   // Format date nicely
   const formatDate = (dateStr: string) => {
     try {
@@ -116,9 +117,26 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent, onJo
       </div>
 
       <div className="event-card-footer">
-        <div className="price-starting-box">
-          <span className="price-label">Starting at</span>
-          <span className="price-amount">${lowestPrice.toFixed(2)}</span>
+        <div className="flex items-center gap-2">
+          <div className="price-starting-box">
+            <span className="price-label">Starting at</span>
+            <span className="price-amount">${lowestPrice.toFixed(2)}</span>
+          </div>
+          {onViewReviews && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewReviews(event);
+              }}
+              className="px-2 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+              title="Read verified attendee reviews and ratings"
+              data-testid={`btn-event-reviews-${event.id}`}
+            >
+              <StarIcon size={12} filled className="text-amber-400" />
+              <span>Reviews</span>
+            </button>
+          )}
         </div>
 
         {isSoldOut ? (

@@ -19,6 +19,9 @@ import {
   TicketTransferResult,
   NotificationListResponse,
   EventAddon,
+  EventReview,
+  EventReviewsResponse,
+  CreateReviewRequest,
 } from '../types';
 import { getStoredToken } from './auth';
 
@@ -1159,5 +1162,108 @@ export async function fetchEventAddons(eventId: string): Promise<EventAddon[]> {
       maxQuantityPerBooking: 4,
     },
   ];
+}
+
+/**
+ * Fetch attendee reviews and summary statistics for an event (Milestone 30)
+ */
+export async function fetchEventReviews(eventId: string): Promise<EventReviewsResponse> {
+  try {
+    const res = await fetch(`${API_BASE}/events/${eventId}/reviews`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.summary && Array.isArray(data.reviews)) {
+        return data as EventReviewsResponse;
+      }
+    }
+  } catch (err) {
+    console.warn(`Could not fetch reviews for event ${eventId}:`, err);
+  }
+
+  // Graceful fallback for offline demo / decoupled mode
+  return {
+    eventId,
+    summary: {
+      averageRating: 4.8,
+      totalReviews: 3,
+      ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 1, 5: 2 },
+    },
+    reviews: [
+      {
+        id: `rev-${eventId}-1`,
+        eventId,
+        reviewerName: 'Alex Rivers',
+        reviewerEmail: 'alex@example.com',
+        rating: 5,
+        title: 'Unbelievable audio fidelity and lighting!',
+        comment: 'Row A stage-front was an unforgettable sensory experience. Laser show synchronized to the orchestral drops flawlessly.',
+        verifiedBuyer: true,
+        helpfulVotes: 24,
+        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+      },
+      {
+        id: `rev-${eventId}-2`,
+        eventId,
+        reviewerName: 'Maria Garcia',
+        reviewerEmail: 'maria@example.com',
+        rating: 5,
+        title: 'Seamless digital ticket entry and pristine venue',
+        comment: 'Fast check-in via Apple Wallet passbook pass. Sound engineering in the Grand Hall was second to none.',
+        verifiedBuyer: true,
+        helpfulVotes: 14,
+        createdAt: new Date(Date.now() - 86400000).toISOString(),
+      },
+      {
+        id: `rev-${eventId}-3`,
+        eventId,
+        reviewerName: 'Elena Rostova',
+        reviewerEmail: 'elena@example.com',
+        rating: 4,
+        title: 'Masterclass musicianship, minor queue at concessions',
+        comment: 'The performance blew the roof off. Highly recommend grabbing VIP express parking add-on to skip arena congestion.',
+        verifiedBuyer: true,
+        helpfulVotes: 8,
+        createdAt: new Date(Date.now() - 43200000).toISOString(),
+      },
+    ],
+  };
+}
+
+/**
+ * Submit an attendee review for an event (Milestone 30)
+ */
+export async function submitEventReview(req: CreateReviewRequest): Promise<EventReview> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/events/${req.eventId}/reviews`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(req),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody.error || errBody.message || `Failed to submit review (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Vote helpful on a review (Milestone 30)
+ */
+export async function voteHelpfulReview(reviewId: string): Promise<boolean> {
+  const res = await fetch(`${API_BASE}/reviews/${reviewId}/vote`, {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+  });
+  return res.ok;
 }
 
