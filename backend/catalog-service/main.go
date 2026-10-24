@@ -294,6 +294,12 @@ func (s *Server) handleEventByID(w http.ResponseWriter, r *http.Request) {
 		s.handleEventStatusUpdate(w, r)
 		return
 	}
+	if strings.HasSuffix(path, "/floorplan") {
+		eventID := strings.TrimSuffix(path, "/floorplan")
+		eventID = strings.Trim(eventID, "/")
+		s.handleVenueFloorplan(w, r, eventID)
+		return
+	}
 	eventID := strings.TrimSpace(path)
 
 	if eventID == "" {
@@ -523,6 +529,8 @@ func main() {
 	// Events collection routes
 	mux.HandleFunc("/events", srv.handleEvents)
 	mux.HandleFunc("/api/events", srv.handleEvents)
+	mux.HandleFunc("/events/search", srv.handleSearchEvents)
+	mux.HandleFunc("/api/events/search", srv.handleSearchEvents)
 
 	// Single event routes
 	mux.HandleFunc("/events/", srv.handleEventByID)

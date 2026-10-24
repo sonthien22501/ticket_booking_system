@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
-import { EventItem, SeatItem } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { EventItem, SeatItem, VenueFloorplan } from '../types';
 import { SeatGrid } from './SeatGrid';
-import { ArrowLeftIcon, RefreshCwIcon, TicketIcon, CalendarIcon, MapPinIcon } from './Icons';
+import { ArrowLeftIcon, RefreshCwIcon, TicketIcon, CalendarIcon, MapPinIcon, BuildingOfficeIcon } from './Icons';
 import { LoadingSpinner } from './LoadingSpinner';
+import { fetchVenueFloorplan } from '../services/api';
 
 interface VenueSeatMapProps {
   event: EventItem;
@@ -27,6 +28,35 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
   onBackToCatalog,
   onRefreshSeats,
 }) => {
+  const [floorplan, setFloorplan] = useState<VenueFloorplan | null>(null);
+  const [selectedSection, setSelectedSection] = useState<string>('ALL');
+  const [showFloorplanModal, setShowFloorplanModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchVenueFloorplan(event.id)
+      .then((data) => {
+        if (isMounted) setFloorplan(data);
+      })
+      .catch((err) => {
+        console.warn('Failed to load venue floorplan:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [event.id]);
+
+  // Filter seats if a specific section is selected
+  const displayedSeats = useMemo(() => {
+    if (selectedSection === 'ALL') return seats;
+    if (selectedSection === 'VIP') {
+      return seats.filter((s) => s.row === 'A' || s.row === 'B' || (s.tierId && s.tierId.includes('vip')));
+    }
+    if (selectedSection === 'GENERAL') {
+      return seats.filter((s) => s.row !== 'A' && s.row !== 'B' && (!s.tierId || !s.tierId.includes('vip')));
+    }
+    return seats;
+  }, [seats, selectedSection]);
   // Calculate selection totals
   const selectedSeatsList = useMemo(() => {
     return seats.filter((s) => selectedSeatIds.has(s.id));
@@ -121,6 +151,72 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
           </div>
         </div>
 
+        {/* Section Switcher & Floorplan Modal Button (Milestone 31) */}
+        <div className="flex items-center justify-between px-6 py-2 bg-slate-900/60 rounded-xl mx-4 mb-3 border border-slate-800">
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-slate-400 font-semibold mr-1">Section:</span>
+            {[
+              { id: 'ALL', label: 'All Sections' },
+              { id: 'VIP', label: 'VIP Front (Rows A-B)' },
+              { id: 'GENERAL', label: 'General Admission (Rows C-F)' },
+            ].map((sec) => (
+              <button
+                key={sec.id}
+                type="button"
+                onClick={() => setSelectedSection(sec.id)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                  selectedSection === sec.id
+                    ? 'bg-amber-500 text-slate-950 font-bold'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+                data-testid={`section-filter-${sec.id.toLowerCase()}`}
+              >
+                {sec.label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowFloorplanModal(!showFloorplanModal)}
+            className="px-3 py-1 rounded-lg bg-indigo-900/40 hover:bg-indigo-800 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+            data-testid="toggle-floorplan-btn"
+          >
+            <BuildingOfficeIcon size={14} />
+            <span>Floorplan Schematics</span>
+          </button>
+        </div>
+
+        {/* Venue Floorplan Modal / Drawer */}
+        {showFloorplanModal && floorplan && (
+          <div className="p-4 mx-4 mb-4 rounded-2xl bg-slate-900/90 border border-indigo-500/40 animate-in fade-in space-y-3" data-testid="floorplan-overview-card">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <h4 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                <BuildingOfficeIcon size={16} className="text-amber-400" />
+                <span>{floorplan.venueName} • Architectural Floorplan Matrix</span>
+              </h4>
+              <span className="text-xs text-slate-400">Orientation: {floorplan.stageOrientation}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {floorplan.sections.map((sec) => (
+                <div key={sec.id} className="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-slate-200">{sec.name}</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase" style={{ backgroundColor: `${sec.color}20`, color: sec.color }}>
+                      {sec.category}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">{sec.rowRange}</p>
+                  <div className="flex items-center justify-between text-xs mt-2 pt-1 border-t border-slate-800/60 font-mono">
+                    <span className="text-slate-400">Cap: {sec.capacity > 0 ? sec.capacity : 'N/A'}</span>
+                    <span className="text-amber-300 font-bold">${sec.basePrice.toFixed(2)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Interactive Grid */}
         {loadingSeats ? (
           <div className="seatmap-loading">
@@ -128,7 +224,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
           </div>
         ) : (
           <SeatGrid
-            seats={seats}
+            seats={displayedSeats}
             selectedSeatIds={selectedSeatIds}
             onToggleSeat={onToggleSeat}
           />

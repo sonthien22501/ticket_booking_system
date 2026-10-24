@@ -175,6 +175,49 @@ export interface CreateReviewRequest {
   comment: string;
 }
 
+export interface SearchFacets {
+  cities: Record<string, number>;
+  categories: Record<string, number>;
+  minPrice: number;
+  maxPrice: number;
+}
+
+export interface EventSearchFilters {
+  q?: string;
+  city?: string;
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  sortBy?: 'date_asc' | 'date_desc' | 'price_asc' | 'price_desc' | 'title_asc' | string;
+}
+
+export interface SearchEventsResponse {
+  events: EventItem[];
+  facets: SearchFacets;
+  totalCount: number;
+}
+
+export interface VenueFloorplanSection {
+  id: string;
+  name: string;
+  category: 'STAGE' | 'VIP_PIT' | 'ORCHESTRA' | 'MEZZANINE' | 'BALCONY' | string;
+  tierId?: string;
+  tierName?: string;
+  capacity: number;
+  basePrice: number;
+  rowRange: string;
+  color: string;
+}
+
+export interface VenueFloorplan {
+  eventId: string;
+  venueName: string;
+  venueLocation: string;
+  stageOrientation: string;
+  totalCapacity: number;
+  sections: VenueFloorplanSection[];
+}
+
 export interface ApiError {
   status: number;
   message: string;

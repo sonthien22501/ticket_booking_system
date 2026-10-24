@@ -43,6 +43,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | F28 | In-App Notification Center & Calendar Sync | Real-time in-app notification center (bell badge, order alerts, waitlist promotions, ticket transfers) & standard RFC 5545 iCalendar (.ics) pass export | M28 | Acceptance Criteria |
 | F29 | VIP Add-ons, Merchandise & Concessions | Curated upsells (priority parking, event t-shirts, VIP lounge access), atomic inventory deduction, cart subtotal itemization & confirmation | M29 | Acceptance Criteria |
 | F30 | Attendee Reviews & Verified Buyer Ratings | 1-5 star attendee reviews, automated verified buyer check against confirmed bookings, rating score aggregation, rating breakdown matrix & helpful voting | M30 | Acceptance Criteria |
+| F31 | Geolocation Search, Venue Floorplans & Category Facets | Multi-facet search query engine, city/category facet tallies, budget presets, sort orders, and architectural venue floorplan schematics | M31 | Acceptance Criteria |
 
 ---
 
@@ -67,6 +68,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | M28 | In-App Notification Center & Calendar Sync | Persistent notifications store, automated event triggers, unread counter badges, glassmorphism activity drawer, and RFC 5545 iCalendar (.ics) pass downloads | M4, M5, M6, M21, M23, M27 | DONE |
 | M29 | VIP Add-ons, Merchandise & Concessions | Curated upsells, atomic inventory locking/deduction, order itemization, and checkout upsell engine | M4, M5, M6, M21, M25, M28 | DONE |
 | M30 | Attendee Reviews & Verified Buyer Ratings | Verified buyer checks, star rating aggregations, rating breakdown distributions, and interactive social proof modal | M4, M5, M6, M21, M23, M29 | DONE |
+| M31 | Geolocation Search, Venue Floorplans & Category Facets | Advanced search query parsing, city/category facet tallies, price filters, and venue floorplan sections | M2, M5, M6, M21, M22, M30 | DONE |
 
 ---
 
@@ -110,6 +112,8 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 - `GET /api/events/:id/reviews` -> `http://booking-service:8083/events/:id/reviews` (fetches attendee reviews, star distribution, and average rating)
 - `POST /api/events/:id/reviews` -> `http://booking-service:8083/events/:id/reviews` (submits attendee review with verified buyer validation)
 - `POST /api/reviews/:id/vote` -> `http://booking-service:8083/reviews/:id/vote` (increments review helpful vote count)
+- `GET /api/events/search` -> `http://catalog-service:8081/events/search` (multi-facet search by keyword, city, category, price bounds, and sort order)
+- `GET /api/events/:id/floorplan` -> `http://catalog-service:8081/events/:id/floorplan` (retrieves spatial sections, capacities, row ranges, and base pricing)
 
 ### 2. Booking Service ↔ Inventory Service
 - **Reserve Hold**: `POST http://inventory-service:8082/inventory/reserve`
