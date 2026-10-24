@@ -67,6 +67,7 @@ export interface BookingRequest {
     cardToken?: string;
   };
   idempotencyKey?: string;
+  addons?: SelectedAddonItem[];
 }
 
 export interface TicketItem {
@@ -99,7 +100,41 @@ export interface BookingResponse {
   customerName: string;
   customerEmail: string;
   tickets: TicketItem[];
+  addons?: BookingAddon[];
   createdAt: string;
+}
+
+export interface SelectedAddonItem {
+  addonId: string;
+  quantity: number;
+  name?: string;
+  price?: number;
+}
+
+export interface EventAddon {
+  id: string;
+  eventId: string;
+  name: string;
+  description?: string;
+  price: number;
+  category: 'PARKING' | 'MERCHANDISE' | 'HOSPITALITY' | 'CONCESSIONS' | string;
+  totalInventory?: number;
+  availableInventory: number;
+  maxQuantityPerBooking?: number;
+  active?: boolean;
+  createdAt?: string;
+}
+
+export interface BookingAddon {
+  id: string;
+  bookingId: string;
+  addonId: string;
+  name?: string;
+  addonName?: string;
+  unitPrice: number;
+  quantity: number;
+  totalPrice: number;
+  createdAt?: string;
 }
 
 export interface ApiError {

@@ -54,7 +54,8 @@ if docker ps --format '{{.Names}}' | grep -q "ticket_postgres"; then
         UNION ALL SELECT 'Digital Tickets: ' || count(*) FROM tickets
         UNION ALL SELECT 'Waitlist Queue:  ' || count(*) FROM waitlist
         UNION ALL SELECT 'Vouchers:        ' || count(*) FROM vouchers
-        UNION ALL SELECT 'Notifications:   ' || count(*) FROM notifications;
+        UNION ALL SELECT 'Notifications:   ' || count(*) FROM notifications
+        UNION ALL SELECT 'Event Add-ons:   ' || count(*) FROM event_addons;
     " | sed '/^$/d'
 fi
 
