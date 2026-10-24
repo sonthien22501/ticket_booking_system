@@ -42,6 +42,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | F27 | Waitlist Self-Service & Secure Ticket Transfer | Frontend sold-out detection, waitlist queue joining, live position tracker in Passbook, atomic ticket transfer with code rotation & anti-fraud gate admission | M27 | Acceptance Criteria |
 | F28 | In-App Notification Center & Calendar Sync | Real-time in-app notification center (bell badge, order alerts, waitlist promotions, ticket transfers) & standard RFC 5545 iCalendar (.ics) pass export | M28 | Acceptance Criteria |
 | F29 | VIP Add-ons, Merchandise & Concessions | Curated upsells (priority parking, event t-shirts, VIP lounge access), atomic inventory deduction, cart subtotal itemization & confirmation | M29 | Acceptance Criteria |
+| F30 | Attendee Reviews & Verified Buyer Ratings | 1-5 star attendee reviews, automated verified buyer check against confirmed bookings, rating score aggregation, rating breakdown matrix & helpful voting | M30 | Acceptance Criteria |
 
 ---
 
@@ -65,6 +66,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | M27 | Waitlist Self-Service & Secure Ticket Transfer | Sold-out event waitlist join modal, queue position tracking, promoted hold claim flow, atomic ticket transfer with QR code invalidation & gate check-in verification | M4, M5, M6, M21, M23, M26 | DONE |
 | M28 | In-App Notification Center & Calendar Sync | Persistent notifications store, automated event triggers, unread counter badges, glassmorphism activity drawer, and RFC 5545 iCalendar (.ics) pass downloads | M4, M5, M6, M21, M23, M27 | DONE |
 | M29 | VIP Add-ons, Merchandise & Concessions | Curated upsells, atomic inventory locking/deduction, order itemization, and checkout upsell engine | M4, M5, M6, M21, M25, M28 | DONE |
+| M30 | Attendee Reviews & Verified Buyer Ratings | Verified buyer checks, star rating aggregations, rating breakdown distributions, and interactive social proof modal | M4, M5, M6, M21, M23, M29 | DONE |
 
 ---
 
@@ -105,6 +107,9 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 - `POST /api/notifications/read-all` -> `http://booking-service:8083/notifications/read-all` (marks all user notifications as read)
 - `GET /api/events/:id/addons` -> `http://booking-service:8083/events/:id/addons` (lists available VIP add-ons and event merchandise with inventory)
 - `GET /api/addons` -> `http://booking-service:8083/addons` (retrieves all system add-on packages)
+- `GET /api/events/:id/reviews` -> `http://booking-service:8083/events/:id/reviews` (fetches attendee reviews, star distribution, and average rating)
+- `POST /api/events/:id/reviews` -> `http://booking-service:8083/events/:id/reviews` (submits attendee review with verified buyer validation)
+- `POST /api/reviews/:id/vote` -> `http://booking-service:8083/reviews/:id/vote` (increments review helpful vote count)
 
 ### 2. Booking Service ↔ Inventory Service
 - **Reserve Hold**: `POST http://inventory-service:8082/inventory/reserve`

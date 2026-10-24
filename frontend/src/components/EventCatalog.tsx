@@ -12,6 +12,7 @@ interface EventCatalogProps {
   onRefresh: () => void;
   onSelectEvent: (event: EventItem) => void;
   onJoinWaitlist?: (event: EventItem) => void;
+  onViewReviews?: (event: EventItem) => void;
 }
 
 export const EventCatalog: React.FC<EventCatalogProps> = ({
@@ -21,6 +22,7 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
   onRefresh,
   onSelectEvent,
   onJoinWaitlist,
+  onViewReviews,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -118,6 +120,7 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
               event={evt}
               onSelectEvent={onSelectEvent}
               onJoinWaitlist={onJoinWaitlist}
+              onViewReviews={onViewReviews}
             />
           ))}
         </div>

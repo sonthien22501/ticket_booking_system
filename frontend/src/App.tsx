@@ -11,6 +11,7 @@ import { MyBookingsModal } from './components/MyBookingsModal';
 import { AdminDashboardModal } from './components/AdminDashboardModal';
 import { WaitlistModal } from './components/WaitlistModal';
 import { NotificationCenter } from './components/NotificationCenter';
+import { ReviewModal } from './components/ReviewModal';
 import { AlertNotification } from './components/AlertNotification';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { Theme, getInitialTheme, applyThemeToDocument, toggleThemeValue } from './services/theme';
@@ -44,6 +45,7 @@ export const App: React.FC = () => {
 
   // Selected Event & Seat Map State
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
+  const [reviewEvent, setReviewEvent] = useState<EventItem | null>(null);
   const [seats, setSeats] = useState<SeatItem[]>([]);
   const [loadingSeats, setLoadingSeats] = useState<boolean>(false);
   const [selectedSeatIds, setSelectedSeatIds] = useState<Set<string>>(new Set());
@@ -417,6 +419,7 @@ export const App: React.FC = () => {
             onRefresh={loadEvents}
             onSelectEvent={handleSelectEvent}
             onJoinWaitlist={(event) => setWaitlistEvent(event)}
+            onViewReviews={(event) => setReviewEvent(event)}
           />
         )}
       </main>
@@ -559,6 +562,16 @@ export const App: React.FC = () => {
         onOpenWaitlist={() => setIsMyBookingsOpen(true)}
         onOpenBookings={() => setIsMyBookingsOpen(true)}
       />
+
+      {/* Attendee Reviews & Social Proof Modal (Milestone 30) */}
+      {reviewEvent && (
+        <ReviewModal
+          isOpen={Boolean(reviewEvent)}
+          event={reviewEvent}
+          currentUser={currentUser}
+          onClose={() => setReviewEvent(null)}
+        />
+      )}
     </div>
   );
 };

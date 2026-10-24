@@ -137,6 +137,44 @@ export interface BookingAddon {
   createdAt?: string;
 }
 
+export interface EventReview {
+  id: string;
+  eventId: string;
+  userId?: string;
+  bookingId?: string;
+  reviewerName: string;
+  reviewerEmail: string;
+  rating: number;
+  title: string;
+  comment: string;
+  verifiedBuyer: boolean;
+  helpfulVotes: number;
+  createdAt: string;
+}
+
+export interface ReviewSummary {
+  averageRating: number;
+  totalReviews: number;
+  ratingDistribution: Record<number, number>;
+}
+
+export interface EventReviewsResponse {
+  eventId: string;
+  summary: ReviewSummary;
+  reviews: EventReview[];
+}
+
+export interface CreateReviewRequest {
+  eventId: string;
+  userId?: string;
+  bookingId?: string;
+  reviewerName: string;
+  reviewerEmail: string;
+  rating: number;
+  title?: string;
+  comment: string;
+}
+
 export interface ApiError {
   status: number;
   message: string;
