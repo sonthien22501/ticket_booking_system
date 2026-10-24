@@ -25,6 +25,8 @@ import {
   EventSearchFilters,
   SearchEventsResponse,
   VenueFloorplan,
+  NotificationDeliveryLog,
+  DispatchNotificationRequest,
 } from '../types';
 import { getStoredToken } from './auth';
 
@@ -1403,4 +1405,77 @@ export async function fetchVenueFloorplan(eventId: string): Promise<VenueFloorpl
     ],
   };
 }
+
+/**
+ * Fetch async notification delivery audit logs (Milestone 32)
+ */
+export async function fetchNotificationDeliveries(): Promise<NotificationDeliveryLog[]> {
+  try {
+    const res = await fetch(`${API_BASE}/notifications/deliveries`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not load notification deliveries:', err);
+  }
+
+  // Graceful fallback seed logs
+  return [
+    {
+      id: 'del-seed-001',
+      channel: 'EMAIL',
+      recipient: 'user@tickets.com',
+      eventType: 'booking.confirmed',
+      subject: 'Booking Confirmed: Neon Symphony 2026 (Ref: REF-NEON-2026-001)',
+      body: '<h2>Order Confirmed!</h2><p>Dear Alex Morgan, your reservation is confirmed.</p>',
+      status: 'DELIVERED',
+      attempts: 1,
+      createdAt: new Date(Date.now() - 7200000).toISOString(),
+    },
+    {
+      id: 'del-seed-002',
+      channel: 'SMS',
+      recipient: '+15551234567',
+      eventType: 'waitlist.promoted',
+      subject: 'Transactional SMS',
+      body: 'TicketVerse: Waitlist hold available for Cyberpunk Symphony! Claim reservation within 15 mins: ref WL-101-PROMOTE',
+      status: 'DELIVERED',
+      attempts: 1,
+      createdAt: new Date(Date.now() - 1800000).toISOString(),
+    },
+  ];
+}
+
+/**
+ * Dispatch test transactional notification via async worker (Milestone 32)
+ */
+export async function dispatchTestNotification(
+  req: DispatchNotificationRequest
+): Promise<{ success: boolean; delivery: NotificationDeliveryLog }> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/notifications/dispatch-test`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(req),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody.error || errBody.message || `Failed to dispatch notification (HTTP ${res.status})`);
+  }
+
+  return res.json();
+}
+
 

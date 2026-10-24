@@ -1,14 +1,17 @@
 # Project: Event Ticket Booking System (Microservices)
 
 ## Architecture
-Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordinating 7 containerized services connected via Docker bridge network (`ticket-net`):
-1. **API Gateway (`api-gateway`)** — Port 8080: Unified reverse proxy (Nginx / Go proxy) routing public traffic to backend services with CORS and health checks.
-2. **Event Catalog Service (`catalog-service`)** — Port 8081: Go service managing events, venues, ticket tiers, metadata, and catalog seeding.
+Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordinating containerized services connected via Docker bridge network (`ticket-net`):
+1. **API Gateway (`api-gateway`)** — Port 8080: Unified reverse proxy (Nginx) routing public traffic to backend services with rate limiting, correlation IDs, CORS, and health checks.
+2. **Event Catalog Service (`catalog-service`)** — Port 8081: Go service managing events, venues, ticket tiers, metadata, and multi-facet search.
 3. **Seat Inventory Service (`inventory-service`)** — Port 8082: Go service with high-concurrency atomic seat reservation, row-level locks, Redis atomic counters, and TTL lease janitor.
-4. **Booking Service (`booking-service`)** — Port 8083: Go Saga orchestrator coordinating checkout, payment simulation, ticket emission, and booking lifecycle.
-5. **PostgreSQL 16 Database (`postgres`)** — Port 5432: Relational storage for catalog, inventory, and booking data with initial seed data.
-6. **Redis 7 Cache (`redis`)** — Port 6379: High-throughput atomic counter and distributed locks.
-7. **Frontend (`frontend`)** — Port 3000: React + TypeScript (Vite) single-page app served via Nginx with interactive seat map and booking checkout.
+4. **Booking Service (`booking-service`)** — Port 8083: Go Saga orchestrator coordinating checkout, payment simulation, digital ticket issuance, waitlist queue, and booking lifecycle.
+5. **Auth Service (`auth-service`)** — Port 8084: Go service managing user registration, authentication, RBAC, and JWT signing.
+6. **Notification Service (`notification-service`)** — Port 8085: Go worker daemon consuming RabbitMQ events, dead-letter exchanges, and executing multi-channel email/SMS dispatches.
+7. **PostgreSQL 16 Database (`postgres`)** — Port 5432: Relational storage with relational constraints, indexes, and comprehensive test datasets.
+8. **Redis 7 Cache (`redis`)** — Port 6379: High-throughput atomic counters and distributed lock leases.
+9. **RabbitMQ 3 Message Broker (`rabbitmq`)** — Port 5672 (AMQP) & 15672 (Management UI): Asynchronous event broker with DLX/DLQ fault tolerance.
+10. **Frontend (`frontend`)** — Port 3000: React + TypeScript (Vite) single-page app with interactive seat map, passbook, review scorecards, and notification hub.
 
 ```
 [ Client / Web Browser / Test Harness ]
@@ -44,6 +47,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | F29 | VIP Add-ons, Merchandise & Concessions | Curated upsells (priority parking, event t-shirts, VIP lounge access), atomic inventory deduction, cart subtotal itemization & confirmation | M29 | Acceptance Criteria |
 | F30 | Attendee Reviews & Verified Buyer Ratings | 1-5 star attendee reviews, automated verified buyer check against confirmed bookings, rating score aggregation, rating breakdown matrix & helpful voting | M30 | Acceptance Criteria |
 | F31 | Geolocation Search, Venue Floorplans & Category Facets | Multi-facet search query engine, city/category facet tallies, budget presets, sort orders, and architectural venue floorplan schematics | M31 | Acceptance Criteria |
+| F32 | Asynchronous Multi-Channel Notification Microservice | Dedicated Go worker daemon on port 8085 consuming RabbitMQ topic events (`booking.confirmed`, `waitlist.promoted`, `ticket.transferred`), Dead Letter Queue (DLX/DLQ) fault isolation, Email/SMS formatting, and delivery audit log APIs | M32 | Acceptance Criteria |
 
 ---
 
@@ -69,6 +73,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | M29 | VIP Add-ons, Merchandise & Concessions | Curated upsells, atomic inventory locking/deduction, order itemization, and checkout upsell engine | M4, M5, M6, M21, M25, M28 | DONE |
 | M30 | Attendee Reviews & Verified Buyer Ratings | Verified buyer checks, star rating aggregations, rating breakdown distributions, and interactive social proof modal | M4, M5, M6, M21, M23, M29 | DONE |
 | M31 | Geolocation Search, Venue Floorplans & Category Facets | Advanced search query parsing, city/category facet tallies, price filters, and venue floorplan sections | M2, M5, M6, M21, M22, M30 | DONE |
+| M32 | Asynchronous Multi-Channel Notification Microservice | Dedicated Go worker microservice, RabbitMQ topic exchange & DLQ dead-letter routing, email/SMS templating, delivery persistence & activity center logs | M4, M5, M6, M7, M28 | DONE |
 
 ---
 
@@ -114,6 +119,8 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 - `POST /api/reviews/:id/vote` -> `http://booking-service:8083/reviews/:id/vote` (increments review helpful vote count)
 - `GET /api/events/search` -> `http://catalog-service:8081/events/search` (multi-facet search by keyword, city, category, price bounds, and sort order)
 - `GET /api/events/:id/floorplan` -> `http://catalog-service:8081/events/:id/floorplan` (retrieves spatial sections, capacities, row ranges, and base pricing)
+- `GET /api/notifications/deliveries` -> `http://notification-service:8085/deliveries` (retrieves multi-channel email/SMS delivery audit history)
+- `POST /api/notifications/dispatch-test` -> `http://notification-service:8085/dispatch-test` (triggers asynchronous worker dispatch for email/SMS payloads)
 
 ### 2. Booking Service ↔ Inventory Service
 - **Reserve Hold**: `POST http://inventory-service:8082/inventory/reserve`
