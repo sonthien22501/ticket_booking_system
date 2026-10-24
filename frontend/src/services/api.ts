@@ -17,6 +17,7 @@ import {
   JoinWaitlistPayload,
   TicketTransferPayload,
   TicketTransferResult,
+  NotificationListResponse,
 } from '../types';
 import { getStoredToken } from './auth';
 
@@ -968,3 +969,110 @@ export async function transferTicket(payload: TicketTransferPayload): Promise<Ti
   }
   return res.json();
 }
+
+/**
+ * Fetch in-app notifications for attendee / user (Milestone 28)
+ */
+export async function fetchNotifications(email?: string, userId?: string): Promise<NotificationListResponse> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const params = new URLSearchParams();
+  if (email) params.append('email', email);
+  if (userId) params.append('userId', userId);
+
+  const res = await fetch(`${API_BASE}/notifications?${params.toString()}`, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to fetch notifications: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+/**
+ * Mark a single notification as read (Milestone 28)
+ */
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/notifications/${notificationId}/read`, {
+    method: 'POST',
+    headers,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to mark notification read: HTTP ${res.status}`);
+  }
+}
+
+/**
+ * Mark all notifications as read for current user/email (Milestone 28)
+ */
+export async function markAllNotificationsRead(email?: string, userId?: string): Promise<void> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/notifications/read-all`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ email, userId }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to mark all notifications read: HTTP ${res.status}`);
+  }
+}
+
+/**
+ * Return direct download link for standard RFC 5545 iCalendar (.ics) (Milestone 28)
+ */
+export function getCalendarICSUrl(bookingId: string): string {
+  return `${API_BASE}/bookings/${bookingId}/calendar.ics`;
+}
+
+/**
+ * Trigger browser file download of calendar .ics pass (Milestone 28)
+ */
+export async function downloadBookingCalendarICS(bookingId: string, eventTitle?: string): Promise<void> {
+  const url = getCalendarICSUrl(bookingId);
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to download calendar event: HTTP ${res.status}`);
+  }
+  const blob = await res.blob();
+  if (typeof window !== 'undefined' && window.URL && typeof document !== 'undefined') {
+    const blobUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    const safeTitle = (eventTitle || 'event').toLowerCase().replace(/[^a-z0-9]/g, '-');
+    a.download = `${safeTitle}-${bookingId}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(blobUrl);
+  }
+}
+

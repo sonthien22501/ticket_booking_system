@@ -337,5 +337,3 @@ func TestWaitlistPromotionTrigger(t *testing.T) {
 		t.Errorf("Expected non-empty ReservationID on promoted entry")
 	}
 }
-
-

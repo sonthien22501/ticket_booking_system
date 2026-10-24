@@ -15,15 +15,15 @@ import (
 )
 
 type SagaOrchestrator struct {
-	rmq       *RabbitMQ
-	srv       *Server
+	rmq         *RabbitMQ
+	srv         *Server
 	activeSagas map[string]chan SagaResult
-	mu        sync.RWMutex
+	mu          sync.RWMutex
 }
 
 type SagaResult struct {
-	Status string
-	Error  string
+	Status  string
+	Error   string
 	Booking *Booking
 }
 

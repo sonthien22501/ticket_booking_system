@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { BookingResponse, TicketItem } from '../types';
-import { CheckCircleIcon, TicketIcon, QrCodeIcon, FileTextIcon } from './Icons';
+import { CheckCircleIcon, TicketIcon, QrCodeIcon, FileTextIcon, CalendarIcon } from './Icons';
 import { TicketPassModal } from './TicketPassModal';
-import { downloadInvoicePdf } from '../services/api';
+import { downloadInvoicePdf, downloadBookingCalendarICS } from '../services/api';
 import { formatCurrency } from '../services/currency';
 
 interface BookingConfirmationProps {
@@ -143,6 +143,16 @@ export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({ bookin
         >
           <FileTextIcon size={16} />
           <span>{downloadingPdf ? 'Generating PDF...' : 'Tax Invoice (PDF)'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => downloadBookingCalendarICS(booking.bookingId, booking.eventTitle)}
+          className="btn-print-ticket cursor-pointer flex items-center justify-center gap-1.5 border border-amber-500/40 text-amber-300 hover:bg-amber-950/40"
+          data-testid="confirmation-add-calendar-btn"
+          title="Export Event to Apple, Google, or Outlook Calendar (.ics)"
+        >
+          <CalendarIcon size={16} />
+          <span>Add to Calendar (.ics)</span>
         </button>
         <button
           type="button"

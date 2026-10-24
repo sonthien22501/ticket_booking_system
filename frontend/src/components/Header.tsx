@@ -1,5 +1,5 @@
 import React from 'react';
-import { TicketIcon, UserIcon, LogOutIcon, SparklesIcon } from './Icons';
+import { TicketIcon, UserIcon, LogOutIcon, SparklesIcon, BellIcon } from './Icons';
 import { ThemeToggle } from './ThemeToggle';
 import { Theme } from '../services/theme';
 import { User } from '../types';
@@ -18,6 +18,8 @@ interface HeaderProps {
   onOpenAdmin?: () => void;
   currentCurrency?: string;
   onCurrencyChange?: (curr: string) => void;
+  onOpenNotifications?: () => void;
+  unreadNotificationsCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -32,6 +34,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAdmin,
   currentCurrency = 'USD',
   onCurrencyChange,
+  onOpenNotifications,
+  unreadNotificationsCount = 0,
 }) => {
   return (
     <header className="site-header">
@@ -106,6 +110,25 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <TicketIcon size={16} />
               <span>My Tickets</span>
+            </button>
+          )}
+
+          {/* Activity & Notifications Bell (Milestone 28) */}
+          {onOpenNotifications && (
+            <button
+              type="button"
+              className="btn-notifications relative cursor-pointer flex items-center justify-center p-2 rounded-xl bg-slate-900/80 border border-slate-700/60 hover:border-amber-500/70 hover:bg-slate-800 text-slate-300 hover:text-white transition-all shadow-sm"
+              onClick={onOpenNotifications}
+              title="Activity & Notifications"
+              aria-label="Activity & Notifications"
+              data-testid="notifications-bell-btn"
+            >
+              <BellIcon size={16} />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-rose-500/50">
+                  {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                </span>
+              )}
             </button>
           )}
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BookingResponse, TicketItem, VerifyTicketResult } from '../types';
 import { QRCodeDisplay } from './QRCodeDisplay';
-import { verifyTicket } from '../services/api';
+import { verifyTicket, downloadBookingCalendarICS } from '../services/api';
 import {
   XIcon,
   TicketIcon,
@@ -9,6 +9,7 @@ import {
   AlertCircleIcon,
   ScanIcon,
   Share2Icon,
+  CalendarIcon,
 } from './Icons';
 
 interface TicketPassModalProps {
@@ -211,6 +212,16 @@ export const TicketPassModal: React.FC<TicketPassModalProps> = ({
                 Transfer
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => downloadBookingCalendarICS(booking.bookingId, booking.eventTitle)}
+              className="py-2.5 px-4 rounded-xl bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 font-semibold text-xs border border-amber-500/40 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              title="Add to Calendar (.ics)"
+              data-testid="pass-add-calendar-btn"
+            >
+              <CalendarIcon size={14} />
+              <span>Calendar</span>
+            </button>
             <button
               type="button"
               onClick={() => window.print()}
