@@ -216,6 +216,18 @@ def run_tier_1_smoke(ctx: TestContext):
     except Exception as e:
         ctx.record_fail(test_name, str(e))
 
+    # 1.3 Notification Service Liveness & Delivery Audit
+    test_name = "1.3 Notification Service Liveness (/api/notifications/deliveries)"
+    try:
+        status, data, _ = http_request(f"{ctx.gateway_url}/api/notifications/deliveries", method="GET", timeout=ctx.timeout)
+        if status != 200:
+            raise TestFailure(f"Notification service deliveries returned HTTP {status}, expected 200")
+        if not isinstance(data, list):
+            raise TestFailure("Expected deliveries list from notification service")
+        ctx.record_pass(test_name, f"HTTP {status} OK, retrieved {len(data)} notification delivery logs")
+    except Exception as e:
+        ctx.record_fail(test_name, str(e))
+
 
 # ==============================================================================
 # Tier 2: Acceptance Criteria Verification

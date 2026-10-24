@@ -222,6 +222,19 @@ CREATE TABLE IF NOT EXISTS reviews (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS notification_deliveries (
+    id VARCHAR(64) PRIMARY KEY,
+    channel VARCHAR(32) NOT NULL,
+    recipient VARCHAR(255) NOT NULL,
+    event_type VARCHAR(64) NOT NULL,
+    subject VARCHAR(255),
+    body TEXT NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'DELIVERED',
+    attempts INT DEFAULT 1,
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Index creation for high-performance lookup
 CREATE INDEX IF NOT EXISTS idx_seat_items_event_status ON seat_items(event_id, status);
 CREATE INDEX IF NOT EXISTS idx_seat_items_hold_expires ON seat_items(status, hold_expires_at) WHERE status = 'HOLD';
@@ -244,8 +257,11 @@ CREATE INDEX IF NOT EXISTS idx_event_addons_event ON event_addons(event_id, acti
 CREATE INDEX IF NOT EXISTS idx_booking_addons_bkg ON booking_addons(booking_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_event ON reviews(event_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews(user_id);
+CREATE INDEX IF NOT EXISTS idx_notif_deliveries_recipient ON notification_deliveries(recipient, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notif_deliveries_status ON notification_deliveries(status);
 
 -- Truncate all tables for clean idempotent re-seeding
+TRUNCATE TABLE notification_deliveries CASCADE;
 TRUNCATE TABLE reviews CASCADE;
 TRUNCATE TABLE booking_addons CASCADE;
 TRUNCATE TABLE event_addons CASCADE;
@@ -684,3 +700,13 @@ VALUES
 ('rev-102-001', 'evt-102', 'usr-sarah-connor', 'Sarah Connor', 'sarah.connor@cyberdyne.io', 5, 'Best enterprise AI keynote in years', 'Fascinating keynote panels on agentic workflows and real-time distributed systems. Great networking reception.', true, 31, NOW() - interval '3 days'),
 ('rev-103-001', 'evt-103', 'usr-kenji-sato', 'Kenji Sato', 'kenji.sato@tokyo-synth.jp', 5, 'Atmosphere was electric!', 'Unmatched matchday atmosphere. The VIP skybox hospitality and catering exceeded all expectations.', true, 19, NOW() - interval '4 days'),
 ('rev-104-001', 'evt-104', 'usr-demo-customer', 'Alex Morgan', 'user@tickets.com', 5, 'Breathtaking choreography and orchestra', 'Hamilton was pure poetry in motion. The live philharmonic was mesmerizing.', true, 16, NOW() - interval '2 days');
+
+-- ============================================================================
+-- 14. NOTIFICATION DELIVERIES (Multi-Channel Delivery Audit Logs for Milestone 32)
+-- ============================================================================
+INSERT INTO notification_deliveries (id, channel, recipient, event_type, subject, body, status, attempts, created_at)
+VALUES
+('del-seed-001', 'EMAIL', 'user@tickets.com', 'booking.confirmed', 'Booking Confirmed: Neon Symphony 2026 (Ref: REF-NEON-2026-001)', '<h2>Order Confirmed!</h2><p>Dear Alex Morgan, your reservation is confirmed.</p>', 'DELIVERED', 1, NOW() - interval '2 hours'),
+('del-seed-002', 'SMS', '+15551234567', 'waitlist.promoted', 'Transactional SMS', 'TicketVerse: Waitlist hold available for Cyberpunk Symphony! Claim reservation within 15 mins: ref WL-101-PROMOTE', 'DELIVERED', 1, NOW() - interval '30 minutes'),
+('del-seed-003', 'EMAIL', 'sarah.connor@cyberdyne.io', 'booking.confirmed', 'Booking Confirmed: Global Tech Summit 2026 (Ref: REF-TECH-2026-004)', '<h2>Order Confirmed!</h2><p>Dear Sarah Connor, your corporate seats are confirmed.</p>', 'DELIVERED', 1, NOW() - interval '1 day'),
+('del-seed-004', 'EMAIL', 'friend@technova.com', 'ticket.transferred', 'Ticket Transfer Confirmation: Neon Symphony 2026', '<h2>Ticket Transferred</h2><p>Ticket for Neon Symphony 2026 has been transferred successfully.</p>', 'DELIVERED', 1, NOW() - interval '4 hours');

@@ -486,6 +486,33 @@ export interface NotificationListResponse {
   unreadCount: number;
 }
 
+export interface NotificationDeliveryLog {
+  id: string;
+  channel: 'EMAIL' | 'SMS' | 'PUSH' | string;
+  recipient: string;
+  eventType: string;
+  subject: string;
+  body: string;
+  status: 'DELIVERED' | 'FAILED' | 'QUEUED' | 'RETRIED' | string;
+  attempts: number;
+  errorMessage?: string;
+  createdAt: string;
+}
+
+export interface DispatchNotificationRequest {
+  eventType: string;
+  bookingRef?: string;
+  eventTitle?: string;
+  recipient: string;
+  customerName?: string;
+  seats?: string[];
+  totalPrice?: number;
+  currency?: string;
+  ticketPassUrl?: string;
+  channel?: 'EMAIL' | 'SMS' | string;
+}
+
+
 
 
 
