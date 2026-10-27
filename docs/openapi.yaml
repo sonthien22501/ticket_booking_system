@@ -1,0 +1,323 @@
+openapi: 3.0.3
+info:
+  title: Ticket Booking System API
+  version: 1.0.0
+  description: Unified OpenAPI 3.0 contract for Event Catalog, Venue Floorplan, Mash-Up Hub, Bookings, Currency Rates, and AI Concierge.
+  contact:
+    name: EnIA System Team
+    email: architecture@ticketbooking.local
+servers:
+  - url: /
+    description: Local API Gateway / Nginx Reverse Proxy
+paths:
+  /api/events:
+    get:
+      summary: List catalog events
+      description: Retrieve list of all active events with ticket tiers and venue info.
+      responses:
+        '200':
+          description: Successful retrieval of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+    post:
+      summary: Create new event
+      description: Admin endpoint to publish a new event.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventRequest'
+      responses:
+        '201':
+          description: Event created successfully
+  /api/events/{id}/mashup:
+    get:
+      summary: Get event mashup intelligence
+      description: Orchestrates internal catalog data with live Open-Meteo weather forecast and Apple iTunes 30s track audio preview.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Event identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Composed external mashup data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventMashupResponse'
+        '404':
+          description: Event not found
+  /api/bookings:
+    post:
+      summary: Create ticket booking
+      description: Reserve tickets and initiate payment and ticket issuance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+      responses:
+        '200':
+          description: Booking confirmed
+  /api/currencies/rates:
+    get:
+      summary: Get currency exchange rates & regional tax matrix
+      description: Composes live Frankfurter ECB foreign exchange rates with internal tax regulations and deterministic fallback.
+      responses:
+        '200':
+          description: Currency rates and tax rules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrencyRatesResponse'
+  /api/concierge/advise:
+    post:
+      summary: Generate runtime AI event concierge advice
+      description: Synthesizes event telemetry, venue weather, live FX rates, and attendee preferences into actionable concierge recommendations.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConciergeAdviceRequest'
+      responses:
+        '200':
+          description: AI concierge recommendation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConciergeAdviceResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        venueName:
+          type: string
+        venueLocation:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        status:
+          type: string
+        imageUrl:
+          type: string
+    CreateEventRequest:
+      type: object
+      required:
+        - title
+        - category
+        - venueName
+        - venueLocation
+        - startTime
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        venueName:
+          type: string
+        venueLocation:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+    WeatherForecast:
+      type: object
+      properties:
+        temperatureC:
+          type: number
+        temperatureF:
+          type: number
+        condition:
+          type: string
+        weatherCode:
+          type: integer
+        precipitationProb:
+          type: integer
+        windSpeedKmh:
+          type: number
+        isOutdoorFriendly:
+          type: boolean
+        advisory:
+          type: string
+        source:
+          type: string
+    MediaTrackPreview:
+      type: object
+      properties:
+        trackName:
+          type: string
+        artistName:
+          type: string
+        albumName:
+          type: string
+        previewUrl:
+          type: string
+        artworkUrl:
+          type: string
+        genre:
+          type: string
+        releaseDate:
+          type: string
+        source:
+          type: string
+    EventMashupResponse:
+      type: object
+      properties:
+        eventId:
+          type: string
+        eventTitle:
+          type: string
+        venueName:
+          type: string
+        venueCity:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        weather:
+          $ref: '#/components/schemas/WeatherForecast'
+        mediaPreview:
+          $ref: '#/components/schemas/MediaTrackPreview'
+        fallbackUsed:
+          type: boolean
+        cached:
+          type: boolean
+        fetchedAt:
+          type: string
+    BookingRequest:
+      type: object
+      required:
+        - eventId
+        - tierId
+        - quantity
+        - customerEmail
+      properties:
+        eventId:
+          type: string
+        tierId:
+          type: string
+        quantity:
+          type: integer
+        customerEmail:
+          type: string
+    CurrencyRatesResponse:
+      type: object
+      properties:
+        base:
+          type: string
+        rates:
+          type: object
+        symbols:
+          type: object
+        taxRates:
+          type: object
+        decimals:
+          type: object
+        currencies:
+          type: array
+          items:
+            type: string
+        updatedAt:
+          type: string
+        source:
+          type: string
+        fallbackUsed:
+          type: boolean
+    ConciergeAdviceRequest:
+      type: object
+      required:
+        - eventId
+      properties:
+        eventId:
+          type: string
+        eventTitle:
+          type: string
+        category:
+          type: string
+        venueName:
+          type: string
+        venueLocation:
+          type: string
+        currency:
+          type: string
+        budgetMax:
+          type: number
+        weatherCondition:
+          type: string
+        rainProbability:
+          type: integer
+        preferences:
+          type: string
+    ConciergeAdviceResponse:
+      type: object
+      properties:
+        eventId:
+          type: string
+        headline:
+          type: string
+        weatherAdvisory:
+          type: string
+        recommendedTier:
+          type: string
+        recommendedAddonName:
+          type: string
+        recommendedAddonId:
+          type: string
+        localizedBudgetNote:
+          type: string
+        insiderTips:
+          type: array
+          items:
+            type: string
+        composedSources:
+          type: array
+          items:
+            type: string
+        engine:
+          type: string
+        fallbackUsed:
+          type: boolean
+        generatedAt:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        error:
+          type: string
+        fallbackUsed:
+          type: boolean

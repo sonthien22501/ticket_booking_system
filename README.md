@@ -154,3 +154,21 @@ ticket_booking_system/
     ├── verify_e2e.py           # Multi-tier E2E opaque-box test harness
     └── run_e2e_tests.sh        # Automated execution runner
 ```
+
+---
+
+## 7. External API Mash-Up Hub, OpenAPI 3.0 & Runtime AI Concierge (Milestone 33)
+
+- **Keyless Public Mash-Up Hub**:
+  - **Open-Meteo Weather**: Live venue weather, temperature (°C/°F), precipitation probability %, and outdoor advisories (`GET /api/events/:id/mashup`).
+  - **Apple iTunes Track Previews**: 30-second audio stream and high-resolution album artwork for event performers/anthems.
+  - **Frankfurter ECB Live FX**: Dynamic foreign exchange rates for USD, EUR, GBP, JPY, CAD, and AUD with regional VAT calculation (`GET /api/currencies/rates`).
+  - **Resilience First**: All outbound external requests have strict circuit breakers (2.5s) with deterministic fallbacks (`fallbackUsed: true`), requiring zero API keys to run.
+- **OpenAPI 3.0 Contract & Swagger UI**:
+  - Live OpenAPI 3.0.3 specification JSON at `GET /api/openapi.json`.
+  - Interactive Swagger UI documentation at `GET /api/docs`.
+  - Authoritative YAML contract in `docs/openapi.yaml`.
+- **Runtime AI Event Concierge**:
+  - `POST /api/concierge/advise`: Synthesizes event telemetry, venue weather, currency budgets, and attendee preferences into actionable concierge recommendations and insider tips.
+- **EnIA Orchestration Diary**:
+  - See [EnIA Prompting, Skills & Subagent Orchestration Diary (`docs/PROMPT_AND_ORCHESTRATION_DIARY.md`)](docs/PROMPT_AND_ORCHESTRATION_DIARY.md).
