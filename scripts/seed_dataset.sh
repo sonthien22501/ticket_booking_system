@@ -56,7 +56,8 @@ if docker ps --format '{{.Names}}' | grep -q "ticket_postgres"; then
         UNION ALL SELECT 'Vouchers:        ' || count(*) FROM vouchers
         UNION ALL SELECT 'Notifications:   ' || count(*) FROM notifications
         UNION ALL SELECT 'Event Add-ons:   ' || count(*) FROM event_addons
-        UNION ALL SELECT 'Attendee Reviews:' || count(*) FROM reviews;
+        UNION ALL SELECT 'Attendee Reviews:' || count(*) FROM reviews
+        UNION ALL SELECT 'Deliveries:      ' || count(*) FROM notification_deliveries;
     " | sed '/^$/d'
 fi
 
@@ -76,11 +77,34 @@ check_endpoint() {
     fi
 }
 
+check_post_endpoint() {
+    local name="$1"
+    local url="$2"
+    local data="$3"
+    if curl -s -f -o /dev/null -w "%{http_code}" -X POST "${url}" -H "Content-Type: application/json" -d "${data}" | grep -qE "^(200|201)$"; then
+        echo "  ✅ ${name}: OK (${url})"
+    else
+        echo "  ⚠️ ${name}: Non-200 response (${url})"
+    fi
+}
+
 check_endpoint "Gateway Health" "${GATEWAY_URL}/health"
 check_endpoint "Event Catalog" "${GATEWAY_URL}/api/events"
 check_endpoint "Currencies & Tax Rates" "${GATEWAY_URL}/api/currencies/rates"
 check_endpoint "Voucher Engine" "${GATEWAY_URL}/api/admin/vouchers"
 check_endpoint "Admin Telemetry" "${GATEWAY_URL}/api/admin/analytics"
+
+# M29-M33 Extended Feature Endpoints
+check_endpoint "VIP Add-ons (M29)" "${GATEWAY_URL}/api/events/evt-101/addons"
+check_endpoint "Verified Buyer Reviews (M30)" "${GATEWAY_URL}/api/events/evt-101/reviews"
+check_endpoint "Geo Search & Facets (M31)" "${GATEWAY_URL}/api/events/search?city=Berlin"
+check_endpoint "Venue Floorplan (M31)" "${GATEWAY_URL}/api/events/evt-101/floorplan"
+check_endpoint "Notification Deliveries (M32)" "${GATEWAY_URL}/api/notifications/deliveries"
+check_endpoint "External API Mash-Up Berlin (M33)" "${GATEWAY_URL}/api/events/evt-101/mashup"
+check_endpoint "External API Mash-Up Tokyo (M33)" "${GATEWAY_URL}/api/events/evt-105/mashup"
+check_endpoint "OpenAPI 3.0 Contract (M33)" "${GATEWAY_URL}/api/openapi.json"
+check_endpoint "Interactive Swagger UI (M33)" "${GATEWAY_URL}/api/docs/"
+check_post_endpoint "AI Concierge Engine (M33)" "${GATEWAY_URL}/api/concierge/advise" '{"prompt":"Electric concert in Berlin","budget":180,"currency":"EUR","EventID":"evt-101"}'
 
 echo ""
 echo "======================================================================"
