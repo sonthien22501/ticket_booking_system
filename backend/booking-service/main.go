@@ -1934,6 +1934,10 @@ func main() {
 	mux.HandleFunc("/currencies/convert", srv.handleCurrencyConvert)
 	mux.HandleFunc("/api/currencies/convert", srv.handleCurrencyConvert)
 
+	// Runtime AI Event Concierge (Milestone 33)
+	mux.HandleFunc("/concierge/advise", srv.handleConciergeAdvise)
+	mux.HandleFunc("/api/concierge/advise", srv.handleConciergeAdvise)
+
 	// In-App Notification Center routes (Milestone 28)
 	mux.HandleFunc("/notifications", srv.handleNotifications)
 	mux.HandleFunc("/api/notifications", srv.handleNotifications)

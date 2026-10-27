@@ -300,6 +300,12 @@ func (s *Server) handleEventByID(w http.ResponseWriter, r *http.Request) {
 		s.handleVenueFloorplan(w, r, eventID)
 		return
 	}
+	if strings.HasSuffix(path, "/mashup") {
+		eventID := strings.TrimSuffix(path, "/mashup")
+		eventID = strings.Trim(eventID, "/")
+		s.handleEventMashup(w, r, eventID)
+		return
+	}
 	eventID := strings.TrimSpace(path)
 
 	if eventID == "" {
@@ -525,6 +531,12 @@ func main() {
 	mux.HandleFunc("/api/metrics", srv.handleMetrics)
 	mux.HandleFunc("/api/events/metrics", srv.handleMetrics)
 	mux.HandleFunc("/api/catalog/metrics", srv.handleMetrics)
+
+	// OpenAPI 3.0 & Swagger UI routes
+	mux.HandleFunc("/openapi.json", srv.handleOpenAPISpec)
+	mux.HandleFunc("/api/openapi.json", srv.handleOpenAPISpec)
+	mux.HandleFunc("/docs", srv.handleSwaggerDocs)
+	mux.HandleFunc("/api/docs", srv.handleSwaggerDocs)
 
 	// Events collection routes
 	mux.HandleFunc("/events", srv.handleEvents)

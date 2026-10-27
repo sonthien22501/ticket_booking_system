@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -30,17 +32,115 @@ var (
 		"AUD": {Code: "AUD", Name: "Australian Dollar", Symbol: "A$", Rate: 1.52, TaxRate: 0.10, Decimals: 2},
 	}
 	currencyMu sync.RWMutex
+
+	frankfurterCacheMu      sync.RWMutex
+	frankfurterCachedRates  map[string]float64
+	frankfurterCacheExpires time.Time
 )
 
 // CurrencyRatesResponse represents the payload returned by GET /api/currencies/rates.
 type CurrencyRatesResponse struct {
-	Base       string             `json:"base"`
-	Rates      map[string]float64 `json:"rates"`
-	Symbols    map[string]string  `json:"symbols"`
-	TaxRates   map[string]float64 `json:"taxRates"`
-	Decimals   map[string]int     `json:"decimals"`
-	Currencies []CurrencyInfo     `json:"currencies"`
-	UpdatedAt  string             `json:"updatedAt"`
+	Base         string             `json:"base"`
+	Rates        map[string]float64 `json:"rates"`
+	Symbols      map[string]string  `json:"symbols"`
+	TaxRates     map[string]float64 `json:"taxRates"`
+	Decimals     map[string]int     `json:"decimals"`
+	Currencies   []CurrencyInfo     `json:"currencies"`
+	UpdatedAt    string             `json:"updatedAt"`
+	Source       string             `json:"source"`
+	FallbackUsed bool               `json:"fallbackUsed"`
+}
+
+// fetchFrankfurterRates fetches live foreign exchange rates from Frankfurter ECB API
+func fetchFrankfurterRates(ctx context.Context, client *http.Client, baseURL string) (map[string]float64, bool) {
+	if client == nil {
+		client = &http.Client{Timeout: 2000 * time.Millisecond}
+	}
+
+	isCustomURL := baseURL != ""
+	if baseURL == "" {
+		baseURL = os.Getenv("FRANKFURTER_BASE_URL")
+		if baseURL == "" {
+			baseURL = "https://api.frankfurter.app/latest?from=USD"
+		}
+	}
+
+	// If using standard default URL, check in-memory 15-minute cache
+	if !isCustomURL {
+		frankfurterCacheMu.RLock()
+		if frankfurterCachedRates != nil && time.Now().Before(frankfurterCacheExpires) {
+			cached := make(map[string]float64)
+			for k, v := range frankfurterCachedRates {
+				cached[k] = v
+			}
+			frankfurterCacheMu.RUnlock()
+			return cached, false
+		}
+		frankfurterCacheMu.RUnlock()
+	}
+
+	reqURL := baseURL
+	if !strings.Contains(reqURL, "?") {
+		reqURL = reqURL + "?from=USD"
+	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, 2000*time.Millisecond)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return fallbackRates(), true
+	}
+
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
+		return fallbackRates(), true
+	}
+	defer resp.Body.Close()
+
+	var payload struct {
+		Amount float64            `json:"amount"`
+		Base   string             `json:"base"`
+		Rates  map[string]float64 `json:"rates"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil || len(payload.Rates) == 0 {
+		return fallbackRates(), true
+	}
+
+	payload.Rates["USD"] = 1.0
+
+	currencyMu.Lock()
+	for code, rate := range payload.Rates {
+		if info, ok := currencyRegistry[code]; ok {
+			info.Rate = rate
+			currencyRegistry[code] = info
+		}
+	}
+	currencyMu.Unlock()
+
+	frankfurterCacheMu.Lock()
+	frankfurterCachedRates = make(map[string]float64)
+	for k, v := range payload.Rates {
+		frankfurterCachedRates[k] = v
+	}
+	frankfurterCacheExpires = time.Now().Add(15 * time.Minute)
+	frankfurterCacheMu.Unlock()
+
+	return payload.Rates, false
+}
+
+func fallbackRates() map[string]float64 {
+	currencyMu.RLock()
+	defer currencyMu.RUnlock()
+	rates := make(map[string]float64)
+	for code, info := range currencyRegistry {
+		rates[code] = info.Rate
+	}
+	return rates
 }
 
 // ConvertCurrencyRequest represents payload for POST /api/currencies/convert.
@@ -151,6 +251,14 @@ func (s *Server) handleCurrencyRates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx := r.Context()
+	_, fallbackUsed := fetchFrankfurterRates(ctx, nil, "")
+
+	source := "ecb-live"
+	if fallbackUsed {
+		source = "fallback-static"
+	}
+
 	currencyMu.RLock()
 	defer currencyMu.RUnlock()
 
@@ -169,13 +277,15 @@ func (s *Server) handleCurrencyRates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := CurrencyRatesResponse{
-		Base:       "USD",
-		Rates:      rates,
-		Symbols:    symbols,
-		TaxRates:   taxRates,
-		Decimals:   decimals,
-		Currencies: list,
-		UpdatedAt:  time.Now().UTC().Format(time.RFC3339),
+		Base:         "USD",
+		Rates:        rates,
+		Symbols:      symbols,
+		TaxRates:     taxRates,
+		Decimals:     decimals,
+		Currencies:   list,
+		UpdatedAt:    time.Now().UTC().Format(time.RFC3339),
+		Source:       source,
+		FallbackUsed: fallbackUsed,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -512,6 +512,72 @@ export interface DispatchNotificationRequest {
   channel?: 'EMAIL' | 'SMS' | string;
 }
 
+export interface WeatherForecast {
+  temperatureC: number;
+  temperatureF: number;
+  condition: string;
+  weatherCode: number;
+  precipitationProb: number;
+  windSpeedKmh: number;
+  isOutdoorFriendly: boolean;
+  advisory: string;
+  source: string;
+}
+
+export interface MediaTrackPreview {
+  trackName: string;
+  artistName: string;
+  albumName: string;
+  previewUrl: string;
+  artworkUrl: string;
+  genre: string;
+  releaseDate: string;
+  source: string;
+}
+
+export interface EventMashupData {
+  eventId: string;
+  eventTitle: string;
+  venueName: string;
+  venueCity: string;
+  latitude: number;
+  longitude: number;
+  weather: WeatherForecast;
+  mediaPreview: MediaTrackPreview;
+  fallbackUsed: boolean;
+  cached: boolean;
+  fetchedAt: string;
+}
+
+export interface ConciergeAdviceRequest {
+  eventId: string;
+  eventTitle?: string;
+  category?: string;
+  venueName?: string;
+  venueLocation?: string;
+  currency?: string;
+  budgetMax?: number;
+  weatherCondition?: string;
+  rainProbability?: number;
+  preferences?: string;
+}
+
+export interface ConciergeAdviceResponse {
+  eventId: string;
+  headline: string;
+  weatherAdvisory: string;
+  recommendedTier: string;
+  recommendedAddonName: string;
+  recommendedAddonID?: string;
+  recommendedAddonId?: string;
+  localizedBudgetNote: string;
+  insiderTips: string[];
+  composedSources: string[];
+  engine: string;
+  fallbackUsed: boolean;
+  generatedAt: string;
+}
+
 
 
 

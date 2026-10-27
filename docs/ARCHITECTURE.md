@@ -48,6 +48,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | F30 | Attendee Reviews & Verified Buyer Ratings | 1-5 star attendee reviews, automated verified buyer check against confirmed bookings, rating score aggregation, rating breakdown matrix & helpful voting | M30 | Acceptance Criteria |
 | F31 | Geolocation Search, Venue Floorplans & Category Facets | Multi-facet search query engine, city/category facet tallies, budget presets, sort orders, and architectural venue floorplan schematics | M31 | Acceptance Criteria |
 | F32 | Asynchronous Multi-Channel Notification Microservice | Dedicated Go worker daemon on port 8085 consuming RabbitMQ topic events (`booking.confirmed`, `waitlist.promoted`, `ticket.transferred`), Dead Letter Queue (DLX/DLQ) fault isolation, Email/SMS formatting, and delivery audit log APIs | M32 | Acceptance Criteria |
+| F33 | External API Mash-Up Hub, OpenAPI 3.0 & Runtime AI Concierge | Open-Meteo weather forecast, Apple iTunes 30s track audio previews, Frankfurter ECB live FX rates, OpenAPI 3.0 specification & interactive Swagger UI (`/api/openapi.json`, `/api/docs`), and Runtime AI Event Concierge (`POST /api/concierge/advise`) | M33 | Acceptance Criteria |
 
 ---
 
@@ -74,6 +75,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | M30 | Attendee Reviews & Verified Buyer Ratings | Verified buyer checks, star rating aggregations, rating breakdown distributions, and interactive social proof modal | M4, M5, M6, M21, M23, M29 | DONE |
 | M31 | Geolocation Search, Venue Floorplans & Category Facets | Advanced search query parsing, city/category facet tallies, price filters, and venue floorplan sections | M2, M5, M6, M21, M22, M30 | DONE |
 | M32 | Asynchronous Multi-Channel Notification Microservice | Dedicated Go worker microservice, RabbitMQ topic exchange & DLQ dead-letter routing, email/SMS templating, delivery persistence & activity center logs | M4, M5, M6, M7, M28 | DONE |
+| M33 | External API Mash-Up Hub, OpenAPI 3.0 & Runtime AI Concierge | Open-Meteo weather, Apple iTunes 30s audio previews, Frankfurter ECB rates, OpenAPI 3.0 contract (`docs/openapi.yaml`, `/api/openapi.json`, `/api/docs`), and Runtime AI Event Concierge (`POST /api/concierge/advise`) | M2, M4, M5, M6, M31, M32 | DONE |
 
 ---
 
@@ -121,6 +123,14 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 - `GET /api/events/:id/floorplan` -> `http://catalog-service:8081/events/:id/floorplan` (retrieves spatial sections, capacities, row ranges, and base pricing)
 - `GET /api/notifications/deliveries` -> `http://notification-service:8085/deliveries` (retrieves multi-channel email/SMS delivery audit history)
 - `POST /api/notifications/dispatch-test` -> `http://notification-service:8085/dispatch-test` (triggers asynchronous worker dispatch for email/SMS payloads)
+- `GET /api/events/:id/mashup` -> `http://catalog-service:8081/events/:id/mashup` (composes event metadata with Open-Meteo weather and Apple iTunes 30s audio preview, 2.5s circuit-breaker with deterministic fallback)
+- `GET /api/openapi.json` -> `http://catalog-service:8081/api/openapi.json` (authoritative OpenAPI 3.0.3 specification JSON)
+- `GET /api/docs` -> `http://catalog-service:8081/api/docs` (interactive Swagger UI API explorer)
+- `POST /api/concierge/advise` -> `http://booking-service:8083/api/concierge/advise` (runtime AI event concierge synthesizing weather, live FX rates, event tiers, and attendee preferences)
+
+> **See Also**:
+> - [OpenAPI 3.0 Contract Specification (`docs/openapi.yaml`)](file:///Users/thiennguyen/teamwork_projects/ticket_booking_system/docs/openapi.yaml)
+> - [EnIA Prompting, Skills & Subagent Orchestration Diary (`docs/PROMPT_AND_ORCHESTRATION_DIARY.md`)](file:///Users/thiennguyen/teamwork_projects/ticket_booking_system/docs/PROMPT_AND_ORCHESTRATION_DIARY.md)
 
 ### 2. Booking Service ↔ Inventory Service
 - **Reserve Hold**: `POST http://inventory-service:8082/inventory/reserve`
