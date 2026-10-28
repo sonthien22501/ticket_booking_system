@@ -251,7 +251,7 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
 
         <div className="search-and-filter-bar space-y-3">
           {/* Search Input & Sort Dropdown */}
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="catalog-search-row flex flex-col sm:flex-row gap-2">
             <div className="search-input-wrapper flex-1">
               <SearchIcon size={18} className="search-icon" />
               <input
@@ -268,7 +268,7 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-amber-400 cursor-pointer"
+                className="catalog-sort-select px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-amber-400 cursor-pointer"
                 data-testid="catalog-sort-select"
                 aria-label="Sort events"
               >
@@ -283,7 +283,7 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
                 <button
                   type="button"
                   onClick={handleResetFilters}
-                  className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-300 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                  className="btn-reset-filters px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-300 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
                   data-testid="reset-filters-btn"
                 >
                   <XIcon size={14} />
@@ -312,8 +312,8 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
 
           {/* City / Geolocation Facets */}
           {cities.length > 2 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs" data-testid="city-facets-bar">
-              <span className="text-slate-400 font-semibold flex items-center gap-1 pl-1 pr-2 whitespace-nowrap">
+            <div className="city-facets-bar flex items-center gap-1.5 overflow-x-auto pb-1 text-xs" data-testid="city-facets-bar">
+              <span className="city-facets-label text-slate-400 font-semibold flex items-center gap-1 pl-1 pr-2 whitespace-nowrap">
                 <MapPinIcon size={12} className="text-amber-400" />
                 <span>Cities:</span>
               </span>
@@ -322,7 +322,7 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
                   key={city}
                   type="button"
                   onClick={() => setSelectedCity(city)}
-                  className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap cursor-pointer transition-colors ${
+                  className={`city-pill ${selectedCity === city ? 'active' : ''} px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap cursor-pointer transition-colors ${
                     selectedCity === city
                       ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm'
                       : 'bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-800'
@@ -336,11 +336,11 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
           )}
 
           {/* Active Filter Summary Bar */}
-          <div className="flex items-center justify-between text-xs text-slate-400 pt-1 border-t border-slate-800/60">
+          <div className="catalog-summary-bar flex items-center justify-between text-xs text-slate-400 pt-1 border-t border-slate-800/60">
             <span>
               Showing <strong>{filteredEvents.length}</strong> of {events.length} live events
             </span>
-            <div className="flex items-center gap-2">
+            <div className="budget-pills-group flex items-center gap-2">
               <span className="text-[11px] text-slate-500">Budget:</span>
               {[
                 { id: 'ALL', label: 'Any' },
@@ -352,7 +352,7 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
                   key={b.id}
                   type="button"
                   onClick={() => setSelectedPriceRange(b.id)}
-                  className={`px-2 py-0.5 rounded text-[11px] cursor-pointer transition-colors ${
+                  className={`budget-pill ${selectedPriceRange === b.id ? 'active' : ''} px-2 py-0.5 rounded text-[11px] cursor-pointer transition-colors ${
                     selectedPriceRange === b.id
                       ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40'
                       : 'text-slate-400 hover:text-slate-200'

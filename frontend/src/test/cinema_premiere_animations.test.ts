@@ -1,5 +1,13 @@
 import React from 'react';
+// @ts-ignore
+import fs from 'node:fs';
+// @ts-ignore
+import path from 'node:path';
 import { describe, it, expect, vi } from 'vitest';
+
+// Declare Node globals for headless test environment
+// @ts-ignore
+declare const __dirname: string;
 import {
   calculate3DTilt,
   interpolateCountUp,
@@ -201,6 +209,42 @@ describe('Milestone 34: Cinema Premiere & Holographic Glow Motion Engine', () =>
         user: null,
       });
       expect(adminEl.props.isOpen).toBe(true);
+    });
+  });
+
+  describe('5. Milestone 34.1 UI Polish: Alignment, Light Theme Contrast & Fixed Showcase Box', () => {
+    const cssPath = path.resolve(__dirname, '../index.css');
+    const cssContent = fs.readFileSync(cssPath, 'utf-8');
+
+    it('defines .sr-only accessible offscreen utility with position absolute and 1px dimension', () => {
+      expect(cssContent).toMatch(/\.sr-only\s*\{[^}]*position:\s*absolute/);
+      expect(cssContent).toMatch(/\.sr-only\s*\{[^}]*width:\s*1px/);
+      expect(cssContent).toMatch(/\.sr-only\s*\{[^}]*height:\s*1px/);
+    });
+
+    it('defines header action controls (.currency-selector-pill, .btn-my-tickets, .btn-notifications, .btn-admin-studio) with inline-flex alignment', () => {
+      expect(cssContent).toMatch(/\.currency-selector-pill\s*\{[^}]*display:\s*inline-flex/);
+      expect(cssContent).toMatch(/\.btn-my-tickets\s*\{[^}]*display:\s*inline-flex/);
+      expect(cssContent).toMatch(/\.btn-notifications\s*\{[^}]*display:\s*inline-flex/);
+      expect(cssContent).toMatch(/\.btn-admin-studio\s*\{[^}]*display:\s*inline-flex/);
+    });
+
+    it('defines filter facets (.city-facets-bar, .city-pill, .budget-pill, .catalog-sort-select) with explicit spacing and layout', () => {
+      expect(cssContent).toMatch(/\.city-facets-bar\s*\{[^}]*gap:/);
+      expect(cssContent).toMatch(/\.city-pill\s*\{[^}]*padding:/);
+      expect(cssContent).toMatch(/\.budget-pill\s*\{[^}]*padding:/);
+      expect(cssContent).toMatch(/\.catalog-sort-select\s*\{/);
+    });
+
+    it('provides high-contrast light theme overrides for hero title and site header', () => {
+      expect(cssContent).toMatch(/(?:html\[data-theme=['"]?light['"]?\]|body\.light|\.light)[^{]*\.hero-title/);
+      expect(cssContent).toMatch(/(?:html\[data-theme=['"]?light['"]?\]|body\.light|\.light)[^{]*\.site-header/);
+    });
+
+    it('enforces fixed-height stability and 2-line description clamp on premiere showcase card', () => {
+      expect(cssContent).toMatch(/\.premiere-showcase-card\s*\{[^}]*min-height:\s*172px/);
+      expect(cssContent).toMatch(/\.premiere-showcase-desc\s*\{[^}]*-webkit-line-clamp:\s*2/);
+      expect(cssContent).toMatch(/\.premiere-showcase-desc\s*\{[^}]*max-height:\s*2\.5rem/);
     });
   });
 });
