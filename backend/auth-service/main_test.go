@@ -85,3 +85,27 @@ func TestAuthHandleMetrics(t *testing.T) {
 		t.Errorf("expected connection_pool section in metrics")
 	}
 }
+
+func TestSanitizeRegistrationRole_PreventsPublicAdminEscalation(t *testing.T) {
+	secret := "secret123"
+
+	// Public registration attempting to self-escalate to admin without setup token must become customer
+	if role := sanitizeRegistrationRole("admin", "", secret); role != "customer" {
+		t.Errorf("expected role 'customer' for unauthenticated admin registration, got '%s'", role)
+	}
+
+	// Registration with wrong setup token must become customer
+	if role := sanitizeRegistrationRole("admin", "wrong-secret", secret); role != "customer" {
+		t.Errorf("expected role 'customer' for incorrect admin setup token, got '%s'", role)
+	}
+
+	// Normal customer registration stays customer
+	if role := sanitizeRegistrationRole("customer", "", secret); role != "customer" {
+		t.Errorf("expected role 'customer' for customer registration, got '%s'", role)
+	}
+
+	// Registration with valid admin setup token receives admin role
+	if role := sanitizeRegistrationRole("admin", secret, secret); role != "admin" {
+		t.Errorf("expected role 'admin' when valid setup token provided, got '%s'", role)
+	}
+}

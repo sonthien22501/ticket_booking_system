@@ -247,4 +247,38 @@ describe('Milestone 34: Cinema Premiere & Holographic Glow Motion Engine', () =>
       expect(cssContent).toMatch(/\.premiere-showcase-desc\s*\{[^}]*max-height:\s*2\.5rem/);
     });
   });
+
+  describe('6. Milestone 35: Seat Map Mashup Bar, Bounded Artwork Thumbnail & Section Switcher Layout', () => {
+    const cssPath = path.resolve(__dirname, '../index.css');
+    const cssContent = fs.readFileSync(cssPath, 'utf-8');
+
+    it('defines .mashup-intel-bar with flex layout and horizontal alignment', () => {
+      expect(cssContent).toMatch(/\.mashup-intel-bar\s*\{[^}]*display:\s*flex/);
+      expect(cssContent).toMatch(/\.mashup-intel-bar\s*\{[^}]*align-items:\s*center/);
+    });
+
+    it('defines .mashup-weather-pill and .mashup-audio-pill with sleek compact styling', () => {
+      expect(cssContent).toMatch(/\.mashup-weather-pill\s*\{[^}]*display:\s*inline-flex/);
+      expect(cssContent).toMatch(/\.mashup-audio-pill\s*\{[^}]*display:\s*inline-flex/);
+    });
+
+    it('enforces strict 22px bounded dimensions and object-fit cover on .mashup-artwork-thumb', () => {
+      expect(cssContent).toMatch(/\.mashup-artwork-thumb\s*\{[^}]*max-width:\s*22px/);
+      expect(cssContent).toMatch(/\.mashup-artwork-thumb\s*\{[^}]*max-height:\s*22px/);
+      expect(cssContent).toMatch(/\.mashup-artwork-thumb\s*\{[^}]*object-fit:\s*cover/);
+      expect(cssContent).toMatch(/\.mashup-artwork-thumb\s*\{[^}]*border-radius:\s*4px/);
+    });
+
+    it('defines .seatmap-section-toolbar and .section-filter-pill segmented bar controls', () => {
+      expect(cssContent).toMatch(/\.seatmap-section-toolbar\s*\{[^}]*display:\s*flex/);
+      expect(cssContent).toMatch(/\.section-filter-pill\s*\{[^}]*display:\s*inline-flex/);
+      expect(cssContent).toMatch(/\.section-filter-pill\.active\s*\{/);
+      expect(cssContent).toMatch(/\.btn-floorplan-toggle\s*\{[^}]*display:\s*inline-flex/);
+    });
+
+    it('defines .btn-ai-concierge with crisp button styling and light mode support', () => {
+      expect(cssContent).toMatch(/\.btn-ai-concierge\s*\{[^}]*display:\s*inline-flex/);
+      expect(cssContent).toMatch(/(?:html\[data-theme=['"]?light['"]?\]|body\.light|\.light)[^{]*\.mashup-intel-bar/);
+    });
+  });
 });

@@ -170,15 +170,15 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
         </button>
       </div>
 
-      {/* Live Mash-Up Intelligence Bar (Milestone 33) */}
-      <div className="bg-slate-900/90 border-y border-slate-800 px-6 py-2 flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm">
+      {/* Live Mash-Up Intelligence Bar (Milestone 33 & 35) */}
+      <div className="mashup-intel-bar bg-slate-900/90 border-y border-slate-800 px-6 py-2 flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm">
         <div className="flex items-center gap-3 flex-wrap">
           {/* Open-Meteo Weather Badge */}
           {mashup && (
-            <div className="flex items-center gap-2 bg-slate-950/80 px-3 py-1 rounded-lg border border-slate-800/80" data-testid="mashup-weather-badge">
-              <span className="text-amber-400 font-bold">⛅ {mashup.weather.temperatureC.toFixed(0)}°C / {mashup.weather.temperatureF.toFixed(0)}°F</span>
-              <span className="text-slate-300 font-medium">{mashup.weather.condition}</span>
-              <span className="text-slate-400 text-[11px] font-mono">({mashup.weather.precipitationProb}% rain)</span>
+            <div className="mashup-weather-pill flex items-center gap-2 bg-slate-950/80 px-3 py-1 rounded-lg border border-slate-800/80" data-testid="mashup-weather-badge">
+              <span className="mashup-weather-temp text-amber-400 font-bold">⛅ {mashup.weather.temperatureC.toFixed(0)}°C / {mashup.weather.temperatureF.toFixed(0)}°F</span>
+              <span className="mashup-weather-condition text-slate-300 font-medium">{mashup.weather.condition}</span>
+              <span className="mashup-weather-rain text-slate-400 text-[11px] font-mono">({mashup.weather.precipitationProb}% rain)</span>
               {mashup.weather.source.includes('fallback') && (
                 <span className="text-[10px] text-amber-500/80 uppercase font-semibold">Offline</span>
               )}
@@ -187,9 +187,15 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
 
           {/* iTunes Track Preview Audio Player */}
           {mashup?.mediaPreview && (
-            <div className="flex items-center gap-2 bg-slate-950/80 px-3 py-1 rounded-lg border border-slate-800/80" data-testid="mashup-itunes-preview">
+            <div className="mashup-audio-pill flex items-center gap-2 bg-slate-950/80 px-3 py-1 rounded-lg border border-slate-800/80" data-testid="mashup-itunes-preview">
               {mashup.mediaPreview.artworkUrl && (
-                <img src={mashup.mediaPreview.artworkUrl} alt={mashup.mediaPreview.albumName} className="w-5 h-5 rounded object-cover shadow-sm" />
+                <img
+                  src={mashup.mediaPreview.artworkUrl}
+                  alt={mashup.mediaPreview.albumName}
+                  width={22}
+                  height={22}
+                  className="mashup-artwork-thumb w-5 h-5 rounded object-cover shadow-sm"
+                />
               )}
               <span className="text-slate-300 truncate max-w-[160px] font-medium" title={`${mashup.mediaPreview.trackName} - ${mashup.mediaPreview.artistName}`}>
                 🎵 {mashup.mediaPreview.trackName}
@@ -228,7 +234,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
               handleRequestAdvice();
             }
           }}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
+          className={`btn-ai-concierge px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
             showConcierge
               ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30 ring-1 ring-purple-400'
               : 'bg-gradient-to-r from-purple-900/40 to-indigo-900/40 hover:from-purple-800/50 hover:to-indigo-800/50 text-purple-200 border border-purple-500/30'
@@ -341,8 +347,8 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
           </div>
         </div>
 
-        {/* Section Switcher & Floorplan Modal Button (Milestone 31) */}
-        <div className="flex items-center justify-between px-6 py-2 bg-slate-900/60 rounded-xl mx-4 mb-3 border border-slate-800">
+        {/* Section Switcher & Floorplan Modal Button (Milestone 31 & 35) */}
+        <div className="seatmap-section-toolbar flex items-center justify-between px-6 py-2 bg-slate-900/60 rounded-xl mx-4 mb-3 border border-slate-800">
           <div className="flex items-center gap-1.5 text-xs">
             <span className="text-slate-400 font-semibold mr-1">Section:</span>
             {[
@@ -354,7 +360,9 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
                 key={sec.id}
                 type="button"
                 onClick={() => setSelectedSection(sec.id)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                className={`section-filter-pill ${
+                  selectedSection === sec.id ? 'active' : ''
+                } px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                   selectedSection === sec.id
                     ? 'bg-amber-500 text-slate-950 font-bold'
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -369,7 +377,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
           <button
             type="button"
             onClick={() => setShowFloorplanModal(!showFloorplanModal)}
-            className="px-3 py-1 rounded-lg bg-indigo-900/40 hover:bg-indigo-800 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+            className="btn-floorplan-toggle px-3 py-1 rounded-lg bg-indigo-900/40 hover:bg-indigo-800 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
             data-testid="toggle-floorplan-btn"
           >
             <BuildingOfficeIcon size={14} />

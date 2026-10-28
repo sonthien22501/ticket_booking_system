@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Righteous&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
 
 /* TicketVerse - Cinematic Dark Theme & Design System (MASTER.md) */
 :root {
@@ -3383,6 +3384,249 @@ body {
     transform: none !important;
   }
 }
+
+/* ==========================================================================
+   Milestone 35: Seat Map Mashup Bar, Bounded Artwork Thumbnail & Section Controls
+   ========================================================================== */
+
+.mashup-intel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.5rem 1.5rem;
+  background: rgba(15, 23, 42, 0.9);
+  border-top: 1px solid #1e293b;
+  border-bottom: 1px solid #1e293b;
+  font-size: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.mashup-weather-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(2, 6, 23, 0.85);
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(30, 41, 59, 0.8);
+  white-space: nowrap;
+}
+
+.mashup-weather-temp {
+  color: #fbbf24;
+  font-weight: 700;
+  margin-right: 0.25rem;
+}
+
+.mashup-weather-condition {
+  color: #cbd5e1;
+  font-weight: 500;
+  margin-right: 0.25rem;
+}
+
+.mashup-weather-rain {
+  color: #94a3b8;
+  font-size: 0.6875rem;
+  font-family: monospace;
+}
+
+.mashup-audio-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(2, 6, 23, 0.85);
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(30, 41, 59, 0.8);
+}
+
+.mashup-artwork-thumb {
+  width: 22px;
+  height: 22px;
+  max-width: 22px;
+  max-height: 22px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.btn-ai-concierge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 180ms ease;
+  background: linear-gradient(to right, rgba(88, 28, 135, 0.4), rgba(49, 46, 129, 0.4));
+  color: #e9d5ff;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.btn-ai-concierge:hover {
+  background: linear-gradient(to right, rgba(107, 33, 168, 0.55), rgba(67, 56, 202, 0.55));
+  color: #ffffff;
+}
+
+.seatmap-section-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1.5rem;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 0.75rem;
+  margin: 0 1rem 0.75rem 1rem;
+  border: 1px solid #1e293b;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.section-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+  background: #1e293b;
+  color: #cbd5e1;
+  border: 1px solid transparent;
+}
+
+.section-filter-pill:hover {
+  background: #334155;
+  color: #ffffff;
+}
+
+.section-filter-pill.active {
+  background: #f59e0b;
+  color: #020617;
+  font-weight: 700;
+  border-color: #d97706;
+}
+
+.btn-floorplan-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.5rem;
+  background: rgba(49, 46, 129, 0.4);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.btn-floorplan-toggle:hover {
+  background: #3730a3;
+  color: #ffffff;
+}
+
+/* Event Catalog Search & Filter Layout */
+.catalog-search-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+/* Light Mode Overrides for Seat Map & Mashup Bar */
+html[data-theme='light'] .mashup-intel-bar,
+body.light .mashup-intel-bar,
+.light .mashup-intel-bar {
+  background: rgba(248, 250, 252, 0.95);
+  border-color: #cbd5e1;
+}
+
+html[data-theme='light'] .mashup-weather-pill,
+body.light .mashup-weather-pill,
+.light .mashup-weather-pill {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+html[data-theme='light'] .mashup-weather-condition,
+body.light .mashup-weather-condition,
+.light .mashup-weather-condition {
+  color: #1e293b;
+}
+
+html[data-theme='light'] .mashup-weather-rain,
+body.light .mashup-weather-rain,
+.light .mashup-weather-rain {
+  color: #64748b;
+}
+
+html[data-theme='light'] .mashup-audio-pill,
+body.light .mashup-audio-pill,
+.light .mashup-audio-pill {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+html[data-theme='light'] .seatmap-section-toolbar,
+body.light .seatmap-section-toolbar,
+.light .seatmap-section-toolbar {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+html[data-theme='light'] .section-filter-pill,
+body.light .section-filter-pill,
+.light .section-filter-pill {
+  background: #f1f5f9;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+html[data-theme='light'] .section-filter-pill:hover,
+body.light .section-filter-pill:hover,
+.light .section-filter-pill:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+html[data-theme='light'] .section-filter-pill.active,
+body.light .section-filter-pill.active,
+.light .section-filter-pill.active {
+  background: #f59e0b;
+  color: #0f172a;
+  border-color: #d97706;
+}
+
+html[data-theme='light'] .btn-floorplan-toggle,
+body.light .btn-floorplan-toggle,
+.light .btn-floorplan-toggle {
+  background: #ede9fe;
+  color: #5b21b6;
+  border-color: #c4b5fd;
+}
+
+html[data-theme='light'] .btn-floorplan-toggle:hover,
+body.light .btn-floorplan-toggle:hover,
+.light .btn-floorplan-toggle:hover {
+  background: #ddd6fe;
+  color: #4c1d95;
+}
+
+html[data-theme='light'] .btn-ai-concierge,
+body.light .btn-ai-concierge,
+.light .btn-ai-concierge {
+  background: #f3e8ff;
+  color: #6b21a8;
+  border-color: #d8b4fe;
+}
+
 
 
 
