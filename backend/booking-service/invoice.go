@@ -74,21 +74,39 @@ func BuildInvoice(booking *Booking, tickets []Ticket, currency string, rate, tax
 	}
 	invoiceNum := fmt.Sprintf("INV-%s-%s", datePrefix, refSuffix)
 
-	subtotalUSD := booking.TotalAmount
-	if booking.DiscountAmount > 0 {
-		subtotalUSD += booking.DiscountAmount
+	var subtotalUSD float64
+	var subtotalCurr, discountCurr, taxableCurr, totalCurr float64
+
+	if taxAmount == 0 && taxRate > 0 {
+		// Legacy booking: TotalAmount was stored pre-tax; compute tax from taxRate
+		subtotalUSD = booking.TotalAmount + booking.DiscountAmount
+		subtotalCurr = subtotalUSD * rate
+		discountCurr = booking.DiscountAmount * rate
+		taxableCurr = subtotalCurr - discountCurr
+		if taxableCurr < 0 {
+			taxableCurr = 0
+		}
+		taxAmount = taxableCurr * taxRate
+		totalCurr = taxableCurr + taxAmount
+	} else {
+		// Tax-inclusive booking: TotalAmount includes tax portion after discount
+		taxUSD := taxAmount
+		if rate > 0 {
+			taxUSD = taxAmount / rate
+		}
+		preTaxUSD := booking.TotalAmount - taxUSD
+		if preTaxUSD < 0 {
+			preTaxUSD = 0
+		}
+		subtotalUSD = preTaxUSD + booking.DiscountAmount
+		subtotalCurr = subtotalUSD * rate
+		discountCurr = booking.DiscountAmount * rate
+		taxableCurr = subtotalCurr - discountCurr
+		if taxableCurr < 0 {
+			taxableCurr = 0
+		}
+		totalCurr = taxableCurr + taxAmount
 	}
-	subtotalCurr := subtotalUSD * rate
-
-	discountUSD := booking.DiscountAmount
-	discountCurr := discountUSD * rate
-
-	taxableCurr := subtotalCurr - discountCurr
-	if taxableCurr < 0 {
-		taxableCurr = 0
-	}
-
-	totalCurr := taxableCurr + taxAmount
 
 	if info.Decimals == 0 {
 		subtotalCurr = math.Round(subtotalCurr)
@@ -493,20 +511,20 @@ func (s *Server) handleBookingInvoice(w http.ResponseWriter, r *http.Request, bo
 
 	var b Booking
 	var seatsRaw string
-	var tierID, resID, idemKey, compName, taxID, billAddr, curr sql.NullString
-	var exRate, tRate, tAmt sql.NullFloat64
+	var tierID, resID, idemKey, compName, taxID, billAddr, curr, vCode sql.NullString
+	var exRate, tRate, tAmt, discAmt sql.NullFloat64
 
-	// Query booking with corporate billing and currency fields
+	// Query booking with corporate billing, voucher, and currency fields
 	err := s.db.QueryRow(
 		`SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, idempotency_key, created_at, updated_at,
-		        currency, exchange_rate, tax_rate, tax_amount, company_name, tax_id, billing_address
+		        currency, exchange_rate, tax_rate, tax_amount, company_name, tax_id, billing_address, voucher_code, discount_amount
 		 FROM bookings WHERE id = $1 OR booking_reference = $1`,
 		bookingID,
 	).Scan(
 		&b.ID, &b.BookingReference, &b.UserID, &b.CustomerName, &b.CustomerEmail,
 		&b.EventID, &b.EventTitle, &tierID, &b.Quantity, &seatsRaw, &b.TotalAmount,
 		&b.Status, &resID, &b.PaymentStatus, &idemKey, &b.CreatedAt, &b.UpdatedAt,
-		&curr, &exRate, &tRate, &tAmt, &compName, &taxID, &billAddr,
+		&curr, &exRate, &tRate, &tAmt, &compName, &taxID, &billAddr, &vCode, &discAmt,
 	)
 
 	if err != nil {
@@ -530,6 +548,12 @@ func (s *Server) handleBookingInvoice(w http.ResponseWriter, r *http.Request, bo
 	}
 
 	_ = json.Unmarshal([]byte(seatsRaw), &b.SeatIDs)
+	if vCode.Valid {
+		b.VoucherCode = vCode.String
+	}
+	if discAmt.Valid {
+		b.DiscountAmount = discAmt.Float64
+	}
 	tickets := s.fetchTicketsForBooking(b.ID)
 
 	bookingCurr := "USD"
