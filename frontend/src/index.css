@@ -334,6 +334,216 @@ body.light .event-card-footer,
   border-top-color: #e2e8f0;
 }
 
+/* ==========================================================================
+   Milestone 36: Semantic Theme Architecture & Light Theme Overrides
+   ========================================================================== */
+
+html[data-theme='light'] .premiere-category-tag,
+body.light .premiere-category-tag,
+.light .premiere-category-tag {
+  background: #e0e7ff;
+  border-color: #818cf8;
+  color: #312e81;
+}
+
+html[data-theme='light'] .premiere-price-pill,
+body.light .premiere-price-pill,
+.light .premiere-price-pill {
+  background: #d1fae5;
+  border-color: #34d399;
+  color: #065f46;
+}
+
+html[data-theme='light'] .premiere-showcase-meta,
+body.light .premiere-showcase-meta,
+.light .premiere-showcase-meta {
+  color: #334155;
+}
+
+html[data-theme='light'] .premiere-date-tag,
+body.light .premiere-date-tag,
+.light .premiere-date-tag {
+  color: #334155 !important;
+}
+
+html[data-theme='light'] .btn-admin-studio,
+body.light .btn-admin-studio,
+.light .btn-admin-studio {
+  background: #f3e8ff !important;
+  border-color: #c084fc !important;
+  color: #6b21a8 !important;
+}
+
+html[data-theme='light'] .selection-summary-footer,
+body.light .selection-summary-footer,
+.light .selection-summary-footer {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+html[data-theme='light'] .ai-concierge-panel,
+body.light .ai-concierge-panel,
+.light .ai-concierge-panel {
+  background: linear-gradient(135deg, #ffffff 0%, #faf5ff 50%, #f3e8ff 100%) !important;
+  border-color: #c084fc !important;
+  color: #0f172a !important;
+  box-shadow: 0 8px 20px rgba(107, 33, 168, 0.08) !important;
+}
+
+html[data-theme='light'] .ai-concierge-card,
+body.light .ai-concierge-card,
+.light .ai-concierge-card {
+  background: #ffffff !important;
+  border-color: #e9d5ff !important;
+  color: #1e293b !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+html[data-theme='light'] .floorplan-overview-card,
+body.light .floorplan-overview-card,
+.light .floorplan-overview-card {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme='light'] .floorplan-section-card,
+body.light .floorplan-section-card,
+.light .floorplan-section-card {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme='light'] .addon-upsell-card,
+body.light .addon-upsell-card,
+.light .addon-upsell-card {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme='light'] .addon-upsell-card.is-selected,
+body.light .addon-upsell-card.is-selected,
+.light .addon-upsell-card.is-selected {
+  background: #fffbeb !important;
+  border-color: #f59e0b !important;
+}
+
+html[data-theme='light'] .corporate-billing-card,
+body.light .corporate-billing-card,
+.light .corporate-billing-card {
+  background: var(--bg-surface-elevated) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+html[data-theme='light'] .btn-invoice-action,
+body.light .btn-invoice-action,
+.light .btn-invoice-action {
+  color: #0369a1 !important;
+  border-color: #38bdf8 !important;
+  background: #f0f9ff !important;
+}
+
+html[data-theme='light'] .btn-calendar-action,
+body.light .btn-calendar-action,
+.light .btn-calendar-action {
+  color: #b45309 !important;
+  border-color: #f59e0b !important;
+  background: #fffbeb !important;
+}
+
+html[data-theme='light'] .confirmed-addon-row,
+body.light .confirmed-addon-row,
+.light .confirmed-addon-row {
+  background: var(--bg-surface-elevated) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Universal Light-Mode Tailwind Surface Adapter for Modals & Panels */
+html[data-theme='light'] .modal-container,
+body.light .modal-container,
+.light .modal-container {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+html[data-theme='light'] [class*='bg-slate-950'],
+html[data-theme='light'] [class*='bg-slate-900'],
+html[data-theme='light'] [class*='bg-slate-800'],
+body.light [class*='bg-slate-950'],
+body.light [class*='bg-slate-900'],
+body.light [class*='bg-slate-800'],
+.light [class*='bg-slate-950'],
+.light [class*='bg-slate-900'],
+.light [class*='bg-slate-800'] {
+  background-color: var(--bg-surface-elevated) !important;
+  border-color: var(--border-color) !important;
+}
+
+html[data-theme='light'] .text-white:not([class*='bg-']),
+html[data-theme='light'] [class*='text-slate-100'],
+html[data-theme='light'] [class*='text-slate-200'],
+html[data-theme='light'] [class*='text-slate-300'],
+body.light .text-white:not([class*='bg-']),
+body.light [class*='text-slate-100'],
+body.light [class*='text-slate-200'],
+body.light [class*='text-slate-300'],
+.light .text-white:not([class*='bg-']),
+.light [class*='text-slate-100'],
+.light [class*='text-slate-200'],
+.light [class*='text-slate-300'] {
+  color: var(--text-primary) !important;
+}
+
+html[data-theme='light'] [class*='text-slate-400'],
+body.light [class*='text-slate-400'],
+.light [class*='text-slate-400'] {
+  color: var(--text-secondary) !important;
+}
+
+html[data-theme='light'] [class*='text-amber-300'],
+html[data-theme='light'] [class*='text-amber-400'],
+body.light [class*='text-amber-300'],
+body.light [class*='text-amber-400'],
+.light [class*='text-amber-300'],
+.light [class*='text-amber-400'] {
+  color: #b45309 !important;
+}
+
+html[data-theme='light'] [class*='text-cyan-300'],
+html[data-theme='light'] [class*='text-cyan-400'],
+body.light [class*='text-cyan-300'],
+body.light [class*='text-cyan-400'],
+.light [class*='text-cyan-300'],
+.light [class*='text-cyan-400'] {
+  color: #0369a1 !important;
+}
+
+html[data-theme='light'] [class*='text-purple-300'],
+html[data-theme='light'] [class*='text-purple-400'],
+html[data-theme='light'] [class*='text-indigo-300'],
+body.light [class*='text-purple-300'],
+body.light [class*='text-purple-400'],
+body.light [class*='text-indigo-300'],
+.light [class*='text-purple-300'],
+.light [class*='text-purple-400'],
+.light [class*='text-indigo-300'] {
+  color: #4f46e5 !important;
+}
+
+html[data-theme='light'] [class*='border-slate-800'],
+html[data-theme='light'] [class*='border-slate-700'],
+body.light [class*='border-slate-800'],
+body.light [class*='border-slate-700'],
+.light [class*='border-slate-800'],
+.light [class*='border-slate-700'] {
+  border-color: var(--border-color) !important;
+}
+
 /* Modern Cross-Browser Scrollbars (Chromium, Firefox, WebKit) - R32 */
 * {
   box-sizing: border-box;
@@ -783,18 +993,18 @@ body {
   gap: 0.35rem;
   padding: 0.5rem 0.75rem;
   border-radius: var(--radius-md);
-  background: #1e293b;
-  color: #fda4af;
+  background: rgba(244, 63, 94, 0.12);
+  color: #e11d48;
   font-size: 0.75rem;
   font-weight: 600;
-  border: 1px solid #334155;
+  border: 1px solid rgba(244, 63, 94, 0.3);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .btn-reset-filters:hover {
-  background: #334155;
-  color: #f43f5e;
+  background: rgba(244, 63, 94, 0.22);
+  color: #be123c;
 }
 
 .city-facets-bar {
@@ -811,7 +1021,7 @@ body {
   align-items: center;
   gap: 0.35rem;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-secondary);
   white-space: nowrap;
   padding-right: 0.25rem;
 }
@@ -848,7 +1058,7 @@ body {
   align-items: center;
   justify-content: space-between;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--text-secondary);
   padding-top: 0.4rem;
   border-top: 1px solid rgba(51, 65, 85, 0.6);
 }
@@ -1481,11 +1691,11 @@ body {
 }
 
 .seat-booked {
-  background-color: #27273b;
-  color: #64748b;
+  background-color: var(--bg-surface-elevated);
+  color: var(--text-muted);
   cursor: not-allowed;
   opacity: 0.45;
-  border: 1px solid #1b1b30;
+  border: 1px solid var(--border-color);
   box-shadow: none;
 }
 
@@ -1501,7 +1711,7 @@ body {
 }
 .confirmation-dialog-message {
   font-size: 0.95rem;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   margin-bottom: 1rem;
   line-height: 1.5;
 }
@@ -1510,15 +1720,15 @@ body {
   justify-content: flex-end;
   gap: 0.75rem;
   padding: 1rem 1.5rem;
-  border-top: 1px solid #334155;
-  background: #0f172a;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-surface-elevated);
 }
 .btn-dialog-cancel {
   padding: 0.5rem 1rem;
   border-radius: 0.375rem;
-  background: #334155;
-  color: #e2e8f0;
-  border: none;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s ease;
@@ -1578,8 +1788,8 @@ body {
   align-items: center;
   gap: 0.5rem;
   padding: 0.35rem 0.65rem;
-  background: #1e293b;
-  border: 1px solid #334155;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
   border-radius: 0.375rem;
   font-size: 0.85rem;
 }
@@ -1588,7 +1798,7 @@ body {
   color: #6366f1;
 }
 .chip-tier {
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 0.75rem;
 }
 .chip-price {
@@ -1600,25 +1810,25 @@ body {
   justify-content: space-between;
   align-items: center;
   padding-top: 0.75rem;
-  border-top: 1px solid #334155;
+  border-top: 1px solid var(--border-color);
   font-size: 1rem;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 .payment-confirm-details {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  background: #1e293b;
+  background: var(--bg-surface-elevated);
   padding: 0.85rem 1rem;
   border-radius: 0.5rem;
-  border: 1px solid #334155;
+  border: 1px solid var(--border-color);
 }
 
 /* Sticky Selection Summary */
 .selection-summary-footer {
   position: sticky;
   bottom: 1.5rem;
-  background: rgba(30, 41, 59, 0.95);
+  background: var(--bg-surface-card);
   backdrop-filter: blur(16px);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-xl);
@@ -1644,7 +1854,7 @@ body {
   align-items: center;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--text-primary);
 }
 
 .selected-chips-list {
@@ -1686,7 +1896,7 @@ body {
 .total-amount {
   font-size: 1.4rem;
   font-weight: 800;
-  color: #38bdf8;
+  color: var(--color-waitlist);
 }
 
 .btn-clear-selection {
@@ -1726,8 +1936,9 @@ body {
 }
 
 .btn-checkout:disabled {
-  background: #27273b;
-  color: #64748b;
+  background: var(--bg-surface-elevated);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
   cursor: not-allowed;
   box-shadow: none;
   filter: none;
@@ -1939,14 +2150,14 @@ body {
 .form-input {
   width: 100%;
   padding: 0.8rem 1rem 0.8rem 2.85rem;
-  background: #0f0f23;
+  background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 0.95rem;
   outline: none;
   transition: all var(--transition-normal);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-sm);
 }
 
 .form-input:focus {
@@ -1966,7 +2177,7 @@ body {
 }
 
 .payment-method-card {
-  background: #0f0f23;
+  background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 1rem 1.25rem;
@@ -2004,7 +2215,7 @@ body {
 
 /* Order Summary */
 .order-summary-section {
-  background: #0f0f23;
+  background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 1.25rem;
@@ -2025,11 +2236,11 @@ body {
 
 .total-row {
   font-size: 1.05rem;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .text-accent {
-  color: #fbbf24;
+  color: var(--color-accent);
 }
 
 .btn-submit-booking {
@@ -2147,7 +2358,7 @@ body {
 }
 
 .booking-ref-card {
-  background: #0f172a;
+  background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 1rem;
@@ -2164,7 +2375,7 @@ body {
 .ref-code {
   font-size: 1.15rem;
   font-weight: 700;
-  color: #38bdf8;
+  color: var(--color-waitlist);
 }
 
 .ref-status-badge {
@@ -2180,7 +2391,7 @@ body {
 }
 
 .confirmation-details-card {
-  background: #0f172a;
+  background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 1.15rem;
@@ -2191,7 +2402,7 @@ body {
   font-size: 0.9rem;
   font-weight: 700;
   margin-bottom: 0.75rem;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .details-grid {
@@ -2227,7 +2438,7 @@ body {
 }
 
 .digital-ticket-card {
-  background: #0f172a;
+  background: var(--bg-surface-elevated);
   border: 1px dashed var(--border-light);
   border-radius: var(--radius-md);
   padding: 1rem;
@@ -2283,7 +2494,7 @@ body {
 .btn-print-ticket {
   flex: 1;
   background: var(--bg-surface-elevated);
-  color: #ffffff;
+  color: var(--text-primary);
   border: 1px solid var(--border-color);
   padding: 0.75rem;
   border-radius: var(--radius-md);

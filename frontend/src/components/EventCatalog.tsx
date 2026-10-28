@@ -198,7 +198,7 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
                 </p>
 
                 <div className="premiere-showcase-meta">
-                  <span className="flex items-center gap-1.5 text-xs text-slate-300">
+                  <span className="premiere-date-tag flex items-center gap-1.5 text-xs text-slate-300">
                     <CalendarIcon size={14} className="text-amber-400" />
                     {new Date(currentFeatured.startTime).toLocaleDateString('en-US', {
                       weekday: 'short',

@@ -247,7 +247,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
 
       {/* AI Event Concierge Panel / Drawer (Milestone 33) */}
       {showConcierge && (
-        <div className="p-4 mx-4 my-2 rounded-2xl bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 border border-purple-500/40 shadow-xl space-y-3" data-testid="ai-concierge-panel">
+        <div className="ai-concierge-panel p-5 mx-4 my-3 rounded-2xl bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 border border-purple-500/40 shadow-xl space-y-3" data-testid="ai-concierge-panel">
           <div className="flex items-center justify-between border-b border-purple-900/40 pb-2">
             <div className="flex items-center gap-2">
               <span className="text-lg">🤖</span>
@@ -276,24 +276,24 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
           ) : conciergeAdvice ? (
             <div className="space-y-3 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-purple-900/40">
+                <div className="ai-concierge-card p-3.5 rounded-xl bg-slate-950/70 border border-purple-900/40">
                   <div className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider mb-1">Recommended Tier</div>
                   <div className="font-bold text-amber-300">{conciergeAdvice.recommendedTier}</div>
                   <div className="text-[11px] text-slate-400 mt-1">{conciergeAdvice.localizedBudgetNote}</div>
                 </div>
-                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-purple-900/40">
+                <div className="ai-concierge-card p-3.5 rounded-xl bg-slate-950/70 border border-purple-900/40">
                   <div className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider mb-1">VIP Add-on Recommendation</div>
                   <div className="font-bold text-indigo-300">{conciergeAdvice.recommendedAddonName}</div>
                   <div className="text-[11px] text-slate-400 mt-1">Directly eligible for cart bundling.</div>
                 </div>
-                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-purple-900/40">
+                <div className="ai-concierge-card p-3.5 rounded-xl bg-slate-950/70 border border-purple-900/40">
                   <div className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider mb-1">Live Venue Advisory</div>
                   <div className="text-slate-300">{conciergeAdvice.weatherAdvisory}</div>
                 </div>
               </div>
 
               {conciergeAdvice.insiderTips?.length > 0 && (
-                <div className="p-2.5 rounded-xl bg-slate-950/50 border border-slate-800/60">
+                <div className="ai-concierge-card p-3.5 rounded-xl bg-slate-950/50 border border-slate-800/60">
                   <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Curated Insider Tips</div>
                   <ul className="list-disc list-inside space-y-1 text-slate-300 text-[11px]">
                     {conciergeAdvice.insiderTips.map((tip, idx) => (
@@ -387,7 +387,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
 
         {/* Venue Floorplan Modal / Drawer */}
         {showFloorplanModal && floorplan && (
-          <div className="p-4 mx-4 mb-4 rounded-2xl bg-slate-900/90 border border-indigo-500/40 animate-in fade-in space-y-3" data-testid="floorplan-overview-card">
+          <div className="floorplan-overview-card p-4 mx-4 mb-4 rounded-2xl bg-slate-900/90 border border-indigo-500/40 animate-in fade-in space-y-3" data-testid="floorplan-overview-card">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <h4 className="text-sm font-bold text-slate-100 flex items-center gap-2">
                 <BuildingOfficeIcon size={16} className="text-amber-400" />
@@ -397,7 +397,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {floorplan.sections.map((sec) => (
-                <div key={sec.id} className="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
+                <div key={sec.id} className="floorplan-section-card p-3 rounded-xl bg-slate-950/70 border border-slate-800">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-bold text-slate-200">{sec.name}</span>
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase" style={{ backgroundColor: `${sec.color}20`, color: sec.color }}>
