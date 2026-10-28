@@ -281,4 +281,35 @@ describe('Milestone 34: Cinema Premiere & Holographic Glow Motion Engine', () =>
       expect(cssContent).toMatch(/(?:html\[data-theme=['"]?light['"]?\]|body\.light|\.light)[^{]*\.mashup-intel-bar/);
     });
   });
+
+  describe('7. Milestone 38: Zero-CLS Carousel Badge Row, Full-Width Filter Summary & Grid Title Lock', () => {
+    const cssPath = path.resolve(__dirname, '../index.css');
+    const cssContent = fs.readFileSync(cssPath, 'utf-8');
+    const catalogPath = path.resolve(__dirname, '../components/EventCatalog.tsx');
+    const catalogContent = fs.readFileSync(catalogPath, 'utf-8');
+
+    it('defines .premiere-badges-row and .premiere-venue-tag with nowrap truncation to prevent multi-line CLS jumping', () => {
+      expect(cssContent).toMatch(/\.premiere-badges-row\s*\{[^}]*flex-wrap:\s*nowrap/);
+      expect(cssContent).toMatch(/\.premiere-badges-row\s*\{[^}]*overflow:\s*hidden/);
+      expect(cssContent).toMatch(/\.premiere-venue-tag\s*\{[^}]*white-space:\s*nowrap/);
+      expect(cssContent).toMatch(/\.premiere-venue-tag\s*\{[^}]*overflow:\s*hidden/);
+      expect(cssContent).toMatch(/\.premiere-venue-tag\s*\{[^}]*text-overflow:\s*ellipsis/);
+    });
+
+    it('uses premiere-badges-row without flex-wrap in EventCatalog.tsx', () => {
+      expect(catalogContent).toContain('premiere-badges-row');
+      expect(catalogContent).not.toMatch(/className="[^"]*premiere-showcase-left[^"]*"[\s\S]*?flex-wrap[\s\S]*?premiere-spotlight-pill/);
+    });
+
+    it('defines .catalog-summary-bar with width: 100% and gap spacing to prevent text collisions', () => {
+      expect(cssContent).toMatch(/\.catalog-summary-bar\s*\{[^}]*width:\s*100%/);
+      expect(cssContent).toMatch(/\.catalog-summary-bar\s*\{[^}]*gap:\s*1rem/);
+    });
+
+    it('defines .event-title with min-height and line-clamp: 2 for grid card vertical alignment', () => {
+      expect(cssContent).toMatch(/\.event-title\s*\{[^}]*min-height:\s*2\.6em/);
+      expect(cssContent).toMatch(/\.event-title\s*\{[^}]*-webkit-line-clamp:\s*2/);
+      expect(cssContent).toMatch(/\.event-title\s*\{[^}]*overflow:\s*hidden/);
+    });
+  });
 });

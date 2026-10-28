@@ -178,15 +178,18 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
             <div className="premiere-showcase-glow" aria-hidden="true" />
             <div className="premiere-showcase-content">
               <div className="premiere-showcase-left">
-                <div className="flex items-center gap-2 flex-wrap mb-2">
+                <div className="premiere-badges-row mb-2">
                   <span className="premiere-spotlight-pill">
                     <SparklesIcon size={12} className="mr-1" />
                     FEATURED PREMIERE #{featuredIndex + 1}
                   </span>
                   <span className="premiere-category-tag">{currentFeatured.category}</span>
-                  <span className="premiere-venue-tag">
-                    <MapPinIcon size={12} className="mr-1 text-amber-400" />
-                    {currentFeatured.venueName} ({currentFeatured.venueLocation})
+                  <span
+                    className="premiere-venue-tag"
+                    title={`${currentFeatured.venueName} (${currentFeatured.venueLocation})`}
+                  >
+                    <MapPinIcon size={12} className="mr-1 text-amber-400 shrink-0" />
+                    <span className="truncate">{currentFeatured.venueName} ({currentFeatured.venueLocation})</span>
                   </span>
                 </div>
 
