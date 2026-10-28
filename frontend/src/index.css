@@ -1,6 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Righteous&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
+@theme {
+  --color-brand-accent: var(--brand-accent);
+}
+
 /* TicketVerse - Cinematic Dark Theme & Design System (MASTER.md) */
 :root {
   /* Master Design Tokens */
@@ -547,10 +551,12 @@ body.light [class*='border-slate-700'],
 /* Modern Cross-Browser Scrollbars (Chromium, Firefox, WebKit) - R32 */
 * {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
   scrollbar-width: thin;
   scrollbar-color: var(--border-light) transparent;
+}
+
+.addon-upsell-card {
+  padding: 0.875rem 1rem;
 }
 
 ::-webkit-scrollbar {
@@ -719,6 +725,7 @@ body {
 .brand-icon-badge {
   background: linear-gradient(135deg, #1e1b4b, #312e81);
   border: 1px solid var(--border-light);
+  color: #fbbf24;
   width: 44px;
   height: 44px;
   border-radius: var(--radius-md);
@@ -727,6 +734,14 @@ body {
   justify-content: center;
   box-shadow: 0 0 20px rgba(67, 56, 202, 0.35);
   transition: all var(--transition-normal);
+}
+
+.text-brand-accent {
+  color: var(--brand-accent);
+}
+
+.brand-icon-badge .text-brand-accent {
+  color: #fbbf24 !important;
 }
 
 .header-brand:hover .brand-icon-badge {
@@ -3076,12 +3091,6 @@ body {
   overflow: hidden;
   backdrop-filter: blur(14px);
   transition: transform 300ms var(--ease-out-expo), box-shadow 300ms var(--ease-out-expo);
-}
-
-@media (min-width: 768px) {
-  .premiere-showcase-card {
-    height: 172px;
-  }
 }
 
 .premiere-showcase-card:hover {

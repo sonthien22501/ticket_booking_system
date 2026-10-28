@@ -238,4 +238,38 @@ describe('Milestone 18: Dark Mode & Desktop Cross-Browser Usability (R28, R32)',
       }
     });
   });
+
+  describe('Milestone 37: Tailwind v4 Cascade Layer Safety, Brand Icon Contrast & Card Overflow Protection', () => {
+    const cssPath = path.resolve(__dirname, '../index.css');
+    const cssContent = fs.readFileSync(cssPath, 'utf-8');
+
+    it('does not contain an unlayered wildcard padding or margin reset that clobbers Tailwind v4 utilities', () => {
+      // Must not have unlayered `* { ... padding: 0; ... }` or `* { ... margin: 0; ... }`
+      const cleaned = cssContent.replace(/\/\*[\s\S]*?\*\//g, '');
+      const wildcardRules = cleaned.match(/(?:^|\})\s*\*\s*\{([^}]+)\}/g) || [];
+      for (const rule of wildcardRules) {
+        expect(rule).not.toMatch(/(?:padding|margin)\s*:\s*0/);
+      }
+    });
+
+    it('defines @theme with --color-brand-accent and explicit .text-brand-accent + .brand-icon-badge color rules', () => {
+      // @theme { --color-brand-accent: ... }
+      expect(cssContent).toMatch(/@theme\s*\{[^}]*--color-brand-accent\s*:/);
+      // .text-brand-accent class
+      expect(cssContent).toMatch(/\.text-brand-accent\s*\{[^}]*color:/);
+      // .brand-icon-badge sets color: #fbbf24
+      expect(cssContent).toMatch(/\.brand-icon-badge\s*\{[^}]*color:\s*#fbbf24/);
+    });
+
+    it('ensures .premiere-showcase-card uses min-height without a fixed-height media query lock', () => {
+      // .premiere-showcase-card has min-height: 172px
+      expect(cssContent).toMatch(/\.premiere-showcase-card\s*\{[^}]*min-height:\s*172px/);
+      // Must NOT lock height: 172px inside media query
+      expect(cssContent).not.toMatch(/@media[^{]*\{[^}]*\.premiere-showcase-card\s*\{[^}]*height:\s*172px/);
+    });
+
+    it('defines explicit padding for .addon-upsell-card so internal text never touches borders', () => {
+      expect(cssContent).toMatch(/\.addon-upsell-card\s*\{[^}]*padding:\s*0\.875rem\s+1rem/);
+    });
+  });
 });
