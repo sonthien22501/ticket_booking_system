@@ -4,6 +4,7 @@ import { EventCard } from './EventCard';
 import { SearchIcon, RefreshCwIcon, MapPinIcon, XIcon, SparklesIcon, TicketIcon, CalendarIcon, ChevronRightIcon, ShieldCheckIcon } from './Icons';
 import { LoadingSpinner } from './LoadingSpinner';
 import { AlertNotification } from './AlertNotification';
+import { formatCurrency } from '../services/currency';
 
 interface EventCatalogProps {
   events: EventItem[];
@@ -13,6 +14,7 @@ interface EventCatalogProps {
   onSelectEvent: (event: EventItem) => void;
   onJoinWaitlist?: (event: EventItem) => void;
   onViewReviews?: (event: EventItem) => void;
+  currentCurrency?: string;
 }
 
 export const EventCatalog: React.FC<EventCatalogProps> = ({
@@ -23,6 +25,7 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
   onSelectEvent,
   onJoinWaitlist,
   onViewReviews,
+  currentCurrency = 'USD',
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -212,7 +215,7 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
                   </span>
                   {currentFeatured.tiers.length > 0 && (
                     <span className="premiere-price-pill">
-                      From ${Math.min(...currentFeatured.tiers.map((t) => t.price)).toFixed(2)}
+                      From {formatCurrency(Math.min(...currentFeatured.tiers.map((t) => t.price)), currentCurrency)}
                     </span>
                   )}
                 </div>
@@ -406,6 +409,7 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
               onSelectEvent={onSelectEvent}
               onJoinWaitlist={onJoinWaitlist}
               onViewReviews={onViewReviews}
+              currentCurrency={currentCurrency}
             />
           ))}
         </div>

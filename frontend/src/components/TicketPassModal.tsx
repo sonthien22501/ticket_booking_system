@@ -230,13 +230,13 @@ export const TicketPassModal: React.FC<TicketPassModalProps> = ({
           )}
 
           {/* Action Buttons */}
-          <div className="pt-2 flex flex-col sm:flex-row gap-2">
+          <div className="pt-2 flex flex-col sm:flex-row flex-wrap gap-2">
             {!isCancelled && !isUsed && (
               <button
                 type="button"
                 onClick={() => handleSimulateScan('CHECK_IN')}
                 disabled={checkingIn}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs uppercase tracking-wide flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-600/20 cursor-pointer disabled:opacity-50"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs uppercase tracking-wide flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-600/20 cursor-pointer disabled:opacity-50 whitespace-nowrap"
               >
                 <ScanIcon size={16} />
                 {checkingIn ? 'Verifying...' : 'Simulate Gate Check-In'}
@@ -249,7 +249,7 @@ export const TicketPassModal: React.FC<TicketPassModalProps> = ({
                   onClose();
                   onTransferTicket(booking, ticket);
                 }}
-                className="py-2.5 px-4 rounded-xl bg-indigo-900/60 hover:bg-indigo-800 text-amber-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-amber-500/30"
+                className="py-2.5 px-4 rounded-xl bg-indigo-900/60 hover:bg-indigo-800 text-amber-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-amber-500/30 whitespace-nowrap"
               >
                 <Share2Icon size={14} />
                 Transfer
@@ -258,7 +258,7 @@ export const TicketPassModal: React.FC<TicketPassModalProps> = ({
             <button
               type="button"
               onClick={() => downloadBookingCalendarICS(booking.bookingId, booking.eventTitle)}
-              className="py-2.5 px-4 rounded-xl bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 font-semibold text-xs border border-amber-500/40 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              className="py-2.5 px-4 rounded-xl bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 font-semibold text-xs border border-amber-500/40 flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
               title="Add to Calendar (.ics)"
               data-testid="pass-add-calendar-btn"
             >
@@ -268,7 +268,7 @@ export const TicketPassModal: React.FC<TicketPassModalProps> = ({
             <button
               type="button"
               onClick={() => window.print()}
-              className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors cursor-pointer"
+              className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap"
             >
               Print Pass
             </button>

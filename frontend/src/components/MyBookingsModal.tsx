@@ -35,6 +35,7 @@ interface MyBookingsModalProps {
   currentUser: User | null;
   onBrowseEvents?: () => void;
   onBookingCancelled?: (bookingId: string) => void;
+  initialBookings?: BookingResponse[];
 }
 
 export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
@@ -43,8 +44,9 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
   currentUser,
   onBrowseEvents,
   onBookingCancelled,
+  initialBookings,
 }) => {
-  const [bookings, setBookings] = useState<BookingResponse[]>([]);
+  const [bookings, setBookings] = useState<BookingResponse[]>(initialBookings || []);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [filterTab, setFilterTab] = useState<'ALL' | 'CONFIRMED' | 'CANCELLED' | 'WAITLIST'>('ALL');
@@ -502,7 +504,7 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleCopyReference(b.bookingReference)}
-                          className="font-mono font-bold text-amber-300 flex items-center gap-1 hover:text-amber-200 cursor-pointer"
+                          className="font-mono font-bold text-amber-300 flex items-center gap-1 hover:text-amber-200 cursor-pointer break-all text-left"
                           title="Click to copy"
                         >
                           {b.bookingReference}
@@ -569,26 +571,26 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
                           <QrCodeIcon size={14} className="text-amber-400" />
                           Digital Entry Passes
                         </span>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 gap-2">
                           {b.tickets.map((t) => (
                             <div
                               key={t.ticketId || t.ticketCode}
-                              className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between"
+                              className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                             >
-                              <div>
-                                <span className="font-mono font-bold text-xs text-amber-300 block">
+                              <div className="min-w-0">
+                                <span className="font-mono font-bold text-xs text-amber-300 block truncate">
                                   {t.seatLabel}
                                 </span>
-                                <span className="font-mono text-[10px] text-slate-400">
+                                <span className="font-mono text-[10px] text-slate-400 block truncate">
                                   {t.ticketCode}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1.5 shrink-0">
                                 {t.status === 'VALID' && (
                                   <button
                                     type="button"
                                     onClick={() => setTransferTicketState({ booking: b, ticket: t })}
-                                    className="px-2.5 py-1 rounded-lg bg-amber-900/40 hover:bg-amber-800 text-amber-300 hover:text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer border border-amber-500/30"
+                                    className="px-2.5 py-1 rounded-lg bg-amber-900/40 hover:bg-amber-800 text-amber-300 hover:text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer border border-amber-500/30 whitespace-nowrap shrink-0"
                                     title="Transfer ticket to friend"
                                   >
                                     <Share2Icon size={12} />
@@ -596,14 +598,14 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
                                   </button>
                                 )}
                                 {t.status === 'TRANSFERRED' && (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700">
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700 whitespace-nowrap shrink-0">
                                     TRANSFERRED
                                   </span>
                                 )}
                                 <button
                                   type="button"
                                   onClick={() => setActiveTicket({ booking: b, ticket: t })}
-                                  className="px-2.5 py-1 rounded-lg bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 hover:text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                                  className="px-2.5 py-1 rounded-lg bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 hover:text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                                 >
                                   <QrCodeIcon size={12} />
                                   View Pass

@@ -6,12 +6,14 @@ interface SeatGridProps {
   seats: SeatItem[];
   selectedSeatIds: Set<string>;
   onToggleSeat: (seat: SeatItem) => void;
+  currentCurrency?: string;
 }
 
 export const SeatGrid: React.FC<SeatGridProps> = ({
   seats,
   selectedSeatIds,
   onToggleSeat,
+  currentCurrency = 'USD',
 }) => {
   // Group seats by row preserving order
   const groupedRows = useMemo(() => {
@@ -73,6 +75,7 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
                   onToggle={onToggleSeat}
                   rowIndex={rowIdx}
                   colIndex={colIdx}
+                  currentCurrency={currentCurrency}
                 />
               ))}
             </div>

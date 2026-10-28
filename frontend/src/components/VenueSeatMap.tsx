@@ -4,6 +4,7 @@ import { SeatGrid } from './SeatGrid';
 import { ArrowLeftIcon, RefreshCwIcon, TicketIcon, CalendarIcon, MapPinIcon, BuildingOfficeIcon } from './Icons';
 import { LoadingSpinner } from './LoadingSpinner';
 import { fetchVenueFloorplan, fetchEventMashup, requestConciergeAdvice } from '../services/api';
+import { formatCurrency } from '../services/currency';
 
 interface VenueSeatMapProps {
   event: EventItem;
@@ -15,6 +16,7 @@ interface VenueSeatMapProps {
   onProceedToCheckout: () => void;
   onBackToCatalog: () => void;
   onRefreshSeats: () => void;
+  currentCurrency?: string;
 }
 
 export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
@@ -27,6 +29,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
   onProceedToCheckout,
   onBackToCatalog,
   onRefreshSeats,
+  currentCurrency = 'USD',
 }) => {
   const [floorplan, setFloorplan] = useState<VenueFloorplan | null>(null);
   const [selectedSection, setSelectedSection] = useState<string>('ALL');
@@ -407,7 +410,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
                   <p className="text-[11px] text-slate-400">{sec.rowRange}</p>
                   <div className="flex items-center justify-between text-xs mt-2 pt-1 border-t border-slate-800/60 font-mono">
                     <span className="text-slate-400">Cap: {sec.capacity > 0 ? sec.capacity : 'N/A'}</span>
-                    <span className="text-amber-300 font-bold">${sec.basePrice.toFixed(2)}</span>
+                    <span className="text-amber-300 font-bold">{formatCurrency(sec.basePrice, currentCurrency)}</span>
                   </div>
                 </div>
               ))}
@@ -425,6 +428,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
             seats={displayedSeats}
             selectedSeatIds={selectedSeatIds}
             onToggleSeat={onToggleSeat}
+            currentCurrency={currentCurrency}
           />
         )}
       </div>
@@ -442,7 +446,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
           <div className="selected-chips-list">
             {selectedSeatsList.map((seat) => (
               <span key={seat.id} className="selected-seat-chip">
-                {seat.row}{seat.number} (${seat.price?.toFixed(0)})
+                {seat.row}{seat.number} ({formatCurrency(seat.price ?? 0, currentCurrency)})
               </span>
             ))}
           </div>
@@ -451,7 +455,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
         <div className="summary-right">
           <div className="price-total-box">
             <span className="total-label">Subtotal</span>
-            <span className="total-amount">${subtotal.toFixed(2)}</span>
+            <span className="total-amount">{formatCurrency(subtotal, currentCurrency)}</span>
           </div>
 
           {selectedSeatsList.length > 0 && (
