@@ -125,6 +125,7 @@ func (s *Server) migrateDB() error {
 
 	// Seed demo users if not present
 	s.seedDefaultUser("admin@tickets.com", "admin123", "System Administrator", "admin")
+	s.seedDefaultUser("organizer@tickets.com", "organizer123", "Department Event Organizer", "organizer")
 	s.seedDefaultUser("user@tickets.com", "user123", "Demo Customer", "customer")
 
 	return nil
@@ -213,14 +214,14 @@ func enableCORS(w http.ResponseWriter) {
 }
 
 // sanitizeRegistrationRole prevents public privilege escalation by ensuring only requests
-// with a valid admin setup token (or existing admin bearer token) can register with the admin role.
+// with a valid admin setup token (or existing admin bearer token) can register with the admin or organizer role.
 func sanitizeRegistrationRole(requestedRole, adminHeaderToken, validAdminSecret string) string {
 	role := strings.ToLower(strings.TrimSpace(requestedRole))
-	if role != "admin" {
+	if role != "admin" && role != "organizer" {
 		return "customer"
 	}
 	if validAdminSecret != "" && strings.TrimSpace(adminHeaderToken) == strings.TrimSpace(validAdminSecret) {
-		return "admin"
+		return role
 	}
 	return "customer"
 }
