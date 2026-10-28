@@ -194,6 +194,16 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
               <span className="text-slate-300 truncate max-w-[160px] font-medium" title={`${mashup.mediaPreview.trackName} - ${mashup.mediaPreview.artistName}`}>
                 🎵 {mashup.mediaPreview.trackName}
               </span>
+              <div
+                className={`audio-equalizer-bars ${isPlayingPreview ? 'is-playing' : ''}`}
+                data-testid="audio-equalizer-bars"
+                aria-hidden="true"
+              >
+                <span className="eq-bar eq-bar-1" />
+                <span className="eq-bar eq-bar-2" />
+                <span className="eq-bar eq-bar-3" />
+                <span className="eq-bar eq-bar-4" />
+              </div>
               <button
                 type="button"
                 onClick={toggleAudioPreview}

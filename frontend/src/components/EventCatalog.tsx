@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { EventItem } from '../types';
 import { EventCard } from './EventCard';
-import { SearchIcon, RefreshCwIcon, MapPinIcon, XIcon } from './Icons';
+import { SearchIcon, RefreshCwIcon, MapPinIcon, XIcon, SparklesIcon, TicketIcon, CalendarIcon, ChevronRightIcon, ShieldCheckIcon } from './Icons';
 import { LoadingSpinner } from './LoadingSpinner';
 import { AlertNotification } from './AlertNotification';
 
@@ -29,6 +29,24 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
   const [selectedCity, setSelectedCity] = useState<string>('ALL');
   const [selectedPriceRange, setSelectedPriceRange] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<string>('date_asc');
+  const [featuredIndex, setFeaturedIndex] = useState<number>(0);
+
+  // Featured events for the Premiere Hero Showcase (up to 4 active events)
+  const featuredEvents = useMemo(() => {
+    const active = events.filter((e) => e.status === 'ACTIVE');
+    return (active.length > 0 ? active : events).slice(0, 4);
+  }, [events]);
+
+  // Auto-advance Premiere Hero Showcase every 6 seconds
+  useEffect(() => {
+    if (featuredEvents.length <= 1) return;
+    const timer = setInterval(() => {
+      setFeaturedIndex((prev) => (prev + 1) % featuredEvents.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [featuredEvents.length]);
+
+  const currentFeatured = featuredEvents[featuredIndex % Math.max(1, featuredEvents.length)] || null;
 
   // Extract unique categories
   const categories = useMemo(() => {
@@ -118,11 +136,118 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
 
   return (
     <section className="catalog-section">
-      <div className="hero-banner">
+      <div className="hero-banner premiere-hero-container">
+        {/* Ambient Cinema Aurora & Dual Projector Beams */}
+        <div className="hero-aurora-backdrop" aria-hidden="true">
+          <div className="aurora-orb aurora-orb-gold" />
+          <div className="aurora-orb aurora-orb-indigo" />
+          <div className="aurora-orb aurora-orb-purple" />
+          <div className="imax-projector-beam beam-left" />
+          <div className="imax-projector-beam beam-right" />
+        </div>
+
+        {/* Live Telemetry Ribbon */}
+        <div className="premiere-live-ribbon" data-testid="premiere-live-ribbon">
+          <span className="ribbon-badge">
+            <span className="live-pulse-dot" />
+            <span>IMAX & LIVE ARENA ENGINE</span>
+          </span>
+          <span className="ribbon-divider">•</span>
+          <span className="ribbon-metric">
+            <ShieldCheckIcon size={13} className="inline-icon mr-1 text-emerald-400" />
+            Zero-Oversell Atomic Locks
+          </span>
+          <span className="ribbon-divider hidden sm:inline">•</span>
+          <span className="ribbon-metric hidden sm:inline">
+            <SparklesIcon size={13} className="inline-icon mr-1 text-amber-400" />
+            Holographic QR Passes
+          </span>
+        </div>
+
         <h2 className="hero-title">Experience Live Entertainment</h2>
         <p className="hero-subtitle">
           Book authentic seats in real time with our atomic high-concurrency ticket reservation engine.
         </p>
+
+        {/* Featured Premiere Spotlight Showcase Carousel */}
+        {currentFeatured && !loading && (
+          <div
+            className="premiere-showcase-card"
+            data-testid="premiere-hero-showcase"
+          >
+            <div className="premiere-showcase-glow" aria-hidden="true" />
+            <div className="premiere-showcase-content">
+              <div className="premiere-showcase-left">
+                <div className="flex items-center gap-2 flex-wrap mb-2">
+                  <span className="premiere-spotlight-pill">
+                    <SparklesIcon size={12} className="mr-1" />
+                    FEATURED PREMIERE #{featuredIndex + 1}
+                  </span>
+                  <span className="premiere-category-tag">{currentFeatured.category}</span>
+                  <span className="premiere-venue-tag">
+                    <MapPinIcon size={12} className="mr-1 text-amber-400" />
+                    {currentFeatured.venueName} ({currentFeatured.venueLocation})
+                  </span>
+                </div>
+
+                <h3 className="premiere-showcase-title" key={currentFeatured.id}>
+                  {currentFeatured.title}
+                </h3>
+                <p className="premiere-showcase-desc line-clamp-2">
+                  {currentFeatured.description}
+                </p>
+
+                <div className="premiere-showcase-meta">
+                  <span className="flex items-center gap-1.5 text-xs text-slate-300">
+                    <CalendarIcon size={14} className="text-amber-400" />
+                    {new Date(currentFeatured.startTime).toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </span>
+                  {currentFeatured.tiers.length > 0 && (
+                    <span className="premiere-price-pill">
+                      From ${Math.min(...currentFeatured.tiers.map((t) => t.price)).toFixed(2)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="premiere-showcase-right">
+                <button
+                  type="button"
+                  onClick={() => onSelectEvent(currentFeatured)}
+                  className="btn-premiere-cta cursor-pointer"
+                  data-testid="premiere-hero-cta"
+                >
+                  <TicketIcon size={18} />
+                  <span>Enter Interactive Arena</span>
+                  <ChevronRightIcon size={16} />
+                </button>
+
+                {/* Carousel Slide Indicators */}
+                {featuredEvents.length > 1 && (
+                  <div className="premiere-carousel-dots" role="tablist" aria-label="Featured events">
+                    {featuredEvents.map((fe, idx) => (
+                      <button
+                        key={fe.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={idx === featuredIndex}
+                        aria-label={`Featured event ${idx + 1}: ${fe.title}`}
+                        onClick={() => setFeaturedIndex(idx)}
+                        className={`premiere-dot cursor-pointer ${idx === featuredIndex ? 'active' : ''}`}
+                        data-testid={`premiere-slide-indicator-${idx}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="search-and-filter-bar space-y-3">
           {/* Search Input & Sort Dropdown */}
@@ -270,10 +395,11 @@ export const EventCatalog: React.FC<EventCatalogProps> = ({
 
       {!loading && filteredEvents.length > 0 && (
         <div className="events-grid">
-          {filteredEvents.map((evt) => (
+          {filteredEvents.map((evt, idx) => (
             <EventCard
               key={evt.id}
               event={evt}
+              index={idx}
               onSelectEvent={onSelectEvent}
               onJoinWaitlist={onJoinWaitlist}
               onViewReviews={onViewReviews}

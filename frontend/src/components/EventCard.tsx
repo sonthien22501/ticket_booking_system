@@ -1,15 +1,27 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { EventItem } from '../types';
 import { CalendarIcon, MapPinIcon, TicketIcon, FilmIcon, SparklesIcon, ClockIcon, StarIcon } from './Icons';
+import { calculate3DTilt, calculateStaggerDelay, calculateSeatScarcity } from '../utils/motion';
 
 interface EventCardProps {
   event: EventItem;
+  index?: number;
   onSelectEvent: (event: EventItem) => void;
   onJoinWaitlist?: (event: EventItem) => void;
   onViewReviews?: (event: EventItem) => void;
 }
 
-export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent, onJoinWaitlist, onViewReviews }) => {
+export const EventCard: React.FC<EventCardProps> = ({
+  event,
+  index = 0,
+  onSelectEvent,
+  onJoinWaitlist,
+  onViewReviews,
+}) => {
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
+  const [isHovered, setIsHovered] = useState(false);
+
   // Format date nicely
   const formatDate = (dateStr: string) => {
     try {
@@ -32,7 +44,8 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent, onJo
     ? Math.min(...event.tiers.map((t) => t.price))
     : 0;
 
-  // Determine if event is sold out
+  // Scarcity & availability metrics
+  const scarcity = calculateSeatScarcity(event.tiers);
   const totalAvailable = event.tiers.reduce((acc, t) => acc + (t.availableSeats ?? 0), 0);
   const isSoldOut = event.status === 'SOLD_OUT' || (event.tiers.length > 0 && totalAvailable === 0);
 
@@ -40,6 +53,31 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent, onJo
   const categoryLower = event.category.toLowerCase();
   const isCinema = categoryLower.includes('cinema') || categoryLower.includes('movie');
   const isTheater = categoryLower.includes('theater') || categoryLower.includes('play');
+
+  const staggerMs = calculateStaggerDelay(index, 65, 520);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const tilt = calculate3DTilt(rect, e.clientX, e.clientY, 5.5);
+    setTiltStyle({
+      '--rx': `${tilt.rotateX}deg`,
+      '--ry': `${tilt.rotateY}deg`,
+      '--spot-x': `${tilt.spotlightX}%`,
+      '--spot-y': `${tilt.spotlightY}%`,
+      '--glare-angle': `${tilt.glareAngle}deg`,
+    } as React.CSSProperties);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    setTiltStyle({
+      '--rx': '0deg',
+      '--ry': '0deg',
+      '--spot-x': '50%',
+      '--spot-y': '50%',
+    } as React.CSSProperties);
+  };
 
   const handleCardClick = () => {
     if (isSoldOut && onJoinWaitlist) {
@@ -51,8 +89,16 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent, onJo
 
   return (
     <div
-      className="event-card cursor-pointer"
+      ref={cardRef}
+      className={`event-card event-card-3d cursor-pointer ${isHovered ? 'is-tilting' : ''}`}
+      style={{
+        '--stagger-delay': `${staggerMs}ms`,
+        ...tiltStyle,
+      } as React.CSSProperties}
       onClick={handleCardClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
       tabIndex={0}
       role="button"
       onKeyDown={(e) => {
@@ -62,7 +108,12 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent, onJo
         }
       }}
       aria-label={`Select seats for ${event.title}`}
+      data-testid={`event-card-${event.id}`}
     >
+      {/* Dynamic Cursor Spotlight & Holographic Edge Shimmer */}
+      <div className="card-cursor-spotlight" aria-hidden="true" />
+      <div className="card-holographic-border" aria-hidden="true" />
+
       {/* Cinematic Poster Header */}
       <div className={`event-poster-banner banner-${categoryLower}`}>
         <div className="poster-spotlight-beam"></div>
@@ -102,6 +153,30 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent, onJo
             </span>
           </div>
         </div>
+
+        {/* Animated Live Demand & Scarcity Progress Bar */}
+        {event.tiers.length > 0 && (
+          <div className="event-scarcity-widget" data-testid={`event-scarcity-${event.id}`}>
+            <div className="scarcity-header">
+              <span className="scarcity-label">
+                {isSoldOut ? (
+                  <span className="text-cyan-300 font-semibold">100% Claimed • Waitlist Open</span>
+                ) : scarcity.isHighDemand ? (
+                  <span className="text-amber-300 font-semibold">🔥 High Demand • {totalAvailable} seats left</span>
+                ) : (
+                  <span className="text-emerald-300 font-medium">{totalAvailable} seats available</span>
+                )}
+              </span>
+              <span className="scarcity-percent">{isSoldOut ? '100%' : `${Math.max(12, scarcity.soldPercent)}% booked`}</span>
+            </div>
+            <div className="scarcity-track">
+              <div
+                className={`scarcity-fill ${isSoldOut ? 'fill-soldout' : scarcity.isHighDemand ? 'fill-hot' : 'fill-normal'}`}
+                style={{ width: `${isSoldOut ? 100 : Math.max(14, scarcity.soldPercent)}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="event-tiers-preview">
           <h4 className="tiers-title">Ticket Tiers:</h4>
@@ -159,7 +234,7 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelectEvent, onJo
         ) : (
           <button
             type="button"
-            className="btn-select-seats cursor-pointer"
+            className="btn-select-seats btn-shimmer-cta cursor-pointer"
             onClick={(e) => {
               e.stopPropagation();
               onSelectEvent(event);

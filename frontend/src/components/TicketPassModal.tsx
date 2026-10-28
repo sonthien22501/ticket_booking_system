@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { BookingResponse, TicketItem, VerifyTicketResult } from '../types';
 import { QRCodeDisplay } from './QRCodeDisplay';
 import { verifyTicket, downloadBookingCalendarICS } from '../services/api';
+import { calculate3DTilt } from '../utils/motion';
 import {
   XIcon,
   TicketIcon,
@@ -33,8 +34,32 @@ export const TicketPassModal: React.FC<TicketPassModalProps> = ({
   const [checkingIn, setCheckingIn] = useState<boolean>(false);
   const [scanResult, setScanResult] = useState<VerifyTicketResult | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+  const passRef = useRef<HTMLDivElement | null>(null);
+  const [passTiltStyle, setPassTiltStyle] = useState<React.CSSProperties>({});
 
   if (!isOpen) return null;
+
+  const handlePassMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!passRef.current) return;
+    const rect = passRef.current.getBoundingClientRect();
+    const tilt = calculate3DTilt(rect, e.clientX, e.clientY, 5);
+    setPassTiltStyle({
+      '--rx': `${tilt.rotateX}deg`,
+      '--ry': `${tilt.rotateY}deg`,
+      '--spot-x': `${tilt.spotlightX}%`,
+      '--spot-y': `${tilt.spotlightY}%`,
+      '--glare-angle': `${tilt.glareAngle}deg`,
+    } as React.CSSProperties);
+  };
+
+  const handlePassMouseLeave = () => {
+    setPassTiltStyle({
+      '--rx': '0deg',
+      '--ry': '0deg',
+      '--spot-x': '50%',
+      '--spot-y': '50%',
+    } as React.CSSProperties);
+  };
 
   const handleSimulateScan = async (action: 'VERIFY' | 'CHECK_IN') => {
     setCheckingIn(true);
@@ -71,16 +96,25 @@ export const TicketPassModal: React.FC<TicketPassModalProps> = ({
       aria-modal="true"
       aria-labelledby="ticket-pass-title"
     >
-      <div className="relative w-full max-w-md bg-[#1B1B30] border border-indigo-700/60 rounded-2xl shadow-2xl overflow-hidden text-slate-100 animate-in fade-in zoom-in-95 duration-200">
+      <div
+        ref={passRef}
+        onMouseMove={handlePassMouseMove}
+        onMouseLeave={handlePassMouseLeave}
+        style={passTiltStyle}
+        className="holographic-ticket-pass relative w-full max-w-md bg-[#1B1B30] border border-indigo-700/60 rounded-2xl shadow-2xl overflow-hidden text-slate-100 animate-in fade-in zoom-in-95 duration-200"
+      >
+        {/* Iridescent Holographic Foil Shimmer Overlay */}
+        <div className="holographic-pass-overlay" aria-hidden="true" />
+
         {/* Pass Header Banner */}
-        <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-900 px-6 py-5 border-b border-indigo-800/40 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-900 px-6 py-5 border-b border-indigo-800/40 flex items-center justify-between relative z-10">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
               <TicketIcon size={22} />
             </div>
             <div>
               <span className="text-[11px] font-semibold tracking-widest text-amber-400 uppercase">
-                Digital Boarding Pass
+                Digital Boarding Pass • Holographic Verified
               </span>
               <h3 id="ticket-pass-title" className="text-lg font-bold text-slate-100 font-display line-clamp-1">
                 {booking.eventTitle || 'Cinema & Concert Event'}
@@ -98,7 +132,7 @@ export const TicketPassModal: React.FC<TicketPassModalProps> = ({
         </div>
 
         {/* Pass Body Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 relative z-10">
           {/* Status Badge */}
           <div className="flex items-center justify-between">
             <span className="text-xs uppercase font-medium text-slate-400 tracking-wider">
@@ -152,9 +186,18 @@ export const TicketPassModal: React.FC<TicketPassModalProps> = ({
             <div className="absolute -right-9 w-6 h-6 rounded-full bg-[#0F0F23] border-l border-indigo-700/60" />
           </div>
 
-          {/* QR Code & Scannable Code Area */}
+          {/* QR Code & Scannable Code Area with Animated Laser Sweep */}
           <div className="flex flex-col items-center justify-center space-y-3">
-            <QRCodeDisplay value={ticket.ticketCode} size={150} />
+            <div className="qr-laser-viewport relative p-2 rounded-xl bg-slate-950/60 border border-indigo-500/30">
+              {!isCancelled && (
+                <div
+                  className="qr-scanner-laser"
+                  data-testid="qr-scanner-laser"
+                  aria-hidden="true"
+                />
+              )}
+              <QRCodeDisplay value={ticket.ticketCode} size={150} />
+            </div>
             <div className="text-center space-y-1">
               <span className="text-xs uppercase tracking-widest text-slate-400">
                 Gate Entry Code

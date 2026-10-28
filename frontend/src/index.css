@@ -2309,6 +2309,639 @@ body {
   color: #10b981;
 }
 
+/* ==========================================================================
+   Milestone 34: Cinema Premiere & Holographic Glow Motion Engine
+   ========================================================================== */
+
+:root {
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 1. Premiere Hero Aurora & Dual IMAX Projector Beams */
+.premiere-hero-container {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.hero-aurora-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.aurora-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(55px);
+  opacity: 0.38;
+  animation: auroraDrift 14s ease-in-out infinite alternate;
+}
+
+.aurora-orb-gold {
+  width: 340px;
+  height: 340px;
+  background: radial-gradient(circle, rgba(234, 179, 8, 0.45), transparent 70%);
+  top: -120px;
+  left: 8%;
+}
+
+.aurora-orb-indigo {
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.45), transparent 70%);
+  bottom: -150px;
+  right: 10%;
+  animation-delay: -5s;
+}
+
+.aurora-orb-purple {
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.4), transparent 70%);
+  top: 20%;
+  right: 35%;
+  animation-delay: -9s;
+}
+
+.imax-projector-beam {
+  position: absolute;
+  top: -40%;
+  width: 220px;
+  height: 180%;
+  background: linear-gradient(
+    180deg,
+    rgba(250, 204, 21, 0.14) 0%,
+    rgba(129, 140, 248, 0.05) 55%,
+    transparent 100%
+  );
+  filter: blur(18px);
+  transform-origin: top center;
+  pointer-events: none;
+}
+
+.imax-projector-beam.beam-left {
+  left: 15%;
+  transform: rotate(-22deg);
+  animation: projectorSweepLeft 11s ease-in-out infinite alternate;
+}
+
+.imax-projector-beam.beam-right {
+  right: 15%;
+  transform: rotate(22deg);
+  animation: projectorSweepRight 11s ease-in-out infinite alternate;
+}
+
+/* Live Telemetry Ribbon */
+.premiere-live-ribbon {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.9rem;
+  margin-bottom: 0.9rem;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.15);
+  font-size: 0.72rem;
+  color: #e2e8f0;
+  backdrop-filter: blur(10px);
+}
+
+.ribbon-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #fde047;
+}
+
+.live-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: liveDotPulse 2s ease-in-out infinite;
+}
+
+.ribbon-divider {
+  color: rgba(148, 163, 184, 0.5);
+}
+
+.ribbon-metric {
+  color: #cbd5e1;
+  font-weight: 500;
+}
+
+/* Premiere Featured Spotlight Carousel Card */
+.premiere-showcase-card {
+  position: relative;
+  z-index: 1;
+  max-width: 920px;
+  margin: 0 auto 1.5rem auto;
+  padding: 1.25rem 1.5rem;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(30, 27, 75, 0.88) 0%, rgba(15, 23, 42, 0.92) 60%, rgba(49, 46, 129, 0.82) 100%);
+  border: 1px solid rgba(234, 179, 8, 0.42);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(202, 138, 4, 0.16);
+  text-align: left;
+  overflow: hidden;
+  backdrop-filter: blur(14px);
+  transition: transform 300ms var(--ease-out-expo), box-shadow 300ms var(--ease-out-expo);
+}
+
+.premiere-showcase-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55), 0 0 38px rgba(234, 179, 8, 0.26);
+}
+
+.premiere-showcase-glow {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 20%, rgba(250, 204, 21, 0.08) 45%, rgba(168, 85, 247, 0.1) 55%, transparent 80%);
+  background-size: 200% 100%;
+  animation: holographicFoil 7s linear infinite;
+  pointer-events: none;
+}
+
+.premiere-showcase-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .premiere-showcase-content {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.premiere-showcase-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.premiere-spotlight-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #ca8a04, #eab308);
+  color: #0f172a;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.premiere-category-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  background: rgba(99, 102, 241, 0.22);
+  border: 1px solid rgba(129, 140, 248, 0.4);
+  color: #c7d2fe;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.premiere-venue-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  color: #cbd5e1;
+}
+
+.premiere-showcase-title {
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0.25rem 0;
+  animation: titleSlideFade 420ms var(--ease-out-expo);
+}
+
+.premiere-showcase-desc {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  margin-bottom: 0.65rem;
+}
+
+.premiere-showcase-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.premiere-price-pill {
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #6ee7b7;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.premiere-showcase-right {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.65rem;
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .premiere-showcase-right {
+    align-items: flex-end;
+  }
+}
+
+.btn-premiere-cta {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #ca8a04 0%, #eab308 50%, #f59e0b 100%);
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 0.85rem;
+  box-shadow: 0 6px 22px rgba(234, 179, 8, 0.4);
+  transition: transform 220ms var(--ease-spring), box-shadow 220ms ease;
+}
+
+.btn-premiere-cta:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 10px 28px rgba(234, 179, 8, 0.6);
+}
+
+.premiere-carousel-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.premiere-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.35);
+  border: none;
+  padding: 0;
+  transition: all 280ms var(--ease-spring);
+}
+
+.premiere-dot.active {
+  width: 24px;
+  background: #eab308;
+  box-shadow: 0 0 10px rgba(234, 179, 8, 0.7);
+}
+
+/* 2. 3D Perspective Event Cards & Dynamic Cursor Spotlight */
+.event-card-3d {
+  --rx: 0deg;
+  --ry: 0deg;
+  --spot-x: 50%;
+  --spot-y: 50%;
+  --stagger-delay: 0ms;
+  position: relative;
+  transform-style: preserve-axis;
+  animation: cardCascadeIn 560ms var(--ease-out-expo) backwards;
+  animation-delay: var(--stagger-delay);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 250ms ease, border-color 250ms ease;
+  will-change: transform;
+}
+
+.event-card-3d.is-tilting:hover {
+  transform: perspective(1050px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(-6px) scale(1.012);
+}
+
+.card-cursor-spotlight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  background: radial-gradient(
+    420px circle at var(--spot-x) var(--spot-y),
+    rgba(250, 204, 21, 0.13),
+    rgba(99, 102, 241, 0.08) 45%,
+    transparent 75%
+  );
+  transition: opacity 250ms ease;
+}
+
+.event-card-3d:hover .card-cursor-spotlight {
+  opacity: 1;
+}
+
+.card-holographic-border {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.45);
+  transition: opacity 250ms ease;
+}
+
+.event-card-3d:hover .card-holographic-border {
+  opacity: 1;
+}
+
+/* Event Scarcity Live Progress Bar */
+.event-scarcity-widget {
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(67, 56, 202, 0.35);
+}
+
+.scarcity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  margin-bottom: 0.35rem;
+}
+
+.scarcity-percent {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+}
+
+.scarcity-track {
+  width: 100%;
+  height: 5px;
+  border-radius: 9999px;
+  background: rgba(51, 65, 85, 0.65);
+  overflow: hidden;
+}
+
+.scarcity-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 600ms var(--ease-out-expo);
+  position: relative;
+}
+
+.scarcity-fill.fill-normal {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.scarcity-fill.fill-hot {
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+}
+
+.scarcity-fill.fill-soldout {
+  background: linear-gradient(90deg, #06b6d4, #3b82f6);
+}
+
+/* Shimmer CTA Button */
+.btn-shimmer-cta {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shimmer-cta::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 65%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.35),
+    transparent
+  );
+  transform: skewX(-20deg);
+  animation: shimmerSweep 4.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* 3. Interactive Seat Arena Wave Entrance & Selection Ripple */
+.seat-wave-in {
+  --seat-stagger: 0ms;
+  animation: seatWaveIn 420ms var(--ease-spring) backwards;
+  animation-delay: var(--seat-stagger);
+}
+
+.seat-node.seat-selected {
+  animation: seatSelectPop 340ms var(--ease-spring);
+}
+
+.seat-ripple-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 2px solid #fbbf24;
+  pointer-events: none;
+  animation: seatRippleExpand 750ms var(--ease-out-expo) forwards;
+}
+
+/* 4. Live Audio Equalizer Bars in Mashup Hub */
+.audio-equalizer-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+  padding: 0 2px;
+}
+
+.audio-equalizer-bars .eq-bar {
+  width: 2.5px;
+  height: 3px;
+  border-radius: 2px;
+  background: #818cf8;
+  transition: height 180ms ease, background-color 180ms ease;
+}
+
+.audio-equalizer-bars.is-playing .eq-bar {
+  background: #fb7185;
+  animation: equalizerBounce 640ms ease-in-out infinite alternate;
+}
+
+.audio-equalizer-bars.is-playing .eq-bar-1 { animation-delay: 0ms; }
+.audio-equalizer-bars.is-playing .eq-bar-2 { animation-delay: 160ms; }
+.audio-equalizer-bars.is-playing .eq-bar-3 { animation-delay: 310ms; }
+.audio-equalizer-bars.is-playing .eq-bar-4 { animation-delay: 90ms; }
+
+/* 5. Holographic Boarding Pass & Laser QR Scanner */
+.holographic-ticket-pass {
+  --rx: 0deg;
+  --ry: 0deg;
+  --spot-x: 50%;
+  --spot-y: 50%;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 250ms ease;
+}
+
+.holographic-ticket-pass:hover {
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry));
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.65), 0 0 35px rgba(99, 102, 241, 0.3);
+}
+
+.holographic-pass-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(360px circle at var(--spot-x) var(--spot-y), rgba(250, 204, 21, 0.14), rgba(168, 85, 247, 0.1) 45%, transparent 75%),
+    linear-gradient(125deg, transparent 25%, rgba(56, 189, 248, 0.06) 45%, rgba(250, 204, 21, 0.08) 55%, transparent 75%);
+  background-size: 100% 100%, 220% 220%;
+  animation: holographicFoil 6s linear infinite;
+}
+
+.qr-laser-viewport {
+  overflow: hidden;
+}
+
+.qr-scanner-laser {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #10b981, #34d399, #10b981, transparent);
+  box-shadow: 0 0 10px #10b981, 0 0 20px rgba(16, 185, 129, 0.8);
+  z-index: 5;
+  pointer-events: none;
+  animation: laserScanSweep 2.6s ease-in-out infinite alternate;
+}
+
+/* 6. Organizer Studio Telemetry Card Hover & Gauge */
+.kpi-telemetry-card {
+  transition: transform 220ms var(--ease-spring), border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.kpi-telemetry-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(129, 140, 248, 0.55);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Keyframe Definitions */
+@keyframes cardCascadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(22px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes titleSlideFade {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes auroraDrift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(28px, -18px, 0) scale(1.12);
+  }
+}
+
+@keyframes projectorSweepLeft {
+  0% { transform: rotate(-25deg); opacity: 0.55; }
+  100% { transform: rotate(-14deg); opacity: 0.9; }
+}
+
+@keyframes projectorSweepRight {
+  0% { transform: rotate(25deg); opacity: 0.55; }
+  100% { transform: rotate(14deg); opacity: 0.9; }
+}
+
+@keyframes liveDotPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.45); opacity: 0.55; }
+}
+
+@keyframes holographicFoil {
+  0% { background-position: 0% 0%, 0% 50%; }
+  50% { background-position: 0% 0%, 100% 50%; }
+  100% { background-position: 0% 0%, 0% 50%; }
+}
+
+@keyframes shimmerSweep {
+  0%, 65% { left: -120%; }
+  100% { left: 160%; }
+}
+
+@keyframes seatWaveIn {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.75);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes seatSelectPop {
+  0% { transform: scale(0.85); }
+  55% { transform: scale(1.24); }
+  100% { transform: scale(1.1); }
+}
+
+@keyframes seatRippleExpand {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+
+@keyframes equalizerBounce {
+  0% { height: 3px; }
+  100% { height: 12px; }
+}
+
+@keyframes laserScanSweep {
+  0% { top: 10px; opacity: 0.75; }
+  50% { opacity: 1; }
+  100% { top: calc(100% - 12px); opacity: 0.75; }
+}
+
 /* Accessibility & Motion Preferences (MASTER.md) */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -2319,6 +2952,12 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+
+  .event-card-3d.is-tilting:hover,
+  .holographic-ticket-pass:hover {
+    transform: none !important;
+  }
 }
+
 
 
