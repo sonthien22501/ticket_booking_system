@@ -138,6 +138,61 @@ body.light,
    Milestone 34.1: Light Theme High-Contrast Overrides
    ========================================================================== */
 
+/* Status and price colours are hard-coded in components for the dark ground.
+   On white they drop under 4.5:1, so re-key them here to the 700/800 ramp. */
+html[data-theme='light'] .scarcity-label .text-emerald-300,
+body.light .scarcity-label .text-emerald-300,
+.light .scarcity-label .text-emerald-300 {
+  color: #046c4e;
+}
+
+html[data-theme='light'] .scarcity-label .text-amber-300,
+body.light .scarcity-label .text-amber-300,
+.light .scarcity-label .text-amber-300 {
+  color: #92400e;
+}
+
+html[data-theme='light'] .scarcity-label .text-cyan-300,
+body.light .scarcity-label .text-cyan-300,
+.light .scarcity-label .text-cyan-300 {
+  color: #155e75;
+}
+
+html[data-theme='light'] .event-status-badge.status-active,
+body.light .event-status-badge.status-active,
+.light .event-status-badge.status-active {
+  color: #046c4e;
+  border-color: rgba(4, 108, 78, 0.35);
+  box-shadow: none;
+}
+
+html[data-theme='light'] .tier-tag-price,
+body.light .tier-tag-price,
+.light .tier-tag-price {
+  color: #92400e;
+}
+
+html[data-theme='light'] .price-amount,
+body.light .price-amount,
+.light .price-amount {
+  color: #92400e;
+  text-shadow: none;
+}
+
+html[data-theme='light'] .gateway-pill.pill-online,
+body.light .gateway-pill.pill-online,
+.light .gateway-pill.pill-online {
+  color: #046c4e;
+}
+
+html[data-theme='light'] .row-badge-vip,
+body.light .row-badge-vip,
+.light .row-badge-vip {
+  background: rgba(107, 33, 168, 0.1);
+  border-color: rgba(107, 33, 168, 0.35);
+  color: #6b21a8;
+}
+
 html[data-theme='light'] .site-header,
 body.light .site-header,
 .light .site-header {
@@ -335,7 +390,15 @@ body.light .event-scarcity-widget,
 html[data-theme='light'] .event-card-footer,
 body.light .event-card-footer,
 .light .event-card-footer {
+  background: #f8fafc;
   border-top-color: #e2e8f0;
+}
+
+html[data-theme='light'] .available-seats-badge,
+body.light .available-seats-badge,
+.light .available-seats-badge {
+  background: rgba(4, 108, 78, 0.1);
+  color: #046c4e;
 }
 
 /* ==========================================================================
@@ -1170,13 +1233,48 @@ body {
 /* Cinematic Poster Header Banner */
 .event-poster-banner {
   position: relative;
-  height: 130px;
+  height: 190px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   border-bottom: 1px solid var(--border-color);
   background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%);
+}
+
+.event-poster-image {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 38%;
+  transform: scale(1.01);
+  transition: transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.event-card:hover .event-poster-image {
+  transform: scale(1.045);
+}
+
+/* Scrim keeps the category and status badges legible over photography */
+.event-poster-banner.has-image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(9, 9, 20, 0.78) 0%, rgba(9, 9, 20, 0.16) 42%, rgba(9, 9, 20, 0.62) 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-poster-image,
+  .event-card:hover .event-poster-image {
+    transition: none;
+    transform: none;
+  }
 }
 
 .banner-cinema, .banner-movie {
@@ -1639,6 +1737,54 @@ body {
   font-weight: 700;
   color: var(--text-muted);
   user-select: none;
+}
+
+.seat-row-label-right {
+  width: auto;
+  min-width: 104px;
+  justify-content: flex-start;
+  gap: 0.45rem;
+  padding-left: 0.25rem;
+}
+
+.row-tier-name {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.row-price {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.row-price-compact {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .seat-row-label-right {
+    display: none;
+  }
+
+  .seat-row-label {
+    width: 44px;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .row-price-compact {
+    display: block;
+    font-size: 0.6rem;
+  }
 }
 
 .row-badge-vip {

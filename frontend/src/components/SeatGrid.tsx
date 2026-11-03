@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { SeatItem } from '../types';
 import { SeatNode } from './SeatNode';
+import { formatCurrency } from '../services/currency';
 
 interface SeatGridProps {
   seats: SeatItem[];
@@ -59,11 +60,15 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
 
       {groupedRows.map(([rowLabel, rowSeats], rowIdx) => {
         const isVipRow = rowLabel === 'A' || rowLabel === 'B' || rowSeats[0]?.tierId?.includes('vip');
+        const rowTier = rowSeats[0]?.tierName || (isVipRow ? 'VIP' : '');
+        const rowPrice = rowSeats.find((seat) => typeof seat.price === 'number')?.price;
+        const priceLabel = typeof rowPrice === 'number' ? formatCurrency(rowPrice, currentCurrency) : '';
         return (
           <div key={rowLabel} className="seat-row-wrapper">
             <div className="seat-row-label">
               <span className="row-letter">{rowLabel}</span>
               {isVipRow && <span className="row-badge-vip">VIP</span>}
+              {priceLabel && <span className="row-price row-price-compact">{priceLabel}</span>}
             </div>
 
             <div className="seat-row-items">
@@ -81,8 +86,8 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
             </div>
 
             <div className="seat-row-label-right">
-              <span className="row-letter">{rowLabel}</span>
-              {isVipRow && <span className="row-badge-vip">VIP</span>}
+              {rowTier && <span className="row-tier-name">{rowTier}</span>}
+              {priceLabel && <span className="row-price">{priceLabel}</span>}
             </div>
           </div>
         );

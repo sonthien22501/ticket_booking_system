@@ -24,6 +24,9 @@ export const EventCard: React.FC<EventCardProps> = ({
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
   const [isHovered, setIsHovered] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+
+  const hasPoster = Boolean(event.imageUrl) && !imageFailed;
 
   // Format date nicely
   const formatDate = (dateStr: string) => {
@@ -117,12 +120,24 @@ export const EventCard: React.FC<EventCardProps> = ({
       <div className="card-cursor-spotlight" aria-hidden="true" />
       <div className="card-holographic-border" aria-hidden="true" />
 
-      {/* Cinematic Poster Header */}
-      <div className={`event-poster-banner banner-${categoryLower}`}>
-        <div className="poster-spotlight-beam"></div>
-        <div className="poster-icon-watermark">
-          {isCinema ? <FilmIcon size={56} /> : isTheater ? <SparklesIcon size={56} /> : <TicketIcon size={56} />}
-        </div>
+      {/* Event poster - real photography when the API supplies it, gradient fallback otherwise */}
+      <div className={`event-poster-banner banner-${categoryLower}${hasPoster ? ' has-image' : ''}`}>
+        {hasPoster && (
+          <img
+            className="event-poster-image"
+            src={event.imageUrl}
+            alt={`${event.title} at ${event.venueName}`}
+            loading="lazy"
+            decoding="async"
+            onError={() => setImageFailed(true)}
+          />
+        )}
+        {!hasPoster && <div className="poster-spotlight-beam"></div>}
+        {!hasPoster && (
+          <div className="poster-icon-watermark">
+            {isCinema ? <FilmIcon size={56} /> : isTheater ? <SparklesIcon size={56} /> : <TicketIcon size={56} />}
+          </div>
+        )}
         <div className="event-card-header">
           <span className="event-category-badge">
             <SparklesIcon size={12} className="mr-1 inline-icon" />
