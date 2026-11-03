@@ -146,7 +146,7 @@ describe('Milestone 34: Cinema Premiere & Holographic Glow Motion Engine', () =>
       expect(catalogEl.props.events).toHaveLength(1);
     });
 
-    it('supports wave stagger coordinates on SeatNode and SeatGrid', () => {
+    it('exposes a roving-tabindex seat contract on SeatNode and SeatGrid', () => {
       const seat: SeatItem = {
         id: 'A1',
         row: 'A',
@@ -158,11 +158,15 @@ describe('Milestone 34: Cinema Premiere & Holographic Glow Motion Engine', () =>
         seat,
         isSelected: true,
         onToggle: vi.fn(),
-        rowIndex: 0,
-        colIndex: 3,
+        tabIndex: 0,
+        onFocusSeat: vi.fn(),
       });
-      expect(nodeEl.props.rowIndex).toBe(0);
-      expect(nodeEl.props.colIndex).toBe(3);
+      expect(nodeEl.props.tabIndex).toBe(0);
+      expect(typeof nodeEl.props.onFocusSeat).toBe('function');
+      // The wave-stagger coordinates are gone: the grid is one tab stop and
+      // arrow keys move between seats instead of 100+ sequential tab stops.
+      expect(nodeEl.props).not.toHaveProperty('rowIndex');
+      expect(nodeEl.props).not.toHaveProperty('colIndex');
 
       const gridEl = React.createElement(SeatGrid, {
         seats: [seat],
@@ -236,9 +240,15 @@ describe('Milestone 34: Cinema Premiere & Holographic Glow Motion Engine', () =>
       expect(cssContent).toMatch(/\.catalog-sort-select\s*\{/);
     });
 
-    it('provides high-contrast light theme overrides for hero title and site header', () => {
-      expect(cssContent).toMatch(/(?:html\[data-theme=['"]?light['"]?\]|body\.light|\.light)[^{]*\.hero-title/);
-      expect(cssContent).toMatch(/(?:html\[data-theme=['"]?light['"]?\]|body\.light|\.light)[^{]*\.site-header/);
+    it('paints the hero and header from theme tokens, not gradient text', () => {
+      expect(cssContent).toMatch(/\.site-header\s*\{[^}]*background:\s*var\(--bg-primary\)/);
+      // A single rule resets every heading that used the gradient-fill hack.
+      expect(cssContent).toMatch(
+        /\.brand-title,\s*\.hero-title[\s\S]{0,320}-webkit-text-fill-color:\s*currentColor/
+      );
+      const heroRule = cssContent.match(/\.hero-title\s*\{[^}]*\}/)?.[0] ?? '';
+      expect(heroRule).not.toContain('-webkit-background-clip');
+      expect(heroRule).not.toContain('linear-gradient');
     });
 
     it('enforces fixed-height stability and 2-line description clamp on premiere showcase card', () => {

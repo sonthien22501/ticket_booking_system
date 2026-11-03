@@ -54,7 +54,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
   const [validatingVoucher, setValidatingVoucher] = useState(false);
 
   // Corporate Billing state (Milestone 26)
-  const [showCorporateFields, setShowCorporateFields] = useState(false);
   const [companyName, setCompanyName] = useState('');
   const [taxId, setTaxId] = useState('');
   const [billingAddress, setBillingAddress] = useState('');
@@ -116,6 +115,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     return sum + (a.price || 0) * qty;
   }, 0);
   const subtotal = ticketsSubtotal + addonsSubtotal;
+  const chosenAddonCount = Object.values(selectedAddons).reduce((a, b) => a + b, 0);
   const discountAmount = appliedVoucher?.discountAmount || 0;
   const taxDetails = calculateTax(subtotal, discountAmount, currentCurrency);
 
@@ -192,7 +192,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       email.trim(),
       appliedVoucher?.code,
       currentCurrency,
-      showCorporateFields
+      companyName.trim()
         ? {
             companyName: companyName.trim(),
             taxId: taxId.trim(),
@@ -233,7 +233,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
       {/* Customer Info Section */}
       <div className="checkout-section">
-        <h3 className="section-title">1. Attendee Information</h3>
+        <h3 className="section-title">Attendee details</h3>
         {currentUser && (
           <div className="checkout-user-badge" data-testid="checkout-user-badge">
             <CheckCircleIcon size={16} className="text-emerald" />
@@ -287,17 +287,15 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
       {/* VIP Add-ons, Merchandise & Concessions Section (Milestone 29) */}
       {(loadingAddons || availableAddons.length > 0) && (
-        <div className="checkout-section" data-testid="vip-addons-section">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="section-title mb-0 flex items-center gap-1.5">
-              <SparklesIcon size={18} className="text-amber-400" />
-              <span>2. VIP Upgrades & Event Merchandise</span>
-            </h3>
-            <span className="text-xs text-amber-400/80 font-medium">Optional Extras</span>
-          </div>
-          <p className="text-xs text-slate-400 mb-3">
-            Enhance your experience with priority parking, commemorative merch, and VIP lounge hospitality.
-          </p>
+        <details className="checkout-section checkout-disclosure" data-testid="vip-addons-section">
+          <summary className="checkout-disclosure-summary">
+            <SparklesIcon size={16} className="text-amber-400" />
+            <span className="checkout-disclosure-label">VIP upgrades &amp; merch</span>
+            <span className="checkout-disclosure-meta">
+              {chosenAddonCount > 0 ? `${chosenAddonCount} added` : 'Optional'}
+            </span>
+          </summary>
+          <div className="checkout-disclosure-body">
 
           {loadingAddons ? (
             <div className="py-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
@@ -380,12 +378,13 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
               })}
             </div>
           )}
-        </div>
+          </div>
+        </details>
       )}
 
       {/* Payment Simulation Section */}
       <div className="checkout-section">
-        <h3 className="section-title">3. Payment Simulation</h3>
+        <h3 className="section-title">Payment</h3>
         <div className="payment-method-card">
           <div className="payment-card-left">
             <CreditCardIcon size={24} className="text-brand-accent" />
@@ -399,8 +398,15 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       </div>
 
       {/* Promotional Voucher / Coupon Section (Milestone 25) */}
-      <div className="checkout-section voucher-section">
-        <h3 className="section-title">4. Promotional Voucher</h3>
+      <details className="checkout-section checkout-disclosure voucher-section">
+        <summary className="checkout-disclosure-summary">
+          <TagIcon size={16} />
+          <span className="checkout-disclosure-label">Promo code</span>
+          <span className="checkout-disclosure-meta">
+            {appliedVoucher ? appliedVoucher.code : 'Optional'}
+          </span>
+        </summary>
+        <div className="checkout-disclosure-body">
         {appliedVoucher ? (
           <div className="voucher-applied-card flex items-center justify-between p-3 rounded-lg border border-emerald-500/30 bg-emerald-950/20">
             <div className="flex items-center gap-2">
@@ -464,29 +470,24 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
               </p>
             )}
             <p className="text-xs text-neutral-400 mt-1.5">
-              Have a promo code? Enter it above for instant ticket discounts.
+              Enter a promo code for an instant discount.
             </p>
           </div>
         )}
-      </div>
+        </div>
+      </details>
 
       {/* Corporate Tax Invoice & Business Details (Milestone 26) */}
-      <div className="checkout-section">
-        <div className="flex items-center justify-between">
-          <h3 className="section-title mb-0">5. Corporate Expense & Tax Receipt</h3>
-          <button
-            type="button"
-            onClick={() => setShowCorporateFields(!showCorporateFields)}
-            className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 cursor-pointer"
-            data-testid="toggle-corporate-billing"
-          >
-            <BuildingOfficeIcon size={14} />
-            <span>{showCorporateFields ? 'Hide Details' : '+ Add Business / Tax ID'}</span>
-          </button>
-        </div>
-
-        {showCorporateFields && (
-          <div className="corporate-billing-card mt-3 p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3 animate-in fade-in duration-150">
+      <details className="checkout-section checkout-disclosure">
+        <summary className="checkout-disclosure-summary" data-testid="toggle-corporate-billing">
+          <BuildingOfficeIcon size={16} />
+          <span className="checkout-disclosure-label">Business invoice details</span>
+          <span className="checkout-disclosure-meta">
+            {companyName ? companyName : 'Optional'}
+          </span>
+        </summary>
+        <div className="checkout-disclosure-body">
+          <div className="corporate-billing-card mt-3 p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
             <p className="text-xs text-slate-400">
               Provide company details to receive an audit-compliant PDF tax invoice with VAT/Sales tax breakdown for business expense claims.
             </p>
@@ -535,12 +536,12 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
               />
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      </details>
 
       {/* Order Summary Section */}
       <div className="checkout-section order-summary-section">
-        <h3 className="section-title">6. Order Summary</h3>
+        <h3 className="section-title">Order summary</h3>
         <div className="summary-row">
           <span className="summary-label">Event:</span>
           <span className="summary-value font-medium">{event.title}</span>

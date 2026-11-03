@@ -101,20 +101,17 @@ export const TicketPassModal: React.FC<TicketPassModalProps> = ({
         onMouseMove={handlePassMouseMove}
         onMouseLeave={handlePassMouseLeave}
         style={passTiltStyle}
-        className="holographic-ticket-pass relative w-full max-w-md bg-[#1B1B30] border border-indigo-700/60 rounded-2xl shadow-2xl overflow-hidden text-slate-100 animate-in fade-in zoom-in-95 duration-200"
+        className="holographic-ticket-pass relative w-full max-w-md bg-slate-900 border border-indigo-700/60 rounded-2xl shadow-2xl overflow-hidden text-slate-100 animate-in fade-in zoom-in-95 duration-200"
       >
-        {/* Iridescent Holographic Foil Shimmer Overlay */}
-        <div className="holographic-pass-overlay" aria-hidden="true" />
-
         {/* Pass Header Banner */}
-        <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-900 px-6 py-5 border-b border-indigo-800/40 flex items-center justify-between relative z-10">
+        <div className="bg-slate-900 px-6 py-5 border-b border-slate-800 flex items-center justify-between relative z-10">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
               <TicketIcon size={22} />
             </div>
             <div>
               <span className="text-[11px] font-semibold tracking-widest text-amber-400 uppercase">
-                Digital Boarding Pass • Holographic Verified
+                Digital Boarding Pass • Verified at Gate
               </span>
               <h3 id="ticket-pass-title" className="text-lg font-bold text-slate-100 font-display line-clamp-1">
                 {booking.eventTitle || 'Cinema & Concert Event'}
@@ -181,9 +178,9 @@ export const TicketPassModal: React.FC<TicketPassModalProps> = ({
 
           {/* Perforated Divider */}
           <div className="relative flex items-center justify-center my-4">
-            <div className="absolute -left-9 w-6 h-6 rounded-full bg-[#0F0F23] border-r border-indigo-700/60" />
+            <div className="absolute -left-9 w-6 h-6 rounded-full bg-slate-950 border-r border-indigo-700/60" />
             <div className="w-full border-t-2 border-dashed border-slate-700/60" />
-            <div className="absolute -right-9 w-6 h-6 rounded-full bg-[#0F0F23] border-l border-indigo-700/60" />
+            <div className="absolute -right-9 w-6 h-6 rounded-full bg-slate-950 border-l border-indigo-700/60" />
           </div>
 
           {/* QR Code & Scannable Code Area with Animated Laser Sweep */}

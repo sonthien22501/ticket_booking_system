@@ -40,47 +40,46 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="site-header">
       <div className="header-container">
-        <div
-          className="header-brand cursor-pointer"
-          onClick={onHomeClick}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if ((e.key === 'Enter' || e.key === ' ') && onHomeClick) {
-              e.preventDefault();
-              onHomeClick();
-            }
-          }}
-          aria-label="TicketVerse Home"
-        >
-          <div className="brand-icon-badge">
-            <TicketIcon size={24} className="text-brand-accent" />
-          </div>
+        <div className="header-brand">
+          <span className="brand-mark" aria-hidden="true">
+            <TicketIcon size={20} />
+          </span>
           <div className="brand-text">
-            <h1 className="brand-title">TicketVerse</h1>
-            <span className="brand-subtitle">Cinematic Live Ticket Booking</span>
+            <h1 className="brand-title">
+              <button
+                type="button"
+                className="brand-home cursor-pointer"
+                onClick={onHomeClick}
+                aria-label="TicketVerse home"
+              >
+                TicketVerse
+              </button>
+            </h1>
+            <span className="brand-subtitle">Live tickets, real seats</span>
           </div>
         </div>
 
         <div className="header-status-area">
-          {onToggleTheme && (
-            <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+          {/* Surface trouble only — a healthy gateway is not customer information. */}
+          {!apiConnected && (
+            <span className="header-offline" role="status">
+              Reconnecting…
+            </span>
           )}
 
-          {/* Multi-Currency Selector (Milestone 26) */}
           {onCurrencyChange && (
-            <div className="currency-selector-pill flex items-center bg-slate-900/80 border border-slate-700/60 rounded-xl px-2 py-1 shadow-sm hover:border-cyan-500/70 transition-all">
-              <label htmlFor="currency-select" className="sr-only">Select Currency</label>
+            <div className="currency-selector-pill">
+              <label htmlFor="currency-select" className="sr-only">Currency</label>
               <select
                 id="currency-select"
                 aria-label="Currency"
                 value={currentCurrency}
                 onChange={(e) => onCurrencyChange(e.target.value)}
-                className="currency-select-dropdown bg-transparent text-cyan-300 font-bold text-xs outline-none cursor-pointer pr-1"
+                className="currency-select-dropdown cursor-pointer"
                 data-testid="currency-selector"
               >
                 {Object.values(SUPPORTED_CURRENCIES).map((c) => (
-                  <option key={c.code} value={c.code} className="bg-slate-900 text-slate-200">
+                  <option key={c.code} value={c.code}>
                     {c.symbol} {c.code}
                   </option>
                 ))}
@@ -88,96 +87,80 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
 
-          <div
-            className={`gateway-pill ${apiConnected ? 'pill-online' : 'pill-offline'}`}
-            title={apiConnected ? 'Gateway Port 8080 Active' : 'Gateway Offline / Reconnecting'}
-          >
-            <span className="status-dot"></span>
-            <span className="status-label">
-              {apiConnected ? 'Gateway Connected' : 'Connecting to Gateway...'}
-            </span>
-          </div>
+          {onToggleTheme && (
+            <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+          )}
 
-          {/* My Bookings / Tickets Button */}
           {currentUser && onOpenBookings && (
             <button
               type="button"
-              className="btn-my-tickets cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-950/70 border border-indigo-700/50 hover:border-amber-500/60 hover:bg-indigo-900/80 text-amber-300 text-xs font-bold transition-all shadow-sm"
+              className="header-action cursor-pointer"
               onClick={onOpenBookings}
-              title="View My Bookings & Tickets"
-              aria-label="View My Bookings & Tickets"
+              title="My tickets"
+              aria-label="My tickets"
               data-testid="my-tickets-btn"
             >
               <TicketIcon size={16} />
-              <span>My Tickets</span>
+              <span className="header-action-label">My tickets</span>
             </button>
           )}
 
-          {/* Activity & Notifications Bell (Milestone 28) */}
           {currentUser && onOpenNotifications && (
             <button
               type="button"
-              className="btn-notifications relative cursor-pointer flex items-center justify-center p-2 rounded-xl bg-slate-900/80 border border-slate-700/60 hover:border-amber-500/70 hover:bg-slate-800 text-slate-300 hover:text-white transition-all shadow-sm"
+              className="header-icon-button cursor-pointer"
               onClick={onOpenNotifications}
-              title="Activity & Notifications"
-              aria-label="Activity & Notifications"
+              title="Notifications"
+              aria-label="Notifications"
               data-testid="notifications-bell-btn"
             >
               <BellIcon size={16} />
               {unreadNotificationsCount > 0 && (
-                <span className="notification-badge-counter absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-rose-500/50">
+                <span className="notification-badge-counter">
                   {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
                 </span>
               )}
             </button>
           )}
 
-          {/* Role Workspace / Admin Studio Button (Milestone 39) */}
           {currentUser && onOpenAdmin && (
-            currentUser.role === 'customer' ? (
-              <button
-                type="button"
-                className="btn-admin-studio cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-950/70 border border-indigo-700/50 hover:border-indigo-400 hover:bg-indigo-900/80 text-indigo-300 text-xs font-bold transition-all shadow-sm"
-                onClick={onOpenAdmin}
-                title="Open Customer VIP Hub & Loyalty Status"
-                aria-label="VIP Hub"
-                data-testid="role-workspace-btn"
-              >
-                <SparklesIcon size={15} />
-                <span>VIP Hub</span>
-              </button>
-            ) : currentUser.role === 'organizer' ? (
-              <button
-                type="button"
-                className="btn-admin-studio cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-950/70 border border-purple-700/50 hover:border-purple-400 hover:bg-purple-900/80 text-purple-300 text-xs font-bold transition-all shadow-sm"
-                onClick={onOpenAdmin}
-                title="Open Organizer Studio & Live Telemetry"
-                aria-label="Organizer Studio"
-                data-testid="admin-studio-btn"
-              >
-                <SparklesIcon size={15} />
-                <span>Organizer Studio</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="btn-admin-studio cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-950/70 border border-purple-700/50 hover:border-purple-400 hover:bg-purple-900/80 text-purple-300 text-xs font-bold transition-all shadow-sm"
-                onClick={onOpenAdmin}
-                title="Open System Admin Command Center"
-                aria-label="Admin Command"
-                data-testid="admin-studio-btn"
-              >
-                <SparklesIcon size={15} />
-                <span>Admin Command</span>
-              </button>
-            )
+            <button
+              type="button"
+              className={`header-action btn-admin-studio cursor-pointer role-${currentUser.role || 'customer'}`}
+              onClick={onOpenAdmin}
+              title={
+                currentUser.role === 'customer'
+                  ? 'Open your VIP hub'
+                  : currentUser.role === 'organizer'
+                  ? 'Open organizer studio'
+                  : 'Open admin command'
+              }
+              aria-label={
+                currentUser.role === 'customer'
+                  ? 'VIP Hub'
+                  : currentUser.role === 'organizer'
+                  ? 'Organizer Studio'
+                  : 'Admin Command'
+              }
+              data-testid={
+                currentUser.role === 'customer' ? 'role-workspace-btn' : 'admin-studio-btn'
+              }
+            >
+              <SparklesIcon size={15} />
+              <span className="header-action-label">
+                {currentUser.role === 'customer'
+                  ? 'VIP Hub'
+                  : currentUser.role === 'organizer'
+                  ? 'Organizer Studio'
+                  : 'Admin Command'}
+              </span>
+            </button>
           )}
 
-          {/* User Authentication Pill / Controls */}
           {currentUser ? (
             <div className="user-profile-pill" data-testid="user-profile-badge">
               <div className="user-avatar-badge" title={currentUser.email}>
-                <UserIcon size={16} />
+                <UserIcon size={15} />
               </div>
               <div className="user-info-text">
                 <span className="user-display-name">{currentUser.name}</span>
@@ -190,12 +173,11 @@ export const Header: React.FC<HeaderProps> = ({
                   type="button"
                   className="btn-logout cursor-pointer"
                   onClick={onLogout}
-                  title="Sign Out"
-                  aria-label="Sign Out"
+                  title="Sign out"
+                  aria-label="Sign out"
                   data-testid="logout-btn"
                 >
                   <LogOutIcon size={16} />
-                  <span className="logout-text">Sign Out</span>
                 </button>
               )}
             </div>
@@ -208,7 +190,7 @@ export const Header: React.FC<HeaderProps> = ({
                 data-testid="signin-btn"
               >
                 <UserIcon size={16} />
-                <span>Sign In</span>
+                <span>Sign in</span>
               </button>
             )
           )}
@@ -217,5 +199,3 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
-
-

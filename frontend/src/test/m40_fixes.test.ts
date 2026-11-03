@@ -175,13 +175,15 @@ describe('M40 Fixes', () => {
       expect(html).not.toContain('sm:grid-cols-2');
     });
 
-    it('defines light-theme surface adapters for hex modal backgrounds and gradient headers in index.css', () => {
+    it('styles modal surfaces from theme tokens instead of hex-specific light adapters', () => {
       const cssPath = path.resolve(__dirname, '../index.css');
       const cssContent = fs.readFileSync(cssPath, 'utf-8');
 
-      expect(cssContent).toMatch(/\[class\*=['"]?bg-\[#16162A\]['"]?\][^{]*\{[^}]*background-color:\s*var\(--bg-surface\)/);
-      expect(cssContent).toMatch(/\[class\*=['"]?from-indigo-950['"]?\][^{]*\{[^}]*background-image:\s*linear-gradient/);
-      expect(cssContent).toMatch(/\.bg-amber-600[^{]*\{[^}]*color:\s*#0f172a/);
+      expect(cssContent).toMatch(/\.modal-container\s*\{[^}]*background:\s*var\(--bg-surface\)/);
+      expect(cssContent).toMatch(/\.modal-body\s*\{[^}]*overflow-y:\s*auto/);
+      // No `[class*='bg-[#…]']` light-theme hex adapters survive the rebrand.
+      expect(cssContent).not.toMatch(/\[class\*=['"]?bg-\[#/);
+      expect(cssContent).not.toMatch(/\[class\*=['"]?from-indigo-950/);
     });
   });
 });

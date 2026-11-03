@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { EventItem, SeatItem, BookingResponse, User, SelectedAddonItem } from '../types';
 import { CheckoutForm } from './CheckoutForm';
 import { BookingConfirmation } from './BookingConfirmation';
-import { XIcon, CheckIcon } from './Icons';
+import { XIcon } from './Icons';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -88,24 +88,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               <XIcon size={20} />
             </button>
           )}
-        </div>
-
-        {/* 3-Step Progression Bar */}
-        <div className="modal-step-progression" aria-label="Reservation Progress">
-          <div className="step-item step-completed">
-            <span className="step-circle"><CheckIcon size={12} /></span>
-            <span className="step-label">1. Seats</span>
-          </div>
-          <div className="step-divider active"></div>
-          <div className={`step-item ${confirmedBooking ? 'step-completed' : 'step-active'}`}>
-            <span className="step-circle">{confirmedBooking ? <CheckIcon size={12} /> : '2'}</span>
-            <span className="step-label">2. Review</span>
-          </div>
-          <div className={`step-divider ${confirmedBooking ? 'active' : ''}`}></div>
-          <div className={`step-item ${confirmedBooking ? 'step-completed step-active' : ''}`}>
-            <span className="step-circle">{confirmedBooking ? <CheckIcon size={12} /> : '3'}</span>
-            <span className="step-label">3. Payment</span>
-          </div>
         </div>
 
         <div className="modal-body">

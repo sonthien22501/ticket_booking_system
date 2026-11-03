@@ -80,7 +80,7 @@ export const TicketTransferModal: React.FC<TicketTransferModalProps> = ({
       aria-modal="true"
       aria-labelledby="ticket-transfer-title"
     >
-      <div className="relative w-full max-w-md bg-[#161628] border border-amber-500/40 rounded-2xl shadow-2xl overflow-hidden text-slate-100">
+      <div className="relative w-full max-w-md bg-slate-900 border border-amber-500/40 rounded-2xl shadow-2xl overflow-hidden text-slate-100">
         {/* Header */}
         <div className="bg-gradient-to-r from-amber-950/80 via-slate-900 to-indigo-950/80 px-6 py-5 border-b border-amber-800/40 flex items-center justify-between">
           <div className="flex items-center gap-3">

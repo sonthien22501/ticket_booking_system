@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { EventItem } from '../types';
 import { CalendarIcon, MapPinIcon, TicketIcon, FilmIcon, SparklesIcon, ClockIcon, StarIcon } from './Icons';
-import { calculate3DTilt, calculateStaggerDelay, calculateSeatScarcity } from '../utils/motion';
+import { calculateSeatScarcity } from '../utils/motion';
 import { formatCurrency } from '../services/currency';
 
 interface EventCardProps {
@@ -15,20 +15,14 @@ interface EventCardProps {
 
 export const EventCard: React.FC<EventCardProps> = ({
   event,
-  index = 0,
   onSelectEvent,
   onJoinWaitlist,
   onViewReviews,
   currentCurrency = 'USD',
 }) => {
-  const cardRef = useRef<HTMLDivElement | null>(null);
-  const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
-  const [isHovered, setIsHovered] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
-
   const hasPoster = Boolean(event.imageUrl) && !imageFailed;
 
-  // Format date nicely
   const formatDate = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
@@ -36,7 +30,6 @@ export const EventCard: React.FC<EventCardProps> = ({
         weekday: 'short',
         month: 'short',
         day: 'numeric',
-        year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
       });
@@ -45,45 +38,17 @@ export const EventCard: React.FC<EventCardProps> = ({
     }
   };
 
-  // Find lowest price
   const lowestPrice = event.tiers.length > 0
     ? Math.min(...event.tiers.map((t) => t.price))
     : 0;
 
-  // Scarcity & availability metrics
   const scarcity = calculateSeatScarcity(event.tiers);
   const totalAvailable = event.tiers.reduce((acc, t) => acc + (t.availableSeats ?? 0), 0);
   const isSoldOut = event.status === 'SOLD_OUT' || (event.tiers.length > 0 && totalAvailable === 0);
 
-  // Cinematic theme category styling
   const categoryLower = event.category.toLowerCase();
   const isCinema = categoryLower.includes('cinema') || categoryLower.includes('movie');
   const isTheater = categoryLower.includes('theater') || categoryLower.includes('play');
-
-  const staggerMs = calculateStaggerDelay(index, 65, 520);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const tilt = calculate3DTilt(rect, e.clientX, e.clientY, 5.5);
-    setTiltStyle({
-      '--rx': `${tilt.rotateX}deg`,
-      '--ry': `${tilt.rotateY}deg`,
-      '--spot-x': `${tilt.spotlightX}%`,
-      '--spot-y': `${tilt.spotlightY}%`,
-      '--glare-angle': `${tilt.glareAngle}deg`,
-    } as React.CSSProperties);
-  };
-
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-    setTiltStyle({
-      '--rx': '0deg',
-      '--ry': '0deg',
-      '--spot-x': '50%',
-      '--spot-y': '50%',
-    } as React.CSSProperties);
-  };
 
   const handleCardClick = () => {
     if (isSoldOut && onJoinWaitlist) {
@@ -94,33 +59,12 @@ export const EventCard: React.FC<EventCardProps> = ({
   };
 
   return (
-    <div
-      ref={cardRef}
-      className={`event-card event-card-3d cursor-pointer ${isHovered ? 'is-tilting' : ''}`}
-      style={{
-        '--stagger-delay': `${staggerMs}ms`,
-        ...tiltStyle,
-      } as React.CSSProperties}
+    <article
+      className="event-card"
       onClick={handleCardClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      tabIndex={0}
-      role="button"
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleCardClick();
-        }
-      }}
-      aria-label={`Select seats for ${event.title}`}
+      aria-labelledby={`event-title-${event.id}`}
       data-testid={`event-card-${event.id}`}
     >
-      {/* Dynamic Cursor Spotlight & Holographic Edge Shimmer */}
-      <div className="card-cursor-spotlight" aria-hidden="true" />
-      <div className="card-holographic-border" aria-hidden="true" />
-
-      {/* Event poster - real photography when the API supplies it, gradient fallback otherwise */}
       <div className={`event-poster-banner banner-${categoryLower}${hasPoster ? ' has-image' : ''}`}>
         {hasPoster && (
           <img
@@ -132,21 +76,15 @@ export const EventCard: React.FC<EventCardProps> = ({
             onError={() => setImageFailed(true)}
           />
         )}
-        {!hasPoster && <div className="poster-spotlight-beam"></div>}
         {!hasPoster && (
-          <div className="poster-icon-watermark">
+          <div className="poster-icon-watermark" aria-hidden="true">
             {isCinema ? <FilmIcon size={56} /> : isTheater ? <SparklesIcon size={56} /> : <TicketIcon size={56} />}
           </div>
         )}
         <div className="event-card-header">
-          <span className="event-category-badge">
-            <SparklesIcon size={12} className="mr-1 inline-icon" />
-            {event.category}
-          </span>
+          <span className="event-category-badge">{event.category}</span>
           {isSoldOut ? (
-            <span className="event-status-badge status-sold-out bg-cyan-950/90 text-cyan-300 border border-cyan-500/50 shadow-sm shadow-cyan-500/20">
-              WAITLIST ACTIVE
-            </span>
+            <span className="event-status-badge status-sold-out">Waitlist open</span>
           ) : (
             <span className={`event-status-badge status-${event.status.toLowerCase()}`}>
               {event.status}
@@ -156,7 +94,7 @@ export const EventCard: React.FC<EventCardProps> = ({
       </div>
 
       <div className="event-card-body">
-        <h3 className="event-title">{event.title}</h3>
+        <h3 className="event-title" id={`event-title-${event.id}`}>{event.title}</h3>
         <p className="event-description">{event.description}</p>
 
         <div className="event-meta-list">
@@ -172,15 +110,14 @@ export const EventCard: React.FC<EventCardProps> = ({
           </div>
         </div>
 
-        {/* Animated Live Demand & Scarcity Progress Bar */}
         {event.tiers.length > 0 && (
           <div className="event-scarcity-widget" data-testid={`event-scarcity-${event.id}`}>
             <div className="scarcity-header">
               <span className="scarcity-label">
                 {isSoldOut ? (
-                  <span className="text-cyan-300 font-semibold">100% Claimed • Waitlist Open</span>
+                  <span className="text-cyan-300 font-semibold">Sold out — waitlist open</span>
                 ) : scarcity.isHighDemand ? (
-                  <span className="text-amber-300 font-semibold">🔥 High Demand • {totalAvailable} seats left</span>
+                  <span className="text-amber-300 font-semibold">{totalAvailable} seats left</span>
                 ) : (
                   <span className="text-emerald-300 font-medium">{totalAvailable} seats available</span>
                 )}
@@ -197,7 +134,7 @@ export const EventCard: React.FC<EventCardProps> = ({
         )}
 
         <div className="event-tiers-preview">
-          <h4 className="tiers-title">Ticket Tiers:</h4>
+          <h4 className="tiers-title">Ticket tiers</h4>
           <div className="tiers-tags">
             {event.tiers.map((tier) => (
               <span key={tier.id} className="tier-tag">
@@ -210,11 +147,12 @@ export const EventCard: React.FC<EventCardProps> = ({
       </div>
 
       <div className="event-card-footer">
-        <div className="flex items-center gap-2">
-          <div className="price-starting-box">
-            <span className="price-label">Starting at</span>
-            <span className="price-amount">{formatCurrency(lowestPrice, currentCurrency)}</span>
-          </div>
+        <div className="price-starting-box">
+          <span className="price-label">From</span>
+          <span className="price-amount">{formatCurrency(lowestPrice, currentCurrency)}</span>
+        </div>
+
+        <div className="event-card-actions">
           {onViewReviews && (
             <button
               type="button"
@@ -222,48 +160,47 @@ export const EventCard: React.FC<EventCardProps> = ({
                 e.stopPropagation();
                 onViewReviews(event);
               }}
-              className="px-2 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-              title="Read verified attendee reviews and ratings"
+              className="btn-reviews-quiet cursor-pointer"
               data-testid={`btn-event-reviews-${event.id}`}
             >
-              <StarIcon size={12} filled className="text-amber-400" />
+              <StarIcon size={13} filled />
               <span>Reviews</span>
             </button>
           )}
-        </div>
 
-        {isSoldOut ? (
-          <button
-            type="button"
-            className="btn-select-seats cursor-pointer bg-cyan-700 hover:bg-cyan-600 text-cyan-50 border border-cyan-500/40 shadow-md shadow-cyan-900/30 font-semibold"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onJoinWaitlist) {
-                onJoinWaitlist(event);
-              } else {
+          {isSoldOut ? (
+            <button
+              type="button"
+              className="btn-select-seats btn-waitlist cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onJoinWaitlist) {
+                  onJoinWaitlist(event);
+                } else {
+                  onSelectEvent(event);
+                }
+              }}
+              aria-label={`Join the waitlist for ${event.title}`}
+            >
+              <ClockIcon size={17} className="mr-2" />
+              Join waitlist
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn-select-seats cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
                 onSelectEvent(event);
-              }
-            }}
-            aria-label={`Join Waitlist for ${event.title}`}
-          >
-            <ClockIcon size={18} className="mr-2 text-cyan-300" />
-            Join Waitlist
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="btn-select-seats btn-shimmer-cta cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelectEvent(event);
-            }}
-            aria-label={`Select Seats for ${event.title}`}
-          >
-            <TicketIcon size={18} className="mr-2" />
-            Select Seats
-          </button>
-        )}
+              }}
+              aria-label={`Choose seats for ${event.title}`}
+            >
+              <TicketIcon size={17} className="mr-2" />
+              Choose seats
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+    </article>
   );
 };

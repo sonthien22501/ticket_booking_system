@@ -76,7 +76,7 @@ export const WaitlistModal: React.FC<WaitlistModalProps> = ({
       aria-modal="true"
       aria-labelledby="waitlist-modal-title"
     >
-      <div className="relative w-full max-w-lg bg-[#141424] border border-cyan-500/40 rounded-2xl shadow-2xl overflow-hidden text-slate-100">
+      <div className="relative w-full max-w-lg bg-slate-900 border border-cyan-500/40 rounded-2xl shadow-2xl overflow-hidden text-slate-100">
         {/* Header */}
         <div className="bg-gradient-to-r from-cyan-950/80 via-slate-900 to-indigo-950/80 px-6 py-5 border-b border-cyan-800/40 flex items-center justify-between">
           <div className="flex items-center gap-3">
