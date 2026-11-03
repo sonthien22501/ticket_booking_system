@@ -5062,3 +5062,175 @@ body.light,
     align-self: flex-start;
   }
 }
+
+/* --- 16. Reservation confirmed ----------------------------------------- */
+/* Five actions in one row, a 40-char booking reference and a 30-char ticket
+   code were forcing a horizontal scrollbar onto the whole modal body. */
+.booking-ref-card {
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.ref-code {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.detail-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.digital-ticket-card {
+  gap: 0.75rem;
+}
+
+.ticket-barcode-area {
+  flex: 1;
+  min-width: 0;
+  align-items: flex-end;
+}
+
+.ticket-barcode-area > div {
+  width: 100%;
+  min-width: 0;
+  gap: 0.75rem;
+}
+
+.ticket-code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticket-barcode-area .text-xs {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Primary action owns a full row; the rest share the space evenly. */
+.confirmation-actions {
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.confirmation-actions > .btn-print-ticket { flex: 1 1 150px; }
+.confirmation-actions > .btn-done-booking { flex: 1 1 100%; }
+
+.btn-print-ticket {
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btn-print-ticket:hover {
+  transform: none;
+}
+
+.btn-done-booking {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border: 1px solid var(--color-accent);
+  box-shadow: none;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btn-done-booking:hover {
+  transform: none;
+  filter: none;
+  box-shadow: none;
+  background: var(--color-accent-hover, var(--color-accent));
+  border-color: var(--color-accent);
+}
+
+.success-icon-badge {
+  background: var(--color-available);
+  color: var(--color-available-ink);
+  box-shadow: none;
+}
+
+.success-icon-badge .text-success { color: var(--color-available-ink); }
+
+@media (max-width: 720px) {
+  .booking-confirmation-view { gap: 1.05rem; }
+
+  .confirmation-actions { flex-direction: column; gap: 0.5rem; }
+
+  /* Column direction made flex-basis act on height: 150px-tall buttons. */
+  .confirmation-actions > .btn-print-ticket,
+  .confirmation-actions > .btn-done-booking {
+    flex: 0 0 auto;
+  }
+
+  /* minmax(0,1fr) so a long email cannot widen the column. */
+  .details-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
+  }
+
+  /* One column per ticket: seat and status on one line, code and action under. */
+  .digital-ticket-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .ticket-card-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .ticket-barcode-area { align-items: flex-start; }
+
+  .ticket-barcode-area > div {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .simulated-barcode {
+    font-size: 0.78rem;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  /* The gate code is worth reading in full: wrap it, do not clip it. */
+  .ticket-code {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+  }
+
+  .ticket-barcode-area > div { flex-wrap: wrap; }
+}
+
+/* --- 17. Popovers and tab strips at 390px ------------------------------- */
+/* The filter panel was anchored to the button's left edge, which put two
+   thirds of it off screen. Anchor to the right edge and cap to the viewport. */
+@media (max-width: 720px) {
+  /* Anchor the popover to the facet row, not the button: the button sits at
+     the row's right edge, so a 355px panel ran off the left of the screen. */
+  .catalog-facet-row { position: relative; }
+  .filter-disclosure { position: static; }
+
+  .filter-disclosure-body {
+    left: auto;
+    right: 0;
+    width: min(100%, 360px);
+    max-width: 100%;
+  }
+
+  /* Four tabs at px-3 need 463px; let them wrap instead of bleeding out. */
+  .bookings-tab-row {
+    flex-wrap: wrap;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    row-gap: 0.35rem;
+  }
+}

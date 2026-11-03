@@ -275,7 +275,7 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
           )}
 
           {/* Filter Tabs */}
-          <div className="px-6 py-2.5 bg-slate-950/40 border-b border-indigo-950 flex items-center gap-2">
+          <div className="bookings-tab-row px-6 py-2.5 bg-slate-950/40 border-b border-indigo-950 flex items-center gap-2">
             {(['ALL', 'CONFIRMED', 'CANCELLED', 'WAITLIST'] as const).map((tab) => (
               <button
                 key={tab}
@@ -499,7 +499,7 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
 
                     {/* Booking Meta Details */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                      <div>
+                      <div className="col-span-2 sm:col-span-1">
                         <span className="block text-slate-400 text-[10px] uppercase">Reference</span>
                         <button
                           type="button"
