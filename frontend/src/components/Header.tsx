@@ -99,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* My Bookings / Tickets Button */}
-          {onOpenBookings && (
+          {currentUser && onOpenBookings && (
             <button
               type="button"
               className="btn-my-tickets cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-950/70 border border-indigo-700/50 hover:border-amber-500/60 hover:bg-indigo-900/80 text-amber-300 text-xs font-bold transition-all shadow-sm"
@@ -114,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}
 
           {/* Activity & Notifications Bell (Milestone 28) */}
-          {onOpenNotifications && (
+          {currentUser && onOpenNotifications && (
             <button
               type="button"
               className="btn-notifications relative cursor-pointer flex items-center justify-center p-2 rounded-xl bg-slate-900/80 border border-slate-700/60 hover:border-amber-500/70 hover:bg-slate-800 text-slate-300 hover:text-white transition-all shadow-sm"
@@ -132,19 +132,45 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Admin Studio / Organizer Portal Button (Milestone 24) */}
-          {onOpenAdmin && (
-            <button
-              type="button"
-              className="btn-admin-studio cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-950/70 border border-purple-700/50 hover:border-purple-400 hover:bg-purple-900/80 text-purple-300 text-xs font-bold transition-all shadow-sm"
-              onClick={onOpenAdmin}
-              title="Open Organizer Studio & Live Telemetry"
-              aria-label="Organizer Studio"
-              data-testid="admin-studio-btn"
-            >
-              <SparklesIcon size={15} />
-              <span>Organizer Studio</span>
-            </button>
+          {/* Role Workspace / Admin Studio Button (Milestone 39) */}
+          {currentUser && onOpenAdmin && (
+            currentUser.role === 'customer' ? (
+              <button
+                type="button"
+                className="btn-admin-studio cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-950/70 border border-indigo-700/50 hover:border-indigo-400 hover:bg-indigo-900/80 text-indigo-300 text-xs font-bold transition-all shadow-sm"
+                onClick={onOpenAdmin}
+                title="Open Customer VIP Hub & Loyalty Status"
+                aria-label="VIP Hub"
+                data-testid="role-workspace-btn"
+              >
+                <SparklesIcon size={15} />
+                <span>VIP Hub</span>
+              </button>
+            ) : currentUser.role === 'organizer' ? (
+              <button
+                type="button"
+                className="btn-admin-studio cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-950/70 border border-purple-700/50 hover:border-purple-400 hover:bg-purple-900/80 text-purple-300 text-xs font-bold transition-all shadow-sm"
+                onClick={onOpenAdmin}
+                title="Open Organizer Studio & Live Telemetry"
+                aria-label="Organizer Studio"
+                data-testid="admin-studio-btn"
+              >
+                <SparklesIcon size={15} />
+                <span>Organizer Studio</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn-admin-studio cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-950/70 border border-purple-700/50 hover:border-purple-400 hover:bg-purple-900/80 text-purple-300 text-xs font-bold transition-all shadow-sm"
+                onClick={onOpenAdmin}
+                title="Open System Admin Command Center"
+                aria-label="Admin Command"
+                data-testid="admin-studio-btn"
+              >
+                <SparklesIcon size={15} />
+                <span>Admin Command</span>
+              </button>
+            )
           )}
 
           {/* User Authentication Pill / Controls */}

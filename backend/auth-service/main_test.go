@@ -108,4 +108,14 @@ func TestSanitizeRegistrationRole_PreventsPublicAdminEscalation(t *testing.T) {
 	if role := sanitizeRegistrationRole("admin", secret, secret); role != "admin" {
 		t.Errorf("expected role 'admin' when valid setup token provided, got '%s'", role)
 	}
+
+	// Public registration requesting organizer without secret must become customer
+	if role := sanitizeRegistrationRole("organizer", "", secret); role != "customer" {
+		t.Errorf("expected role 'customer' for unauthenticated organizer registration, got '%s'", role)
+	}
+
+	// Registration requesting organizer with valid setup token receives organizer role
+	if role := sanitizeRegistrationRole("organizer", secret, secret); role != "organizer" {
+		t.Errorf("expected role 'organizer' when valid setup token provided, got '%s'", role)
+	}
 }

@@ -371,7 +371,10 @@ export const App: React.FC = () => {
   return (
     <div className="app-root">
       <Header
-        onHomeClick={() => setSelectedEvent(null)}
+        onHomeClick={() => {
+          setSelectedEvent(null);
+          setIsAdminModalOpen(false);
+        }}
         apiConnected={apiConnected}
         theme={theme}
         onToggleTheme={handleToggleTheme}
@@ -399,7 +402,27 @@ export const App: React.FC = () => {
           />
         )}
 
-        {selectedEvent ? (
+        {isAdminModalOpen ? (
+          <AdminDashboardModal
+            isOpen={true}
+            inlinePage={true}
+            onClose={() => setIsAdminModalOpen(false)}
+            user={currentUser}
+            events={events}
+            onSelectEvent={(ev) => {
+              setIsAdminModalOpen(false);
+              handleSelectEvent(ev);
+            }}
+            onOpenPassbook={() => setIsMyBookingsOpen(true)}
+            onEventCreated={() => {
+              loadEvents();
+              setGeneralAlert({
+                type: 'success',
+                message: 'Catalog synchronized with newly published event!',
+              });
+            }}
+          />
+        ) : selectedEvent ? (
           <VenueSeatMap
             event={selectedEvent}
             seats={seats}
@@ -538,19 +561,6 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Organizer Studio & Live Telemetry Modal (Milestone 24) */}
-      <AdminDashboardModal
-        isOpen={isAdminModalOpen}
-        onClose={() => setIsAdminModalOpen(false)}
-        user={currentUser}
-        onEventCreated={() => {
-          loadEvents();
-          setGeneralAlert({
-            type: 'success',
-            message: 'Catalog synchronized with newly published event!',
-          });
-        }}
-      />
       {/* In-App Notification Center (Milestone 28) */}
       <NotificationCenter
         isOpen={isNotificationsOpen}

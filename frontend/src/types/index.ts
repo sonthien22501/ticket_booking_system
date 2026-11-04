@@ -229,7 +229,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'customer' | 'admin' | string;
+  role: 'customer' | 'organizer' | 'admin' | string;
   createdAt?: string;
 }
 
