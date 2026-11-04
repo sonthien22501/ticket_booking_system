@@ -1,6 +1,7 @@
 import React from 'react';
 import { SeatItem } from '../types';
 import { calculateStaggerDelay } from '../utils/motion';
+import { formatCurrency } from '../services/currency';
 
 interface SeatNodeProps {
   seat: SeatItem;
@@ -8,6 +9,7 @@ interface SeatNodeProps {
   onToggle: (seat: SeatItem) => void;
   rowIndex?: number;
   colIndex?: number;
+  currentCurrency?: string;
 }
 
 export const SeatNode: React.FC<SeatNodeProps> = ({
@@ -16,6 +18,7 @@ export const SeatNode: React.FC<SeatNodeProps> = ({
   onToggle,
   rowIndex = 0,
   colIndex = 0,
+  currentCurrency = 'USD',
 }) => {
   const isHeld = seat.status === 'HOLD';
   const isBooked = seat.status === 'BOOKED' || seat.status === 'BLOCKED';
@@ -56,8 +59,8 @@ export const SeatNode: React.FC<SeatNodeProps> = ({
     : isBooked
     ? `Seat ${seat.row}${seat.number} (${seat.tierName || 'Tier'}): Booked / Reserved`
     : isSelected
-    ? `Seat ${seat.row}${seat.number} (${seat.tierName || (isVip ? 'VIP' : 'General')}): Selected — $${seat.price?.toFixed(2) || '0.00'}`
-    : `Seat ${seat.row}${seat.number} (${seat.tierName || (isVip ? 'VIP' : 'General')}): Available — $${seat.price?.toFixed(2) || '0.00'}`;
+    ? `Seat ${seat.row}${seat.number} (${seat.tierName || (isVip ? 'VIP' : 'General')}): Selected — ${formatCurrency(seat.price || 0, currentCurrency)}`
+    : `Seat ${seat.row}${seat.number} (${seat.tierName || (isVip ? 'VIP' : 'General')}): Available — ${formatCurrency(seat.price || 0, currentCurrency)}`;
 
   return (
     <button

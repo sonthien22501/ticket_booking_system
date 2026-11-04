@@ -74,21 +74,39 @@ func BuildInvoice(booking *Booking, tickets []Ticket, currency string, rate, tax
 	}
 	invoiceNum := fmt.Sprintf("INV-%s-%s", datePrefix, refSuffix)
 
-	subtotalUSD := booking.TotalAmount
-	if booking.DiscountAmount > 0 {
-		subtotalUSD += booking.DiscountAmount
+	var subtotalUSD float64
+	var subtotalCurr, discountCurr, taxableCurr, totalCurr float64
+
+	if taxAmount == 0 && taxRate > 0 {
+		// Legacy booking: TotalAmount was stored pre-tax; compute tax from taxRate
+		subtotalUSD = booking.TotalAmount + booking.DiscountAmount
+		subtotalCurr = subtotalUSD * rate
+		discountCurr = booking.DiscountAmount * rate
+		taxableCurr = subtotalCurr - discountCurr
+		if taxableCurr < 0 {
+			taxableCurr = 0
+		}
+		taxAmount = taxableCurr * taxRate
+		totalCurr = taxableCurr + taxAmount
+	} else {
+		// Tax-inclusive booking: TotalAmount includes tax portion after discount
+		taxUSD := taxAmount
+		if rate > 0 {
+			taxUSD = taxAmount / rate
+		}
+		preTaxUSD := booking.TotalAmount - taxUSD
+		if preTaxUSD < 0 {
+			preTaxUSD = 0
+		}
+		subtotalUSD = preTaxUSD + booking.DiscountAmount
+		subtotalCurr = subtotalUSD * rate
+		discountCurr = booking.DiscountAmount * rate
+		taxableCurr = subtotalCurr - discountCurr
+		if taxableCurr < 0 {
+			taxableCurr = 0
+		}
+		totalCurr = taxableCurr + taxAmount
 	}
-	subtotalCurr := subtotalUSD * rate
-
-	discountUSD := booking.DiscountAmount
-	discountCurr := discountUSD * rate
-
-	taxableCurr := subtotalCurr - discountCurr
-	if taxableCurr < 0 {
-		taxableCurr = 0
-	}
-
-	totalCurr := taxableCurr + taxAmount
 
 	if info.Decimals == 0 {
 		subtotalCurr = math.Round(subtotalCurr)
@@ -350,15 +368,15 @@ func GenerateInvoicePDF(inv *Invoice) ([]byte, error) {
 		streamBuf.WriteString("BT\n")
 		streamBuf.WriteString("/F1 9 Tf\n")
 		streamBuf.WriteString("0.15 0.15 0.15 rg\n")
-		streamBuf.WriteString(fmt.Sprintf("48 %d Td\n", itemY))
+		streamBuf.WriteString(fmt.Sprintf("1 0 0 1 48 %d Tm\n", itemY))
 		streamBuf.WriteString("(" + escapePDF(itm.Description) + ") Tj\n")
-		streamBuf.WriteString(fmt.Sprintf("268 %d Td\n", itemY))
+		streamBuf.WriteString(fmt.Sprintf("1 0 0 1 268 %d Tm\n", itemY))
 		streamBuf.WriteString("(" + escapePDF(itm.SeatID) + ") Tj\n")
-		streamBuf.WriteString(fmt.Sprintf("340 %d Td\n", itemY))
+		streamBuf.WriteString(fmt.Sprintf("1 0 0 1 340 %d Tm\n", itemY))
 		streamBuf.WriteString(fmt.Sprintf("(%d) Tj\n", itm.Quantity))
-		streamBuf.WriteString(fmt.Sprintf("400 %d Td\n", itemY))
+		streamBuf.WriteString(fmt.Sprintf("1 0 0 1 400 %d Tm\n", itemY))
 		streamBuf.WriteString("(" + escapePDF(inv.CurrencySymbol) + fmt.Sprintf("%.2f", itm.UnitPrice) + ") Tj\n")
-		streamBuf.WriteString(fmt.Sprintf("470 %d Td\n", itemY))
+		streamBuf.WriteString(fmt.Sprintf("1 0 0 1 470 %d Tm\n", itemY))
 		streamBuf.WriteString("(" + escapePDF(inv.CurrencySymbol) + fmt.Sprintf("%.2f", itm.TotalPrice) + ") Tj\n")
 		streamBuf.WriteString("ET\n")
 
@@ -375,9 +393,9 @@ func GenerateInvoicePDF(inv *Invoice) ([]byte, error) {
 	streamBuf.WriteString("BT\n")
 	streamBuf.WriteString("/F1 9 Tf\n")
 	streamBuf.WriteString("0.3 0.3 0.3 rg\n")
-	streamBuf.WriteString(fmt.Sprintf("320 %d Td\n", summaryY-4))
+	streamBuf.WriteString(fmt.Sprintf("1 0 0 1 320 %d Tm\n", summaryY-4))
 	streamBuf.WriteString("(Subtotal:) Tj\n")
-	streamBuf.WriteString(fmt.Sprintf("470 %d Td\n", summaryY-4))
+	streamBuf.WriteString(fmt.Sprintf("1 0 0 1 470 %d Tm\n", summaryY-4))
 	streamBuf.WriteString("(" + escapePDF(inv.CurrencySymbol) + fmt.Sprintf("%.2f", inv.Subtotal) + ") Tj\n")
 	streamBuf.WriteString("ET\n")
 
@@ -387,9 +405,9 @@ func GenerateInvoicePDF(inv *Invoice) ([]byte, error) {
 		streamBuf.WriteString("BT\n")
 		streamBuf.WriteString("/F1 9 Tf\n")
 		streamBuf.WriteString("0.1 0.6 0.2 rg\n")
-		streamBuf.WriteString(fmt.Sprintf("320 %d Td\n", summaryY-4))
+		streamBuf.WriteString(fmt.Sprintf("1 0 0 1 320 %d Tm\n", summaryY-4))
 		streamBuf.WriteString("(Voucher Discount:) Tj\n")
-		streamBuf.WriteString(fmt.Sprintf("470 %d Td\n", summaryY-4))
+		streamBuf.WriteString(fmt.Sprintf("1 0 0 1 470 %d Tm\n", summaryY-4))
 		streamBuf.WriteString("(-" + escapePDF(inv.CurrencySymbol) + fmt.Sprintf("%.2f", inv.Discount) + ") Tj\n")
 		streamBuf.WriteString("ET\n")
 	}
@@ -400,9 +418,9 @@ func GenerateInvoicePDF(inv *Invoice) ([]byte, error) {
 	streamBuf.WriteString("BT\n")
 	streamBuf.WriteString("/F1 9 Tf\n")
 	streamBuf.WriteString("0.3 0.3 0.3 rg\n")
-	streamBuf.WriteString(fmt.Sprintf("320 %d Td\n", summaryY-4))
+	streamBuf.WriteString(fmt.Sprintf("1 0 0 1 320 %d Tm\n", summaryY-4))
 	streamBuf.WriteString("(" + escapePDF(taxLabel) + ") Tj\n")
-	streamBuf.WriteString(fmt.Sprintf("470 %d Td\n", summaryY-4))
+	streamBuf.WriteString(fmt.Sprintf("1 0 0 1 470 %d Tm\n", summaryY-4))
 	streamBuf.WriteString("(" + escapePDF(inv.CurrencySymbol) + fmt.Sprintf("%.2f", inv.TaxAmount) + ") Tj\n")
 	streamBuf.WriteString("ET\n")
 
@@ -415,9 +433,9 @@ func GenerateInvoicePDF(inv *Invoice) ([]byte, error) {
 	streamBuf.WriteString("BT\n")
 	streamBuf.WriteString("/F2 11 Tf\n")
 	streamBuf.WriteString("1.0 1.0 1.0 rg\n")
-	streamBuf.WriteString(fmt.Sprintf("320 %d Td\n", summaryY))
+	streamBuf.WriteString(fmt.Sprintf("1 0 0 1 320 %d Tm\n", summaryY))
 	streamBuf.WriteString("(TOTAL DUE / PAID:) Tj\n")
-	streamBuf.WriteString(fmt.Sprintf("460 %d Td\n", summaryY))
+	streamBuf.WriteString(fmt.Sprintf("1 0 0 1 460 %d Tm\n", summaryY))
 	streamBuf.WriteString("(" + escapePDF(inv.CurrencySymbol) + fmt.Sprintf("%.2f", inv.TotalAmount) + ") Tj\n")
 	streamBuf.WriteString("ET\n")
 
@@ -425,11 +443,11 @@ func GenerateInvoicePDF(inv *Invoice) ([]byte, error) {
 	streamBuf.WriteString("BT\n")
 	streamBuf.WriteString("/F1 8 Tf\n")
 	streamBuf.WriteString("0.5 0.55 0.6 rg\n")
-	streamBuf.WriteString("45 90 Td\n")
+	streamBuf.WriteString("1 0 0 1 45 90 Tm\n")
 	streamBuf.WriteString("(This is an electronically generated and certified digital tax receipt issued by TicketVerse Global Inc.) Tj\n")
-	streamBuf.WriteString("45 78 Td\n")
+	streamBuf.WriteString("1 0 0 1 45 78 Tm\n")
 	streamBuf.WriteString("(Valid for business expense claims, sales tax reporting, and official gate admission with QR verification.) Tj\n")
-	streamBuf.WriteString("45 66 Td\n")
+	streamBuf.WriteString("1 0 0 1 45 66 Tm\n")
 	streamBuf.WriteString("(Customer Support: support@ticketverse.io | Web: https://ticketverse.io) Tj\n")
 	streamBuf.WriteString("ET\n")
 
@@ -493,20 +511,20 @@ func (s *Server) handleBookingInvoice(w http.ResponseWriter, r *http.Request, bo
 
 	var b Booking
 	var seatsRaw string
-	var tierID, resID, idemKey, compName, taxID, billAddr, curr sql.NullString
-	var exRate, tRate, tAmt sql.NullFloat64
+	var tierID, resID, idemKey, compName, taxID, billAddr, curr, vCode sql.NullString
+	var exRate, tRate, tAmt, discAmt sql.NullFloat64
 
-	// Query booking with corporate billing and currency fields
+	// Query booking with corporate billing, voucher, and currency fields
 	err := s.db.QueryRow(
 		`SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, idempotency_key, created_at, updated_at,
-		        currency, exchange_rate, tax_rate, tax_amount, company_name, tax_id, billing_address
+		        currency, exchange_rate, tax_rate, tax_amount, company_name, tax_id, billing_address, voucher_code, discount_amount
 		 FROM bookings WHERE id = $1 OR booking_reference = $1`,
 		bookingID,
 	).Scan(
 		&b.ID, &b.BookingReference, &b.UserID, &b.CustomerName, &b.CustomerEmail,
 		&b.EventID, &b.EventTitle, &tierID, &b.Quantity, &seatsRaw, &b.TotalAmount,
 		&b.Status, &resID, &b.PaymentStatus, &idemKey, &b.CreatedAt, &b.UpdatedAt,
-		&curr, &exRate, &tRate, &tAmt, &compName, &taxID, &billAddr,
+		&curr, &exRate, &tRate, &tAmt, &compName, &taxID, &billAddr, &vCode, &discAmt,
 	)
 
 	if err != nil {
@@ -530,6 +548,12 @@ func (s *Server) handleBookingInvoice(w http.ResponseWriter, r *http.Request, bo
 	}
 
 	_ = json.Unmarshal([]byte(seatsRaw), &b.SeatIDs)
+	if vCode.Valid {
+		b.VoucherCode = vCode.String
+	}
+	if discAmt.Valid {
+		b.DiscountAmount = discAmt.Float64
+	}
 	tickets := s.fetchTicketsForBooking(b.ID)
 
 	bookingCurr := "USD"

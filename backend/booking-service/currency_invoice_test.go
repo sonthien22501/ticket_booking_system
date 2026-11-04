@@ -222,7 +222,7 @@ func TestInvoiceWithDiscountsAndTax(t *testing.T) {
 		EventTitle:       "DevCon London 2026",
 		Quantity:         1,
 		SeatIDs:          []string{"B1"},
-		TotalAmount:      80.00,
+		TotalAmount:      96.00, // Grand total paid, tax-inclusive (100 subtotal - 20 discount + 16 tax in USD)
 		DiscountAmount:   20.00,
 		VoucherCode:      "TECHSAVE20",
 		Status:           "CONFIRMED",

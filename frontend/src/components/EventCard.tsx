@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { EventItem } from '../types';
 import { CalendarIcon, MapPinIcon, TicketIcon, FilmIcon, SparklesIcon, ClockIcon, StarIcon } from './Icons';
 import { calculate3DTilt, calculateStaggerDelay, calculateSeatScarcity } from '../utils/motion';
+import { formatCurrency } from '../services/currency';
 
 interface EventCardProps {
   event: EventItem;
@@ -9,6 +10,7 @@ interface EventCardProps {
   onSelectEvent: (event: EventItem) => void;
   onJoinWaitlist?: (event: EventItem) => void;
   onViewReviews?: (event: EventItem) => void;
+  currentCurrency?: string;
 }
 
 export const EventCard: React.FC<EventCardProps> = ({
@@ -17,6 +19,7 @@ export const EventCard: React.FC<EventCardProps> = ({
   onSelectEvent,
   onJoinWaitlist,
   onViewReviews,
+  currentCurrency = 'USD',
 }) => {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
@@ -184,7 +187,7 @@ export const EventCard: React.FC<EventCardProps> = ({
             {event.tiers.map((tier) => (
               <span key={tier.id} className="tier-tag">
                 <span className="tier-tag-name">{tier.name}</span>
-                <span className="tier-tag-price">${tier.price.toFixed(2)}</span>
+                <span className="tier-tag-price">{formatCurrency(tier.price, currentCurrency)}</span>
               </span>
             ))}
           </div>
@@ -195,7 +198,7 @@ export const EventCard: React.FC<EventCardProps> = ({
         <div className="flex items-center gap-2">
           <div className="price-starting-box">
             <span className="price-label">Starting at</span>
-            <span className="price-amount">${lowestPrice.toFixed(2)}</span>
+            <span className="price-amount">{formatCurrency(lowestPrice, currentCurrency)}</span>
           </div>
           {onViewReviews && (
             <button

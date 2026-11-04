@@ -172,15 +172,36 @@ export async function fetchSeats(eventId: string, eventDetails?: EventItem): Pro
         : [];
 
       if (rawSeats.length > 0) {
-        return rawSeats.map((s) => ({
-          id: String(s.id || `${s.row}-${s.number}`),
-          eventId: String(s.event_id || s.eventId || eventId),
-          tierId: String(s.tier_id || s.tierId || ''),
-          row: String(s.row || s.seat_row || 'A'),
-          number: Number(s.number || s.seat_number || 1),
-          status: (s.status as SeatItem['status']) || 'AVAILABLE',
-          price: s.price ? Number(s.price) : undefined,
-        }));
+        return rawSeats.map((s) => {
+          const tierId = String(s.tier_id || s.tierId || '');
+          const matchingTier = eventDetails?.tiers?.find(
+            (t) => t.id === tierId || (tierId && t.id.toLowerCase() === tierId.toLowerCase())
+          );
+          const defaultTier = eventDetails?.tiers?.[0];
+          const resolvedTier = matchingTier || defaultTier;
+
+          const price =
+            s.price !== undefined && s.price !== null
+              ? Number(s.price)
+              : resolvedTier?.price !== undefined
+              ? Number(resolvedTier.price)
+              : undefined;
+
+          const tierName = (s.tier_name || s.tierName || resolvedTier?.name)
+            ? String(s.tier_name || s.tierName || resolvedTier?.name)
+            : undefined;
+
+          return {
+            id: String(s.id || `${s.row}-${s.number}`),
+            eventId: String(s.event_id || s.eventId || eventId),
+            tierId,
+            row: String(s.row || s.seat_row || 'A'),
+            number: Number(s.number || s.seat_number || 1),
+            status: (s.status as SeatItem['status']) || 'AVAILABLE',
+            price,
+            tierName,
+          };
+        });
       }
     }
   } catch (err) {

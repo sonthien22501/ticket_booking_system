@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -294,6 +295,13 @@ func (s *Server) handleBookings(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// applyTax calculates taxRate, taxAmount, and returns tax-inclusive totalAmount.
+func applyTax(totalPreTax float64, currency string) (float64, float64, float64) {
+	taxRate, taxAmount, _ := CalculateTax(totalPreTax, 0.0, currency)
+	totalInclusive := math.Round((totalPreTax+taxAmount)*100) / 100
+	return totalInclusive, taxRate, taxAmount
+}
+
 func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 	var req CreateBookingRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -536,7 +544,8 @@ func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 	if info, ok := currencyRegistry[currency]; ok {
 		rate = info.Rate
 	}
-	taxRate, taxAmount, _ := CalculateTax(totalAmount, 0.0, currency)
+	var taxRate, taxAmount float64
+	totalAmount, taxRate, taxAmount = applyTax(totalAmount, currency)
 
 	paymentStatus := "PENDING"
 	if req.PaymentInfo != nil && (req.PaymentInfo.CardToken == "tok_fail" || req.PaymentInfo.CardTokenAlt == "tok_fail") {

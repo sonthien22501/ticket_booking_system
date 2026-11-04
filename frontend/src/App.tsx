@@ -15,7 +15,7 @@ import { ReviewModal } from './components/ReviewModal';
 import { AlertNotification } from './components/AlertNotification';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { Theme, getInitialTheme, applyThemeToDocument, toggleThemeValue } from './services/theme';
-import { getStoredCurrency, setStoredCurrency } from './services/currency';
+import { getStoredCurrency, setStoredCurrency, formatCurrency } from './services/currency';
 
 export const App: React.FC = () => {
   // Theme State (R28)
@@ -433,6 +433,7 @@ export const App: React.FC = () => {
             onProceedToCheckout={handleRequestCheckout}
             onBackToCatalog={() => setSelectedEvent(null)}
             onRefreshSeats={handleRefreshSeats}
+            currentCurrency={currentCurrency}
           />
         ) : (
           <EventCatalog
@@ -443,6 +444,7 @@ export const App: React.FC = () => {
             onSelectEvent={handleSelectEvent}
             onJoinWaitlist={(event) => setWaitlistEvent(event)}
             onViewReviews={(event) => setReviewEvent(event)}
+            currentCurrency={currentCurrency}
           />
         )}
       </main>
@@ -487,17 +489,19 @@ export const App: React.FC = () => {
                   <div key={seat.id} className="seat-confirm-chip">
                     <span className="chip-label">{seat.row}{seat.number}</span>
                     <span className="chip-tier">{seat.tierName || 'Standard'}</span>
-                    <span className="chip-price">${seat.price?.toFixed(2)}</span>
+                    <span className="chip-price">{formatCurrency(seat.price || 0, currentCurrency)}</span>
                   </div>
                 ))}
             </div>
             <div className="seat-confirm-total-bar">
               <span>Estimated Subtotal:</span>
               <span className="font-bold text-accent">
-                ${seats
-                  .filter((s) => selectedSeatIds.has(s.id))
-                  .reduce((sum, s) => sum + (s.price || 0), 0)
-                  .toFixed(2)}
+                {formatCurrency(
+                  seats
+                    .filter((s) => selectedSeatIds.has(s.id))
+                    .reduce((sum, s) => sum + (s.price || 0), 0),
+                  currentCurrency
+                )}
               </span>
             </div>
           </div>
