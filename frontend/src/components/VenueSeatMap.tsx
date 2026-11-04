@@ -108,6 +108,37 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
     }
   };
 
+  // Friendly glyph for the Open-Meteo WMO weather code
+  const weatherGlyph = (code: number): string => {
+    if (code === 0) return '☀️';
+    if (code <= 3) return '⛅';
+    if (code <= 48) return '🌫️';
+    if (code <= 67) return '🌧️';
+    if (code <= 77) return '🌨️';
+    if (code <= 82) return '🌦️';
+    if (code <= 86) return '🌨️';
+    return '⛈️';
+  };
+
+  const fetchedAtLabel = useMemo(() => {
+    if (!mashup?.fetchedAt) return null;
+    const when = new Date(mashup.fetchedAt);
+    if (Number.isNaN(when.getTime())) return null;
+    return when.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }, [mashup?.fetchedAt]);
+
+  const venueCoordinates = useMemo(() => {
+    if (!mashup) return null;
+    const lat = `${Math.abs(mashup.latitude).toFixed(2)}°${mashup.latitude >= 0 ? 'N' : 'S'}`;
+    const lng = `${Math.abs(mashup.longitude).toFixed(2)}°${mashup.longitude >= 0 ? 'E' : 'W'}`;
+    return `${lat}, ${lng}`;
+  }, [mashup]);
+
+  const releaseYear = mashup?.mediaPreview?.releaseDate
+    ? new Date(mashup.mediaPreview.releaseDate).getFullYear()
+    : null;
+  const validReleaseYear = releaseYear && !Number.isNaN(releaseYear) ? releaseYear : null;
+
   // Filter seats if a specific section is selected
   const displayedSeats = useMemo(() => {
     if (selectedSection === 'ALL') return seats;
@@ -173,80 +204,147 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
         </button>
       </div>
 
-      {/* Live Mash-Up Intelligence Bar (Milestone 33 & 35) */}
-      <div className="mashup-intel-bar bg-slate-900/90 border-y border-slate-800 px-6 py-2 flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm">
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Open-Meteo Weather Badge */}
-          {mashup && (
-            <div className="mashup-weather-pill flex items-center gap-2 bg-slate-950/80 px-3 py-1 rounded-lg border border-slate-800/80" data-testid="mashup-weather-badge">
-              <span className="mashup-weather-temp text-amber-400 font-bold">⛅ {mashup.weather.temperatureC.toFixed(0)}°C / {mashup.weather.temperatureF.toFixed(0)}°F</span>
-              <span className="mashup-weather-condition text-slate-300 font-medium">{mashup.weather.condition}</span>
-              <span className="mashup-weather-rain text-slate-400 text-[11px] font-mono">({mashup.weather.precipitationProb}% rain)</span>
-              {mashup.weather.source.includes('fallback') && (
-                <span className="text-[10px] text-amber-500/80 uppercase font-semibold">Offline</span>
-              )}
+      {/* Live External Data Panel — Open-Meteo weather + iTunes Search soundtrack (Milestone 33, surfaced M42) */}
+      <section
+        className="mashup-intel-bar"
+        aria-label="Live external venue intelligence"
+        data-testid="mashup-intel-panel"
+      >
+        <div className="mashup-intel-head">
+          <div className="mashup-intel-heading">
+            <span
+              className={`mashup-live-dot ${mashup?.fallbackUsed ? 'is-offline' : ''}`}
+              aria-hidden="true"
+            />
+            <div>
+              <p className="mashup-intel-eyebrow">Live external data</p>
+              <p className="mashup-intel-subtitle">
+                {mashup
+                  ? `${mashup.venueCity} · ${venueCoordinates}`
+                  : 'Connecting to Open-Meteo and iTunes Search…'}
+              </p>
             </div>
-          )}
+          </div>
 
-          {/* iTunes Track Preview Audio Player */}
-          {mashup?.mediaPreview && (
-            <div className="mashup-audio-pill flex items-center gap-2 bg-slate-950/80 px-3 py-1 rounded-lg border border-slate-800/80" data-testid="mashup-itunes-preview">
-              {mashup.mediaPreview.artworkUrl && (
-                <img
-                  src={mashup.mediaPreview.artworkUrl}
-                  alt={mashup.mediaPreview.albumName}
-                  width={22}
-                  height={22}
-                  className="mashup-artwork-thumb w-5 h-5 rounded object-cover shadow-sm"
-                />
-              )}
-              <span className="text-slate-300 truncate max-w-[160px] font-medium" title={`${mashup.mediaPreview.trackName} - ${mashup.mediaPreview.artistName}`}>
-                🎵 {mashup.mediaPreview.trackName}
+          <div className="mashup-intel-actions">
+            <span
+              className={`mashup-status-chip ${mashup?.fallbackUsed ? 'is-offline' : 'is-live'}`}
+              role="status"
+              aria-live="polite"
+            >
+              {!mashup ? 'Loading' : mashup.fallbackUsed ? 'Offline snapshot' : mashup.cached ? 'Live · cached' : 'Live'}
+            </span>
+            {fetchedAtLabel && (
+              <span className="mashup-fetched-at">
+                {mashup?.cached ? 'cached' : 'fetched'} {fetchedAtLabel}
               </span>
-              <div
-                className={`audio-equalizer-bars ${isPlayingPreview ? 'is-playing' : ''}`}
-                data-testid="audio-equalizer-bars"
-                aria-hidden="true"
-              >
-                <span className="eq-bar eq-bar-1" />
-                <span className="eq-bar eq-bar-2" />
-                <span className="eq-bar eq-bar-3" />
-                <span className="eq-bar eq-bar-4" />
-              </div>
-              <button
-                type="button"
-                onClick={toggleAudioPreview}
-                className={`px-2 py-0.5 rounded text-[11px] font-semibold cursor-pointer transition-colors ${
-                  isPlayingPreview ? 'bg-rose-600 text-white animate-pulse' : 'bg-indigo-600/60 hover:bg-indigo-600 text-indigo-200 hover:text-white'
-                }`}
-                data-testid="toggle-preview-audio-btn"
-              >
-                {isPlayingPreview ? '❚❚ Pause 30s' : '▶ Play 30s'}
-              </button>
-            </div>
-          )}
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                const next = !showConcierge;
+                setShowConcierge(next);
+                if (!conciergeAdvice && next) {
+                  handleRequestAdvice();
+                }
+              }}
+              className={`btn-ai-concierge ${showConcierge ? 'is-open' : ''}`}
+              data-testid="toggle-ai-concierge-btn"
+              aria-expanded={showConcierge}
+            >
+              <span aria-hidden="true">✨</span>
+              <span>AI Event Concierge</span>
+            </button>
+          </div>
         </div>
 
-        {/* AI Concierge Toggle Button */}
-        <button
-          type="button"
-          onClick={() => {
-            const next = !showConcierge;
-            setShowConcierge(next);
-            if (!conciergeAdvice && next) {
-              handleRequestAdvice();
-            }
-          }}
-          className={`btn-ai-concierge px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
-            showConcierge
-              ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30 ring-1 ring-purple-400'
-              : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-          }`}
-          data-testid="toggle-ai-concierge-btn"
-        >
-          <span>✨ AI Event Concierge</span>
-        </button>
-      </div>
+        <div className="mashup-intel-grid">
+          {/* Open-Meteo weather feed */}
+          <article className="mashup-weather-pill" data-testid="mashup-weather-badge">
+            <header className="mashup-card-head">
+              <span className="mashup-source-tag">Open-Meteo</span>
+              <span className="mashup-card-label">Weather at the venue</span>
+            </header>
+            {mashup ? (
+              <>
+                <div className="mashup-card-content">
+                  <span className="mashup-weather-glyph" aria-hidden="true">
+                    {weatherGlyph(mashup.weather.weatherCode)}
+                  </span>
+                  <div className="mashup-weather-readout">
+                    <p className="mashup-weather-temp">
+                      {mashup.weather.temperatureC.toFixed(0)}°C
+                      <span className="mashup-weather-temp-alt">
+                        {' '}/ {mashup.weather.temperatureF.toFixed(0)}°F
+                      </span>
+                    </p>
+                    <p className="mashup-weather-condition">{mashup.weather.condition}</p>
+                    <p className="mashup-weather-rain">
+                      {mashup.weather.precipitationProb}% rain · {mashup.weather.windSpeedKmh.toFixed(0)} km/h wind
+                    </p>
+                  </div>
+                </div>
+                <p className="mashup-advisory">{mashup.weather.advisory}</p>
+              </>
+            ) : (
+              <p className="mashup-card-loading">Fetching live forecast…</p>
+            )}
+          </article>
+
+          {/* iTunes Search track preview feed */}
+          <article className="mashup-audio-pill" data-testid="mashup-itunes-preview">
+            <header className="mashup-card-head">
+              <span className="mashup-source-tag">iTunes Search API</span>
+              <span className="mashup-card-label">Event soundtrack</span>
+            </header>
+            {mashup?.mediaPreview ? (
+              <div className="mashup-card-content">
+                {mashup.mediaPreview.artworkUrl && (
+                  <img
+                    src={mashup.mediaPreview.artworkUrl}
+                    alt={`${mashup.mediaPreview.albumName} album artwork`}
+                    width={56}
+                    height={56}
+                    className="mashup-artwork-thumb"
+                  />
+                )}
+                <div className="mashup-audio-meta">
+                  <p
+                    className="mashup-track-name"
+                    title={`${mashup.mediaPreview.trackName} - ${mashup.mediaPreview.artistName}`}
+                  >
+                    {mashup.mediaPreview.trackName}
+                  </p>
+                  <p className="mashup-artist-name">
+                    {mashup.mediaPreview.artistName} · {mashup.mediaPreview.albumName}
+                  </p>
+                  <p className="mashup-track-genre">
+                    {mashup.mediaPreview.genre}
+                    {validReleaseYear ? ` · ${validReleaseYear}` : ''}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={toggleAudioPreview}
+                  className={`btn-preview-audio ${isPlayingPreview ? 'is-playing' : ''}`}
+                  data-testid="toggle-preview-audio-btn"
+                  aria-label={isPlayingPreview ? 'Pause 30-second track preview' : 'Play 30-second track preview'}
+                >
+                  <span aria-hidden="true">{isPlayingPreview ? '❚❚' : '▶'}</span>
+                  <span>{isPlayingPreview ? 'Pause' : 'Play'}</span>
+                </button>
+              </div>
+            ) : (
+              <p className="mashup-card-loading">Fetching track preview…</p>
+            )}
+          </article>
+        </div>
+
+        <p className="mashup-intel-footnote">
+          Weather via <strong>Open-Meteo</strong> · 30-second previews via the{' '}
+          <strong>iTunes Search API</strong>
+        </p>
+      </section>
 
       {/* AI Event Concierge Panel / Drawer (Milestone 33) */}
       {showConcierge && (

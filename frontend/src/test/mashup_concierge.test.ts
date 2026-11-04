@@ -1,4 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+// @ts-ignore
+import fs from 'node:fs';
+// @ts-ignore
+import path from 'node:path';
+declare const __dirname: string;
 import {
   fetchEventMashup,
   requestConciergeAdvice,
@@ -133,6 +138,25 @@ describe('External API Mash-Up Hub & Runtime AI Concierge (Milestone 33)', () =>
       expect(res.fallbackUsed).toBe(true);
       expect(res.recommendedTier).toBeTruthy();
       expect(res.insiderTips.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Live external-data panel in the seat map UI', () => {
+    const seatMapPath = path.resolve(__dirname, '../components/VenueSeatMap.tsx');
+    const seatMapContent = fs.readFileSync(seatMapPath, 'utf-8');
+
+    it('names both external providers so the integration is visible to the user', () => {
+      expect(seatMapContent).toContain('Open-Meteo');
+      expect(seatMapContent).toContain('iTunes Search API');
+      expect(seatMapContent).toContain('Live external data');
+    });
+
+    it('renders a live/offline status chip, fetch timestamp and attribution footnote', () => {
+      expect(seatMapContent).toContain('mashup-status-chip');
+      expect(seatMapContent).toContain('mashup-fetched-at');
+      expect(seatMapContent).toContain('mashup-intel-footnote');
+      expect(seatMapContent).toContain('data-testid="mashup-weather-badge"');
+      expect(seatMapContent).toContain('data-testid="mashup-itunes-preview"');
     });
   });
 

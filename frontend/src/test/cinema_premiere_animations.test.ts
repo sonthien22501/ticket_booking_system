@@ -268,13 +268,13 @@ describe('Milestone 34: Cinema Premiere & Holographic Glow Motion Engine', () =>
     });
 
     it('defines .mashup-weather-pill and .mashup-audio-pill with sleek compact styling', () => {
-      expect(cssContent).toMatch(/\.mashup-weather-pill\s*\{[^}]*display:\s*inline-flex/);
-      expect(cssContent).toMatch(/\.mashup-audio-pill\s*\{[^}]*display:\s*inline-flex/);
+      expect(cssContent).toMatch(/\.mashup-weather-pill[^{]*\{[^}]*display:\s*inline-flex/);
+      expect(cssContent).toMatch(/\.mashup-audio-pill[^{]*\{[^}]*display:\s*inline-flex/);
     });
 
-    it('enforces strict 22px bounded dimensions and object-fit cover on .mashup-artwork-thumb', () => {
-      expect(cssContent).toMatch(/\.mashup-artwork-thumb\s*\{[^}]*max-width:\s*22px/);
-      expect(cssContent).toMatch(/\.mashup-artwork-thumb\s*\{[^}]*max-height:\s*22px/);
+    it('enforces strict 56px bounded dimensions and object-fit cover on .mashup-artwork-thumb', () => {
+      expect(cssContent).toMatch(/\.mashup-artwork-thumb\s*\{[^}]*max-width:\s*56px/);
+      expect(cssContent).toMatch(/\.mashup-artwork-thumb\s*\{[^}]*max-height:\s*56px/);
       expect(cssContent).toMatch(/\.mashup-artwork-thumb\s*\{[^}]*object-fit:\s*cover/);
       expect(cssContent).toMatch(/\.mashup-artwork-thumb\s*\{[^}]*border-radius:\s*4px/);
     });
