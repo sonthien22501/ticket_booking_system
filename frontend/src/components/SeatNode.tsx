@@ -1,14 +1,13 @@
 import React from 'react';
 import { SeatItem } from '../types';
-import { calculateStaggerDelay } from '../utils/motion';
 import { formatCurrency } from '../services/currency';
 
 interface SeatNodeProps {
   seat: SeatItem;
   isSelected: boolean;
   onToggle: (seat: SeatItem) => void;
-  rowIndex?: number;
-  colIndex?: number;
+  tabIndex?: number;
+  onFocusSeat?: (seatId: string) => void;
   currentCurrency?: string;
 }
 
@@ -16,8 +15,8 @@ export const SeatNode: React.FC<SeatNodeProps> = ({
   seat,
   isSelected,
   onToggle,
-  rowIndex = 0,
-  colIndex = 0,
+  tabIndex = -1,
+  onFocusSeat,
   currentCurrency = 'USD',
 }) => {
   const isHeld = seat.status === 'HOLD';
@@ -26,17 +25,8 @@ export const SeatNode: React.FC<SeatNodeProps> = ({
   const isDisabled = isHeld || isBooked || isWaitlist;
   const isVip = seat.tierId?.toLowerCase().includes('vip') || seat.row === 'A' || seat.row === 'B';
 
-  const waveDelayMs = calculateStaggerDelay(rowIndex * 4 + colIndex, 14, 420);
-
   const handleClick = () => {
     if (!isDisabled) {
-      onToggle(seat);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isDisabled && (e.key === 'Enter' || e.key === ' ')) {
-      e.preventDefault();
       onToggle(seat);
     }
   };
@@ -52,31 +42,33 @@ export const SeatNode: React.FC<SeatNodeProps> = ({
     statusClass = 'seat-booked';
   }
 
-  const tooltipText = isWaitlist
-    ? `Seat ${seat.row}${seat.number} (${seat.tierName || 'Tier'}): Waitlist Queue Active`
+  const priceLabel = formatCurrency(seat.price || 0, currentCurrency);
+  const tierLabel = seat.tierName || (isVip ? 'VIP' : 'General');
+
+  const description = isWaitlist
+    ? `Seat ${seat.row}${seat.number}, ${tierLabel}: waitlist open`
     : isHeld
-    ? `Seat ${seat.row}${seat.number} (${seat.tierName || 'Tier'}): Temporarily Held`
+    ? `Seat ${seat.row}${seat.number}, ${tierLabel}: temporarily held`
     : isBooked
-    ? `Seat ${seat.row}${seat.number} (${seat.tierName || 'Tier'}): Booked / Reserved`
+    ? `Seat ${seat.row}${seat.number}, ${tierLabel}: sold`
     : isSelected
-    ? `Seat ${seat.row}${seat.number} (${seat.tierName || (isVip ? 'VIP' : 'General')}): Selected — ${formatCurrency(seat.price || 0, currentCurrency)}`
-    : `Seat ${seat.row}${seat.number} (${seat.tierName || (isVip ? 'VIP' : 'General')}): Available — ${formatCurrency(seat.price || 0, currentCurrency)}`;
+    ? `Seat ${seat.row}${seat.number}, ${tierLabel}, ${priceLabel}: selected`
+    : `Seat ${seat.row}${seat.number}, ${tierLabel}, ${priceLabel}: available`;
 
   return (
     <button
       type="button"
-      className={`seat-node seat-wave-in ${statusClass} ${isVip ? 'seat-vip' : ''} ${!isDisabled ? 'cursor-pointer' : ''}`}
-      style={{ '--seat-stagger': `${waveDelayMs}ms` } as React.CSSProperties}
+      className={`seat-node ${statusClass} ${isVip ? 'seat-vip' : ''} ${!isDisabled ? 'cursor-pointer' : ''}`}
       onClick={handleClick}
-      onKeyDown={handleKeyDown}
+      onFocus={() => onFocusSeat?.(seat.id)}
       disabled={isDisabled}
-      aria-label={tooltipText}
-      title={tooltipText}
-      tabIndex={isDisabled ? -1 : 0}
+      aria-pressed={isDisabled ? undefined : isSelected}
+      aria-label={description}
+      title={description}
+      tabIndex={isDisabled ? -1 : tabIndex}
+      data-seat-id={seat.id}
     >
       <span className="seat-label">{seat.number}</span>
-      <span className="seat-glow-ring"></span>
-      {isSelected && <span className="seat-ripple-ring" aria-hidden="true"></span>}
     </button>
   );
 };

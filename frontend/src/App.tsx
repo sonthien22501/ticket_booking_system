@@ -15,7 +15,7 @@ import { ReviewModal } from './components/ReviewModal';
 import { AlertNotification } from './components/AlertNotification';
 import { ConfirmationDialog } from './components/ConfirmationDialog';
 import { Theme, getInitialTheme, applyThemeToDocument, toggleThemeValue } from './services/theme';
-import { getStoredCurrency, setStoredCurrency, formatCurrency } from './services/currency';
+import { getStoredCurrency, setStoredCurrency } from './services/currency';
 
 export const App: React.FC = () => {
   // Theme State (R28)
@@ -51,7 +51,6 @@ export const App: React.FC = () => {
   const [selectedSeatIds, setSelectedSeatIds] = useState<Set<string>>(new Set());
 
   // R24 Dialog Confirmation States
-  const [isSelectionConfirmOpen, setIsSelectionConfirmOpen] = useState<boolean>(false);
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState<boolean>(false);
 
   // Checkout & Modal State
@@ -245,11 +244,6 @@ export const App: React.FC = () => {
    */
   const handleRequestCheckout = () => {
     if (selectedSeatIds.size === 0) return;
-    setIsSelectionConfirmOpen(true);
-  };
-
-  const handleConfirmCheckout = () => {
-    setIsSelectionConfirmOpen(false);
     setConflictError(null);
     setConflictingSeats([]);
     setIsModalOpen(true);
@@ -467,45 +461,6 @@ export const App: React.FC = () => {
           onViewPasses={() => setIsMyBookingsOpen(true)}
           currentCurrency={currentCurrency}
         />
-      )}
-
-      {/* R24: Seat Selection Confirmation Dialog */}
-      {selectedEvent && (
-        <ConfirmationDialog
-          isOpen={isSelectionConfirmOpen}
-          title="Confirm Seat Selection"
-          message={`You have selected ${selectedSeatIds.size} ${selectedSeatIds.size === 1 ? 'seat' : 'seats'} for ${selectedEvent.title}.`}
-          confirmLabel={`Proceed to Reservation (${selectedSeatIds.size})`}
-          cancelLabel="Modify Seats"
-          confirmVariant="primary"
-          onConfirm={handleConfirmCheckout}
-          onCancel={() => setIsSelectionConfirmOpen(false)}
-        >
-          <div className="seat-confirm-breakdown">
-            <div className="seat-confirm-chips">
-              {seats
-                .filter((s) => selectedSeatIds.has(s.id))
-                .map((seat) => (
-                  <div key={seat.id} className="seat-confirm-chip">
-                    <span className="chip-label">{seat.row}{seat.number}</span>
-                    <span className="chip-tier">{seat.tierName || 'Standard'}</span>
-                    <span className="chip-price">{formatCurrency(seat.price || 0, currentCurrency)}</span>
-                  </div>
-                ))}
-            </div>
-            <div className="seat-confirm-total-bar">
-              <span>Estimated Subtotal:</span>
-              <span className="font-bold text-accent">
-                {formatCurrency(
-                  seats
-                    .filter((s) => selectedSeatIds.has(s.id))
-                    .reduce((sum, s) => sum + (s.price || 0), 0),
-                  currentCurrency
-                )}
-              </span>
-            </div>
-          </div>
-        </ConfirmationDialog>
       )}
 
       {/* R24: Clear Selection Confirmation Dialog */}

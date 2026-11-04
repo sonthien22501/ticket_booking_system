@@ -198,19 +198,22 @@ describe('Milestone 18: Dark Mode & Desktop Cross-Browser Usability (R28, R32)',
       expect(cssContent).toMatch(/\.total-row\s*\{[^}]*color:\s*var\(--text-primary\)/);
     });
 
-    it('defines light mode overrides for premiere showcase tags, admin studio button, and sticky footer', () => {
-      // .light .premiere-category-tag
-      expect(cssContent).toMatch(/(?:\.light|html\[data-theme=['"]?light['"]?\])[^{]*\.premiere-category-tag/);
-      // .light .premiere-price-pill
-      expect(cssContent).toMatch(/(?:\.light|html\[data-theme=['"]?light['"]?\])[^{]*\.premiere-price-pill/);
-      // .light .btn-admin-studio
-      expect(cssContent).toMatch(/(?:\.light|html\[data-theme=['"]?light['"]?\])[^{]*\.btn-admin-studio/);
-      // .light .ai-concierge-panel
-      expect(cssContent).toMatch(/(?:\.light|html\[data-theme=['"]?light['"]?\])[^{]*\.ai-concierge-panel/);
-      // .light .floorplan-overview-card
-      expect(cssContent).toMatch(/(?:\.light|html\[data-theme=['"]?light['"]?\])[^{]*\.floorplan-overview-card/);
-      // .light .selection-summary-footer
-      expect(cssContent).toMatch(/(?:\.light|html\[data-theme=['"]?light['"]?\])[^{]*\.selection-summary-footer/);
+    it('derives the light theme from shared tokens instead of per-component colour patches', () => {
+      const lightBlock = cssContent.match(/html\[data-theme=['"]light['"]\][\s\S]*?\n\}/);
+      expect(lightBlock).toBeTruthy();
+      const block = lightBlock?.[0] ?? '';
+      // Surfaces, ink, borders and the stamp colour all flip together.
+      expect(block).toMatch(/--bg-primary:\s*#/);
+      expect(block).toMatch(/--bg-surface:\s*#/);
+      expect(block).toMatch(/--text-primary:\s*#/);
+      expect(block).toMatch(/--border-color:\s*#/);
+      expect(block).toMatch(/--color-accent:\s*#/);
+      // Tailwind's own ramps invert too, so `bg-slate-900` repaints with no patch.
+      expect(block).toMatch(/--color-slate-900:\s*#/);
+      expect(block).toMatch(/--color-slate-300:\s*#/);
+      // The old component-specific light-mode hex patches are gone by design.
+      expect(cssContent).not.toMatch(/(?:html\[data-theme=['"]light['"]?\]|body\.light)[^{]*\.premiere-category-tag/);
+      expect(cssContent).not.toMatch(/(?:html\[data-theme=['"]light['"]?\]|body\.light)[^{]*\.btn-admin-studio/);
     });
 
     it('verifies component classes support light mode semantic styling in JSX/TSX', () => {
@@ -252,13 +255,14 @@ describe('Milestone 18: Dark Mode & Desktop Cross-Browser Usability (R28, R32)',
       }
     });
 
-    it('defines @theme with --color-brand-accent and explicit .text-brand-accent + .brand-icon-badge color rules', () => {
+    it('defines @theme with --color-brand-accent and a token-driven brand mark', () => {
       // @theme { --color-brand-accent: ... }
       expect(cssContent).toMatch(/@theme\s*\{[^}]*--color-brand-accent\s*:/);
-      // .text-brand-accent class
-      expect(cssContent).toMatch(/\.text-brand-accent\s*\{[^}]*color:/);
-      // .brand-icon-badge sets color: #fbbf24
-      expect(cssContent).toMatch(/\.brand-icon-badge\s*\{[^}]*color:\s*#fbbf24/);
+      // .text-brand-accent resolves through the brand token
+      expect(cssContent).toMatch(/\.text-brand-accent\s*\{[^}]*color:\s*var\(--brand-accent\)/);
+      // The masthead mark is stamped in the accent colour, not a hardcoded amber hex
+      expect(cssContent).toMatch(/\.brand-mark\s*\{[^}]*color:\s*var\(--color-accent\)/);
+      expect(cssContent).not.toMatch(/\.brand-icon-badge\s*\{[^}]*color:\s*#fbbf24/);
     });
 
     it('ensures .premiere-showcase-card uses min-height without a fixed-height media query lock', () => {

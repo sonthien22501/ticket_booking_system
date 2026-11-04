@@ -240,7 +240,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
           className={`btn-ai-concierge px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
             showConcierge
               ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30 ring-1 ring-purple-400'
-              : 'bg-gradient-to-r from-purple-900/40 to-indigo-900/40 hover:from-purple-800/50 hover:to-indigo-800/50 text-purple-200 border border-purple-500/30'
+              : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
           }`}
           data-testid="toggle-ai-concierge-btn"
         >
@@ -317,7 +317,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
           <div className="cinema-projector-light"></div>
           <div className="stage-curve cinema-screen-curve">
             <div className="screen-reflection"></div>
-            <span className="stage-title">CURVED CINEMA SCREEN / STAGE</span>
+            <span className="stage-title">STAGE</span>
           </div>
           <div className="stage-lights cinema-screen-glow"></div>
         </div>
@@ -355,9 +355,9 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
           <div className="flex items-center gap-1.5 text-xs">
             <span className="text-slate-400 font-semibold mr-1">Section:</span>
             {[
-              { id: 'ALL', label: 'All Sections' },
-              { id: 'VIP', label: 'VIP Front (Rows A-B)' },
-              { id: 'GENERAL', label: 'General Admission (Rows C-F)' },
+              { id: 'ALL', label: 'All' },
+              { id: 'VIP', label: 'VIP · A–B' },
+              { id: 'GENERAL', label: 'General · C–F' },
             ].map((sec) => (
               <button
                 key={sec.id}
@@ -431,12 +431,16 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
             currentCurrency={currentCurrency}
           />
         )}
+
+        <p className="seat-map-scroll-hint" aria-hidden="true">
+          Swipe the grid sideways to reach every seat
+        </p>
       </div>
 
       {/* Sticky Selection Summary Footer */}
       <div className="selection-summary-footer">
         <div className="summary-left">
-          <div className="selected-count-badge">
+          <div className="selected-count-badge" role="status" aria-live="polite">
             <TicketIcon size={18} className="mr-1" />
             <span>
               {selectedSeatsList.length} {selectedSeatsList.length === 1 ? 'Seat' : 'Seats'} Selected

@@ -428,7 +428,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5 space-y-4" data-testid="microservice-mesh-matrix">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-700/60 gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <ShieldCheckIcon size={16} className="text-indigo-400" />
             <span>Microservice Mesh Telemetry Matrix</span>
           </h3>
@@ -454,7 +454,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
         ].map((svc) => (
           <div key={svc.name} className="p-3 rounded-lg bg-slate-900/70 border border-slate-700/60 flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-white">{svc.name}</span>
+              <span className="text-xs font-bold text-slate-100">{svc.name}</span>
               <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 {svc.status}
               </span>
@@ -478,7 +478,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5 space-y-4" data-testid="rbac-governance-matrix">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-700/60 gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <ShieldCheckIcon size={16} className="text-amber-400" />
             <span>RBAC Role & Access Policy Governance Matrix</span>
           </h3>
@@ -512,7 +512,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
               { cap: 'Global RBAC Policies & Audit Stream Inspection', guest: false, customer: false, organizer: false, admin: true },
             ].map((row) => (
               <tr key={row.cap} className="hover:bg-slate-800/30">
-                <td className="py-2.5 px-3 font-medium text-white">{row.cap}</td>
+                <td className="py-2.5 px-3 font-medium text-slate-100">{row.cap}</td>
                 <td className="py-2.5 px-3 text-center">
                   {row.guest ? <span className="text-emerald-400 font-bold">✓</span> : <span className="text-slate-500">—</span>}
                 </td>
@@ -538,7 +538,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5 space-y-4" data-testid="notification-audit-stream">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-700/60 gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
             <BellIcon size={16} className="text-sky-400" />
             <span>Recent Multi-Channel Notification Audit Stream</span>
           </h3>
@@ -613,7 +613,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 <TicketIcon size={18} className="text-indigo-400" />
               </div>
               <div className="mt-3">
-                <span className="text-2xl font-extrabold text-white font-mono">
+                <span className="text-2xl font-extrabold text-slate-100 font-mono">
                   {userBookings.length > 0 ? userBookings.length : 3}
                 </span>
                 <p className="text-[11px] text-emerald-400 mt-1">Confirmed Ready for Gate Entry</p>
@@ -643,7 +643,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 <CurrencyDollarIcon size={18} className="text-emerald-400" />
               </div>
               <div className="mt-3">
-                <span className="text-2xl font-extrabold text-white font-mono">$480.00</span>
+                <span className="text-2xl font-extrabold text-slate-100 font-mono">$480.00</span>
                 <p className="text-[11px] text-slate-400 mt-1">Avg $120.00 / event • 4 bookings</p>
               </div>
             </div>
@@ -672,7 +672,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                     ☀️ 21°C Clear Skies • Arena Covered
                   </span>
                 </div>
-                <h3 className="text-lg font-bold text-white">
+                <h3 className="text-lg font-bold text-slate-100">
                   {nextEvent ? nextEvent.title : 'Neon Symphony 2026 Grand Premiere'}
                 </h3>
                 <p className="text-xs text-slate-300 flex items-center gap-3">
@@ -691,7 +691,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   <button
                     type="button"
                     onClick={() => onSelectEvent(nextEvent)}
-                    className="cursor-pointer px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-semibold border border-slate-700 transition-all shadow-sm"
+                    className="cursor-pointer px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-slate-100 text-xs font-semibold border border-slate-700 transition-all shadow-sm"
                   >
                     View Seat Map
                   </button>
@@ -700,7 +700,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   <button
                     type="button"
                     onClick={onOpenPassbook}
-                    className="cursor-pointer px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-semibold shadow-md shadow-indigo-500/30 transition-all flex items-center gap-1.5"
+                    className="cursor-pointer px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 text-xs font-semibold transition-colors flex items-center gap-1.5"
                   >
                     <TicketIcon size={14} />
                     <span>Open QR Passbook</span>
@@ -714,7 +714,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 bg-slate-800/40 border border-slate-700/50 rounded-xl p-5 space-y-4">
               <div>
-                <h3 className="text-sm font-semibold text-white">Spending & Attendance by Category</h3>
+                <h3 className="text-sm font-semibold text-slate-100">Spending & Attendance by Category</h3>
                 <p className="text-xs text-slate-400">Your live event mix and ticket allocation velocity.</p>
               </div>
 
@@ -740,7 +740,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
 
             {/* VIP Member Perks Checklist */}
             <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5 space-y-4">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
                 <SparklesIcon size={16} className="text-amber-400" />
                 <span>VIP Member Privileges</span>
               </h3>
@@ -748,28 +748,28 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 <li className="flex items-start gap-2">
                   <CheckCircleIcon size={16} className="text-emerald-400 mt-0.5 shrink-0" />
                   <div>
-                    <span className="font-semibold text-white">Zero-Fee Ticket Transfers</span>
+                    <span className="font-semibold text-slate-100">Zero-Fee Ticket Transfers</span>
                     <p className="text-[11px] text-slate-400">Unlimited complimentary attendee re-assignments.</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircleIcon size={16} className="text-emerald-400 mt-0.5 shrink-0" />
                   <div>
-                    <span className="font-semibold text-white">Priority Waitlist Auto-Claim</span>
+                    <span className="font-semibold text-slate-100">Priority Waitlist Auto-Claim</span>
                     <p className="text-[11px] text-slate-400">Fast-track first position on sold-out arena tickets.</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircleIcon size={16} className="text-emerald-400 mt-0.5 shrink-0" />
                   <div>
-                    <span className="font-semibold text-white">Instant PDF Tax Receipts</span>
+                    <span className="font-semibold text-slate-100">Instant PDF Tax Receipts</span>
                     <p className="text-[11px] text-slate-400">Multi-currency invoicing with VAT breakdown.</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-2">
                   <CheckCircleIcon size={16} className="text-emerald-400 mt-0.5 shrink-0" />
                   <div>
-                    <span className="font-semibold text-white">AI Concierge Itinerary</span>
+                    <span className="font-semibold text-slate-100">AI Concierge Itinerary</span>
                     <p className="text-[11px] text-slate-400">Real-time gate and parking assistance.</p>
                   </div>
                 </li>
@@ -787,7 +787,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
               <TicketIcon size={24} />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">My Confirmed Digital Tickets & Boarding Passes</h3>
+              <h3 className="text-base font-bold text-slate-100">My Confirmed Digital Tickets & Boarding Passes</h3>
               <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
                 Access your interactive Passbook with offline QR barcodes, invoice downloads, and .ics calendar synchronization.
               </p>
@@ -796,7 +796,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
               <button
                 type="button"
                 onClick={onOpenPassbook}
-                className="cursor-pointer px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/30 transition-all inline-flex items-center gap-2"
+                className="cursor-pointer px-5 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 text-xs font-semibold transition-colors inline-flex items-center gap-2"
               >
                 <TicketIcon size={16} />
                 <span>Launch Interactive Passbook Modal</span>
@@ -819,7 +819,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 <CurrencyDollarIcon size={18} className="text-emerald-400" />
               </div>
               <div className="mt-3">
-                <span className="text-2xl font-extrabold text-white font-mono">
+                <span className="text-2xl font-extrabold text-slate-100 font-mono">
                   ${analytics ? animatedRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
                 </span>
                 <p className="text-[11px] text-emerald-400 mt-1">Confirmed gross receipts</p>
@@ -832,7 +832,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 <TicketIcon size={18} className="text-indigo-400" />
               </div>
               <div className="mt-3">
-                <span className="text-2xl font-extrabold text-white font-mono">
+                <span className="text-2xl font-extrabold text-slate-100 font-mono">
                   {analytics ? animatedTickets : 0}
                 </span>
                 <p className="text-[11px] text-slate-400 mt-1">
@@ -875,7 +875,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 </svg>
               </div>
               <div className="mt-3">
-                <span className="text-2xl font-extrabold text-white font-mono">
+                <span className="text-2xl font-extrabold text-slate-100 font-mono">
                   {analytics ? animatedOccupancy.toFixed(1) : '0.0'}%
                 </span>
                 <div className="w-full bg-slate-700/60 h-1.5 rounded-full mt-2 overflow-hidden">
@@ -893,7 +893,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 <CalendarIcon size={18} className="text-sky-400" />
               </div>
               <div className="mt-3">
-                <span className="text-2xl font-extrabold text-white font-mono">
+                <span className="text-2xl font-extrabold text-slate-100 font-mono">
                   {analytics ? analytics.activeEventsCount : (events ? events.length : 0)}
                 </span>
                 <p className="text-[11px] text-slate-400 mt-1">Ready for ticket booking</p>
@@ -905,7 +905,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5 space-y-4" data-testid="category-breakdown-panel">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-700/60 gap-2">
               <div>
-                <h3 className="text-sm font-semibold text-white">Category Revenue & Seat Occupancy Telemetry</h3>
+                <h3 className="text-sm font-semibold text-slate-100">Category Revenue & Seat Occupancy Telemetry</h3>
                 <p className="text-xs text-slate-400">Aggregated sales and occupancy velocity across event departments.</p>
               </div>
               <span className="text-xs px-2.5 py-1 rounded bg-indigo-500/20 text-indigo-300 font-mono w-fit">
@@ -922,7 +922,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
               ].map((c) => (
                 <div key={c.cat} className="p-3.5 rounded-lg bg-slate-900/60 border border-slate-800 space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-white">{c.cat}</span>
+                    <span className="font-semibold text-slate-100">{c.cat}</span>
                     <span className="font-mono text-emerald-400 font-semibold">{c.rev}</span>
                   </div>
                   <div className="flex items-center justify-between text-[11px] text-slate-400">
@@ -967,7 +967,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   {inventoryRows.length > 0 ? (
                     inventoryRows.map((ev) => (
                       <tr key={ev.eventId} className="hover:bg-slate-800/30 transition-colors">
-                        <td className="py-2.5 px-3 font-medium text-white">{ev.title}</td>
+                        <td className="py-2.5 px-3 font-medium text-slate-100">{ev.title}</td>
                         <td className="py-2.5 px-3 text-slate-400">{ev.category}</td>
                         <td className="py-2.5 px-3 text-slate-400">{ev.venueName}</td>
                         <td className="py-2.5 px-3">
@@ -1066,7 +1066,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                         <td className="py-2.5 px-3 font-mono text-indigo-400 font-medium">
                           {b.bookingReference}
                         </td>
-                        <td className="py-2.5 px-3 font-medium text-white">
+                        <td className="py-2.5 px-3 font-medium text-slate-100">
                           {b.customerName}
                           <div className="text-[10px] text-slate-500 font-normal">{b.customerEmail}</div>
                         </td>
@@ -1129,7 +1129,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Cyberpunk Synthwave Live 2026"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -1140,7 +1140,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
               >
                 <option value="Music & Concerts">Music & Concerts</option>
                 <option value="Technology & Conferences">Technology & Conferences</option>
@@ -1160,7 +1160,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe the experience, performers, keynote speakers..."
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
@@ -1175,7 +1175,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 required
                 value={venueName}
                 onChange={(e) => setVenueName(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -1188,7 +1188,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 required
                 value={venueLocation}
                 onChange={(e) => setVenueLocation(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
           </div>
@@ -1203,7 +1203,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 required
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -1216,7 +1216,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 required
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
           </div>
@@ -1230,7 +1230,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
               placeholder="https://..."
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
@@ -1247,7 +1247,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   type="text"
                   value={tierName}
                   onChange={(e) => setTierName(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100"
                 />
               </div>
               <div>
@@ -1258,7 +1258,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   step="0.01"
                   value={tierPrice}
                   onChange={(e) => setTierPrice(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100"
                 />
               </div>
               <div>
@@ -1269,7 +1269,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   max="100"
                   value={tierCapacity}
                   onChange={(e) => setTierCapacity(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100"
                 />
               </div>
             </div>
@@ -1282,14 +1282,14 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('analytics')}
-              className="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors cursor-pointer"
+              className="px-4 py-2 text-sm text-slate-400 hover:text-slate-100 transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-medium text-sm shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50 cursor-pointer"
+              className="px-5 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-slate-950 font-medium text-sm transition-colors disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? 'Publishing Event...' : 'Publish Event to Live Catalog'}
             </button>
@@ -1306,7 +1306,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 <span>Active Campaigns</span>
                 <TagIcon size={16} className="text-indigo-400" />
               </div>
-              <p className="text-xl font-bold text-white mt-2 font-mono">
+              <p className="text-xl font-bold text-slate-100 mt-2 font-mono">
                 {vouchers.filter((v) => v.active).length}
               </p>
               <p className="text-[11px] text-slate-400 mt-0.5">Live promo codes</p>
@@ -1317,7 +1317,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 <span>Total Redemptions</span>
                 <TicketIcon size={16} className="text-emerald-400" />
               </div>
-              <p className="text-xl font-bold text-white mt-2 font-mono">
+              <p className="text-xl font-bold text-slate-100 mt-2 font-mono">
                 {vouchers.reduce((sum, v) => sum + (v.currentUses || 0), 0)}
               </p>
               <p className="text-[11px] text-slate-400 mt-0.5">Orders with discounts</p>
@@ -1328,7 +1328,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 <span>Discount Engine</span>
                 <PercentIcon size={16} className="text-purple-400" />
               </div>
-              <p className="text-xl font-bold text-white mt-2">Anti-Stacking</p>
+              <p className="text-xl font-bold text-slate-100 mt-2">Anti-Stacking</p>
               <p className="text-[11px] text-emerald-400 mt-0.5">Enforced at Checkout</p>
             </div>
           </div>
@@ -1336,7 +1336,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           <form onSubmit={handleCreateVoucher} className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-700/60 pb-3">
               <div>
-                <h3 className="text-sm font-semibold text-white">Create New Promotional Campaign</h3>
+                <h3 className="text-sm font-semibold text-slate-100">Create New Promotional Campaign</h3>
                 <p className="text-xs text-slate-400">Launch a new coupon code with usage limits and spend rules.</p>
               </div>
               <span className="text-xs px-2.5 py-1 rounded bg-indigo-500/20 text-indigo-300 font-mono">
@@ -1352,7 +1352,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   placeholder="e.g. FLASH25"
                   value={newVoucherCode}
                   onChange={(e) => setNewVoucherCode(e.target.value.toUpperCase())}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white uppercase font-mono tracking-wider focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 uppercase font-mono tracking-wider focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
@@ -1361,7 +1361,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 <select
                   value={newVoucherType}
                   onChange={(e) => setNewVoucherType(e.target.value as 'PERCENTAGE' | 'FIXED')}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer"
                 >
                   <option value="PERCENTAGE">Percentage Off (%)</option>
                   <option value="FIXED">Fixed Amount Off ($)</option>
@@ -1379,7 +1379,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   max={newVoucherType === 'PERCENTAGE' ? '100' : '1000'}
                   value={newVoucherValue}
                   onChange={(e) => setNewVoucherValue(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
@@ -1390,7 +1390,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   min="0"
                   value={newVoucherMinSpend}
                   onChange={(e) => setNewVoucherMinSpend(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
@@ -1401,7 +1401,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   min="0"
                   value={newVoucherMaxUses}
                   onChange={(e) => setNewVoucherMaxUses(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
@@ -1412,7 +1412,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   min="1"
                   value={newVoucherDays}
                   onChange={(e) => setNewVoucherDays(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -1421,7 +1421,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
               <button
                 type="submit"
                 disabled={isSubmittingVoucher}
-                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                className="px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-slate-950 text-xs font-semibold shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
               >
                 <PlusCircleIcon size={14} />
                 <span>{isSubmittingVoucher ? 'Launching Campaign...' : 'Launch Promotional Campaign'}</span>
@@ -1431,7 +1431,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
 
           <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl overflow-hidden">
             <div className="p-4 border-b border-slate-700/60 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-white">Campaign Roster & Redemption Velocity</h3>
+              <h3 className="text-sm font-semibold text-slate-100">Campaign Roster & Redemption Velocity</h3>
               <span className="text-xs text-slate-400">{vouchers.length} registered campaigns</span>
             </div>
             <div className="overflow-x-auto">
@@ -1504,7 +1504,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
               type="button"
               data-testid="back-to-catalog-btn"
               onClick={onClose}
-              className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-semibold transition-all shadow-sm"
+              className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 hover:text-slate-100 text-xs font-semibold transition-all shadow-sm"
               title="Return to Arena Event Catalog"
             >
               <ArrowLeftIcon size={14} />
@@ -1512,7 +1512,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             </button>
             <div className="h-5 w-px bg-slate-800 hidden sm:block" />
             <div className="flex items-center space-x-2">
-              <h2 className="text-sm font-bold text-white tracking-wide">
+              <h2 className="text-sm font-bold text-slate-100 tracking-wide">
                 {isCustomer ? 'Customer VIP Hub & Loyalty Passbook' : isOrganizer ? 'Department Event Organizer Studio' : 'System Admin Command Center & Governance'}
               </h2>
               <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -1555,12 +1555,12 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-600/30 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
               <SparklesIcon size={22} />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-lg font-bold text-white tracking-wide">
+                <h2 className="text-lg font-bold text-slate-100 tracking-wide">
                   {isCustomer ? 'Customer VIP Hub' : isOrganizer ? 'Organizer Studio & Telemetry' : 'System Admin Command Center'}
                 </h2>
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -1576,7 +1576,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           <button
             onClick={onClose}
             aria-label="Close modal"
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800/80 transition-colors cursor-pointer"
+            className="p-2 text-slate-400 hover:text-slate-100 rounded-lg hover:bg-slate-800/80 transition-colors cursor-pointer"
           >
             <XIcon size={20} />
           </button>

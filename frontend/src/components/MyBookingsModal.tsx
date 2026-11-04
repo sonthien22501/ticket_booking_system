@@ -213,9 +213,9 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
         aria-modal="true"
         aria-labelledby="my-bookings-title"
       >
-        <div className="relative w-full max-w-2xl max-h-[90vh] bg-[#16162A] border border-indigo-700/60 rounded-2xl shadow-2xl flex flex-col text-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="relative w-full max-w-2xl max-h-[90vh] bg-slate-900 border border-indigo-700/60 rounded-2xl shadow-2xl flex flex-col text-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           {/* Header */}
-          <div className="px-6 py-4 bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-900 border-b border-indigo-800/40 flex items-center justify-between">
+          <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
                 <PassbookIcon size={22} />
@@ -275,7 +275,7 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
           )}
 
           {/* Filter Tabs */}
-          <div className="px-6 py-2.5 bg-slate-950/40 border-b border-indigo-950 flex items-center gap-2">
+          <div className="bookings-tab-row px-6 py-2.5 bg-slate-950/40 border-b border-indigo-950 flex items-center gap-2">
             {(['ALL', 'CONFIRMED', 'CANCELLED', 'WAITLIST'] as const).map((tab) => (
               <button
                 key={tab}
@@ -467,7 +467,7 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
                 return (
                   <div
                     key={b.bookingId || b.bookingReference}
-                    className="p-5 rounded-2xl bg-[#1B1B30] border border-indigo-900/60 hover:border-indigo-600/60 transition-all space-y-4 shadow-lg"
+                    className="p-5 rounded-2xl bg-slate-800 border border-indigo-900/60 hover:border-indigo-600/60 transition-all space-y-4 shadow-lg"
                   >
                     {/* Top Row: Title, Date, Status */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-950 pb-3">
@@ -499,7 +499,7 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
 
                     {/* Booking Meta Details */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                      <div>
+                      <div className="col-span-2 sm:col-span-1">
                         <span className="block text-slate-400 text-[10px] uppercase">Reference</span>
                         <button
                           type="button"
@@ -590,7 +590,7 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
                                   <button
                                     type="button"
                                     onClick={() => setTransferTicketState({ booking: b, ticket: t })}
-                                    className="px-2.5 py-1 rounded-lg bg-amber-900/40 hover:bg-amber-800 text-amber-300 hover:text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer border border-amber-500/30 whitespace-nowrap shrink-0"
+                                    className="px-2.5 py-1 rounded-lg bg-amber-900/40 hover:bg-amber-800 text-amber-300 hover:text-slate-100 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer border border-amber-500/30 whitespace-nowrap shrink-0"
                                     title="Transfer ticket to friend"
                                   >
                                     <Share2Icon size={12} />
@@ -605,7 +605,7 @@ export const MyBookingsModal: React.FC<MyBookingsModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => setActiveTicket({ booking: b, ticket: t })}
-                                  className="px-2.5 py-1 rounded-lg bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 hover:text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                                  className="px-2.5 py-1 rounded-lg bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 hover:text-slate-100 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                                 >
                                   <QrCodeIcon size={12} />
                                   View Pass
