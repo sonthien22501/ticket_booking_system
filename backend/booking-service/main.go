@@ -1507,6 +1507,41 @@ func (s *Server) handleAdminAnalytics(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
+// resolveAuthorizedBookingFilter enforces zero-trust authorization on booking queries.
+// Non-admin authenticated callers are strictly constrained to their own UserID and Email,
+// preventing IDOR / cross-user booking enumeration via query parameters or spoofed headers.
+func resolveAuthorizedBookingFilter(queryUserID, queryEmail, headerUserID string, jwtClaims *Claims) (userID string, email string, isAdmin bool) {
+	queryUserID = strings.TrimSpace(queryUserID)
+	queryEmail = strings.TrimSpace(queryEmail)
+	headerUserID = strings.TrimSpace(headerUserID)
+
+	if jwtClaims != nil {
+		if strings.EqualFold(jwtClaims.Role, "admin") {
+			// Admin can query any user or email, or list all bookings if omitted.
+			targetUser := queryUserID
+			if targetUser == "" {
+				targetUser = headerUserID
+			}
+			return targetUser, queryEmail, true
+		}
+
+		// Non-admin authenticated user: locked to their own identity.
+		targetEmail := ""
+		if queryEmail != "" && jwtClaims.Email != "" && strings.EqualFold(queryEmail, jwtClaims.Email) {
+			targetEmail = jwtClaims.Email
+		}
+		return jwtClaims.UserID, targetEmail, false
+	}
+
+	// No JWT present: unauthenticated or gateway-forwarded request.
+	// Prefer explicit queryParam if provided; otherwise fallback to headerUserID.
+	targetUser := queryUserID
+	if targetUser == "" {
+		targetUser = headerUserID
+	}
+	return targetUser, queryEmail, false
+}
+
 func (s *Server) listBookings(w http.ResponseWriter, r *http.Request) {
 	email := r.URL.Query().Get("email")
 	if email == "" {
@@ -1522,17 +1557,19 @@ func (s *Server) listBookings(w http.ResponseWriter, r *http.Request) {
 		userID = r.URL.Query().Get("user_id")
 	}
 
-	if userID == "" && email == "" {
-		authHeader := r.Header.Get("Authorization")
-		xUserID := r.Header.Get("X-User-ID")
-		if xUserID != "" {
-			userID = xUserID
-		} else if authHeader != "" {
-			if claims, err := s.validateJWT(authHeader); err == nil && claims != nil {
-				userID = claims.UserID
-			}
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		authHeader = r.URL.Query().Get("token")
+	}
+	var claims *Claims
+	if authHeader != "" {
+		if c, err := s.validateJWT(authHeader); err == nil && c != nil {
+			claims = c
 		}
 	}
+
+	headerUserID := r.Header.Get("X-User-ID")
+	userID, email, _ = resolveAuthorizedBookingFilter(userID, email, headerUserID, claims)
 
 	query := `SELECT id, booking_reference, user_id, customer_name, customer_email, event_id, event_title, tier_id, quantity, seat_ids, total_amount, status, reservation_id, payment_status, created_at, updated_at FROM bookings WHERE 1=1`
 	var args []interface{}

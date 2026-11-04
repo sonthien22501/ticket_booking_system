@@ -95,7 +95,7 @@ export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({ bookin
             </div>
             <div className="space-y-1.5">
               {booking.addons.map((a) => (
-                <div key={a.id || a.addonId} className="flex items-center justify-between text-xs bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                <div key={a.id || a.addonId} className="confirmed-addon-row flex items-center justify-between text-xs bg-slate-900/60 p-2 rounded-lg border border-slate-800">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-200">{a.addonName || 'Add-on Item'}</span>
                     <span className="text-[11px] text-slate-400">x{a.quantity}</span>
@@ -159,7 +159,7 @@ export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({ bookin
           type="button"
           onClick={handleDownloadInvoice}
           disabled={downloadingPdf}
-          className="btn-print-ticket cursor-pointer flex items-center justify-center gap-1.5 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-950/40"
+          className="btn-print-ticket btn-invoice-action cursor-pointer flex items-center justify-center gap-1.5 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-950/40"
           data-testid="confirmation-download-invoice-btn"
           title="Download Official Tax Invoice & Admission Receipt (PDF)"
         >
@@ -169,7 +169,7 @@ export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({ bookin
         <button
           type="button"
           onClick={() => downloadBookingCalendarICS(booking.bookingId, booking.eventTitle)}
-          className="btn-print-ticket cursor-pointer flex items-center justify-center gap-1.5 border border-amber-500/40 text-amber-300 hover:bg-amber-950/40"
+          className="btn-print-ticket btn-calendar-action cursor-pointer flex items-center justify-center gap-1.5 border border-amber-500/40 text-amber-300 hover:bg-amber-950/40"
           data-testid="confirmation-add-calendar-btn"
           title="Export Event to Apple, Google, or Outlook Calendar (.ics)"
         >

@@ -50,6 +50,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | F32 | Asynchronous Multi-Channel Notification Microservice | Dedicated Go worker daemon on port 8085 consuming RabbitMQ topic events (`booking.confirmed`, `waitlist.promoted`, `ticket.transferred`), Dead Letter Queue (DLX/DLQ) fault isolation, Email/SMS formatting, and delivery audit log APIs | M32 | Acceptance Criteria |
 | F33 | External API Mash-Up Hub, OpenAPI 3.0 & Runtime AI Concierge | Open-Meteo weather forecast, Apple iTunes 30s track audio previews, Frankfurter ECB live FX rates, OpenAPI 3.0 specification & interactive Swagger UI (`/api/openapi.json`, `/api/docs`), and Runtime AI Event Concierge (`POST /api/concierge/advise`) | M33 | Acceptance Criteria |
 | F34 | Cinema Premiere & Holographic Glow Motion Engine | 3D perspective card tilt (`motion.ts`), radial cursor spotlight, Premiere Hero Showcase carousel, staggered wave seat matrix entrance, live audio equalizer bars, animated KPI count-up/ring gauges, and holographic foil boarding passes with laser QR scanner | M34 | UI/UX Pro Max |
+| F35 | Tailwind CSS v4 Engine, Seat Map Mashup Polish & OWASP Zero-Trust Security | Full `@tailwindcss/vite` integration across all 23 components, bounded 22px artwork thumbnails, segmented section switcher, anti-privilege-escalation signup (`sanitizeRegistrationRole`), and anti-IDOR booking filter enforcement (`resolveAuthorizedBookingFilter`) | M35 | Security & UI Audit |
 
 ---
 
@@ -78,6 +79,7 @@ Microservices architecture in `~/teamwork_projects/ticket_booking_system` coordi
 | M32 | Asynchronous Multi-Channel Notification Microservice | Dedicated Go worker microservice, RabbitMQ topic exchange & DLQ dead-letter routing, email/SMS templating, delivery persistence & activity center logs | M4, M5, M6, M7, M28 | DONE |
 | M33 | External API Mash-Up Hub, OpenAPI 3.0 & Runtime AI Concierge | Open-Meteo weather, Apple iTunes 30s audio previews, Frankfurter ECB rates, OpenAPI 3.0 contract (`docs/openapi.yaml`, `/api/openapi.json`, `/api/docs`), and Runtime AI Event Concierge (`POST /api/concierge/advise`) | M2, M4, M5, M6, M31, M32 | DONE |
 | M34 | Cinema Premiere & Holographic Glow Motion Engine | Zero-dependency 3D perspective card/pass tilt, Premiere Hero Showcase, staggered seat wave animations, live audio equalizer, telemetry count-up/gauges, and `prefers-reduced-motion` accessibility | M6, M22, M23, M24, M33 | DONE |
+| M35 | Tailwind CSS v4 Engine, Seat Map Polish & OWASP Security Hardening | Installed `@tailwindcss/vite`, fixed Mashup bar & 22px artwork bounds, styled segmented section switcher, and hardened `auth-service` & `booking-service` against privilege escalation and cross-user IDOR | M21, M23, M31, M33, M34 | DONE |
 
 ---
 

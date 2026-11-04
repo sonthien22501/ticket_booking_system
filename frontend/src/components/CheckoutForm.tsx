@@ -316,9 +316,9 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
                   <div
                     key={addon.id}
                     data-testid={`addon-item-${addon.id}`}
-                    className={`p-3 rounded-xl border transition-all ${
+                    className={`addon-upsell-card p-3 rounded-xl border transition-all ${
                       qty > 0
-                        ? 'bg-amber-950/20 border-amber-500/50 shadow-md shadow-amber-950/20'
+                        ? 'is-selected bg-amber-950/20 border-amber-500/50 shadow-md shadow-amber-950/20'
                         : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
                     }`}
                   >
@@ -486,7 +486,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
         </div>
 
         {showCorporateFields && (
-          <div className="mt-3 p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3 animate-in fade-in duration-150">
+          <div className="corporate-billing-card mt-3 p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3 animate-in fade-in duration-150">
             <p className="text-xs text-slate-400">
               Provide company details to receive an audit-compliant PDF tax invoice with VAT/Sales tax breakdown for business expense claims.
             </p>

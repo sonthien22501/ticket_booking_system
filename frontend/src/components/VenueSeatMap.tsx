@@ -170,15 +170,15 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
         </button>
       </div>
 
-      {/* Live Mash-Up Intelligence Bar (Milestone 33) */}
-      <div className="bg-slate-900/90 border-y border-slate-800 px-6 py-2 flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm">
+      {/* Live Mash-Up Intelligence Bar (Milestone 33 & 35) */}
+      <div className="mashup-intel-bar bg-slate-900/90 border-y border-slate-800 px-6 py-2 flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm">
         <div className="flex items-center gap-3 flex-wrap">
           {/* Open-Meteo Weather Badge */}
           {mashup && (
-            <div className="flex items-center gap-2 bg-slate-950/80 px-3 py-1 rounded-lg border border-slate-800/80" data-testid="mashup-weather-badge">
-              <span className="text-amber-400 font-bold">⛅ {mashup.weather.temperatureC.toFixed(0)}°C / {mashup.weather.temperatureF.toFixed(0)}°F</span>
-              <span className="text-slate-300 font-medium">{mashup.weather.condition}</span>
-              <span className="text-slate-400 text-[11px] font-mono">({mashup.weather.precipitationProb}% rain)</span>
+            <div className="mashup-weather-pill flex items-center gap-2 bg-slate-950/80 px-3 py-1 rounded-lg border border-slate-800/80" data-testid="mashup-weather-badge">
+              <span className="mashup-weather-temp text-amber-400 font-bold">⛅ {mashup.weather.temperatureC.toFixed(0)}°C / {mashup.weather.temperatureF.toFixed(0)}°F</span>
+              <span className="mashup-weather-condition text-slate-300 font-medium">{mashup.weather.condition}</span>
+              <span className="mashup-weather-rain text-slate-400 text-[11px] font-mono">({mashup.weather.precipitationProb}% rain)</span>
               {mashup.weather.source.includes('fallback') && (
                 <span className="text-[10px] text-amber-500/80 uppercase font-semibold">Offline</span>
               )}
@@ -187,9 +187,15 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
 
           {/* iTunes Track Preview Audio Player */}
           {mashup?.mediaPreview && (
-            <div className="flex items-center gap-2 bg-slate-950/80 px-3 py-1 rounded-lg border border-slate-800/80" data-testid="mashup-itunes-preview">
+            <div className="mashup-audio-pill flex items-center gap-2 bg-slate-950/80 px-3 py-1 rounded-lg border border-slate-800/80" data-testid="mashup-itunes-preview">
               {mashup.mediaPreview.artworkUrl && (
-                <img src={mashup.mediaPreview.artworkUrl} alt={mashup.mediaPreview.albumName} className="w-5 h-5 rounded object-cover shadow-sm" />
+                <img
+                  src={mashup.mediaPreview.artworkUrl}
+                  alt={mashup.mediaPreview.albumName}
+                  width={22}
+                  height={22}
+                  className="mashup-artwork-thumb w-5 h-5 rounded object-cover shadow-sm"
+                />
               )}
               <span className="text-slate-300 truncate max-w-[160px] font-medium" title={`${mashup.mediaPreview.trackName} - ${mashup.mediaPreview.artistName}`}>
                 🎵 {mashup.mediaPreview.trackName}
@@ -228,7 +234,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
               handleRequestAdvice();
             }
           }}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
+          className={`btn-ai-concierge px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
             showConcierge
               ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30 ring-1 ring-purple-400'
               : 'bg-gradient-to-r from-purple-900/40 to-indigo-900/40 hover:from-purple-800/50 hover:to-indigo-800/50 text-purple-200 border border-purple-500/30'
@@ -241,7 +247,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
 
       {/* AI Event Concierge Panel / Drawer (Milestone 33) */}
       {showConcierge && (
-        <div className="p-4 mx-4 my-2 rounded-2xl bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 border border-purple-500/40 shadow-xl space-y-3" data-testid="ai-concierge-panel">
+        <div className="ai-concierge-panel p-5 mx-4 my-3 rounded-2xl bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 border border-purple-500/40 shadow-xl space-y-3" data-testid="ai-concierge-panel">
           <div className="flex items-center justify-between border-b border-purple-900/40 pb-2">
             <div className="flex items-center gap-2">
               <span className="text-lg">🤖</span>
@@ -270,24 +276,24 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
           ) : conciergeAdvice ? (
             <div className="space-y-3 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-purple-900/40">
+                <div className="ai-concierge-card p-3.5 rounded-xl bg-slate-950/70 border border-purple-900/40">
                   <div className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider mb-1">Recommended Tier</div>
                   <div className="font-bold text-amber-300">{conciergeAdvice.recommendedTier}</div>
                   <div className="text-[11px] text-slate-400 mt-1">{conciergeAdvice.localizedBudgetNote}</div>
                 </div>
-                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-purple-900/40">
+                <div className="ai-concierge-card p-3.5 rounded-xl bg-slate-950/70 border border-purple-900/40">
                   <div className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider mb-1">VIP Add-on Recommendation</div>
                   <div className="font-bold text-indigo-300">{conciergeAdvice.recommendedAddonName}</div>
                   <div className="text-[11px] text-slate-400 mt-1">Directly eligible for cart bundling.</div>
                 </div>
-                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-purple-900/40">
+                <div className="ai-concierge-card p-3.5 rounded-xl bg-slate-950/70 border border-purple-900/40">
                   <div className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider mb-1">Live Venue Advisory</div>
                   <div className="text-slate-300">{conciergeAdvice.weatherAdvisory}</div>
                 </div>
               </div>
 
               {conciergeAdvice.insiderTips?.length > 0 && (
-                <div className="p-2.5 rounded-xl bg-slate-950/50 border border-slate-800/60">
+                <div className="ai-concierge-card p-3.5 rounded-xl bg-slate-950/50 border border-slate-800/60">
                   <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Curated Insider Tips</div>
                   <ul className="list-disc list-inside space-y-1 text-slate-300 text-[11px]">
                     {conciergeAdvice.insiderTips.map((tip, idx) => (
@@ -341,8 +347,8 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
           </div>
         </div>
 
-        {/* Section Switcher & Floorplan Modal Button (Milestone 31) */}
-        <div className="flex items-center justify-between px-6 py-2 bg-slate-900/60 rounded-xl mx-4 mb-3 border border-slate-800">
+        {/* Section Switcher & Floorplan Modal Button (Milestone 31 & 35) */}
+        <div className="seatmap-section-toolbar flex items-center justify-between px-6 py-2 bg-slate-900/60 rounded-xl mx-4 mb-3 border border-slate-800">
           <div className="flex items-center gap-1.5 text-xs">
             <span className="text-slate-400 font-semibold mr-1">Section:</span>
             {[
@@ -354,7 +360,9 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
                 key={sec.id}
                 type="button"
                 onClick={() => setSelectedSection(sec.id)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                className={`section-filter-pill ${
+                  selectedSection === sec.id ? 'active' : ''
+                } px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
                   selectedSection === sec.id
                     ? 'bg-amber-500 text-slate-950 font-bold'
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -369,7 +377,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
           <button
             type="button"
             onClick={() => setShowFloorplanModal(!showFloorplanModal)}
-            className="px-3 py-1 rounded-lg bg-indigo-900/40 hover:bg-indigo-800 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+            className="btn-floorplan-toggle px-3 py-1 rounded-lg bg-indigo-900/40 hover:bg-indigo-800 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
             data-testid="toggle-floorplan-btn"
           >
             <BuildingOfficeIcon size={14} />
@@ -379,7 +387,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
 
         {/* Venue Floorplan Modal / Drawer */}
         {showFloorplanModal && floorplan && (
-          <div className="p-4 mx-4 mb-4 rounded-2xl bg-slate-900/90 border border-indigo-500/40 animate-in fade-in space-y-3" data-testid="floorplan-overview-card">
+          <div className="floorplan-overview-card p-4 mx-4 mb-4 rounded-2xl bg-slate-900/90 border border-indigo-500/40 animate-in fade-in space-y-3" data-testid="floorplan-overview-card">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <h4 className="text-sm font-bold text-slate-100 flex items-center gap-2">
                 <BuildingOfficeIcon size={16} className="text-amber-400" />
@@ -389,7 +397,7 @@ export const VenueSeatMap: React.FC<VenueSeatMapProps> = ({
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {floorplan.sections.map((sec) => (
-                <div key={sec.id} className="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
+                <div key={sec.id} className="floorplan-section-card p-3 rounded-xl bg-slate-950/70 border border-slate-800">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-bold text-slate-200">{sec.name}</span>
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase" style={{ backgroundColor: `${sec.color}20`, color: sec.color }}>

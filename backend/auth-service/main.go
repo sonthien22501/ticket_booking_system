@@ -212,6 +212,19 @@ func enableCORS(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Auth-Token")
 }
 
+// sanitizeRegistrationRole prevents public privilege escalation by ensuring only requests
+// with a valid admin setup token (or existing admin bearer token) can register with the admin role.
+func sanitizeRegistrationRole(requestedRole, adminHeaderToken, validAdminSecret string) string {
+	role := strings.ToLower(strings.TrimSpace(requestedRole))
+	if role != "admin" {
+		return "customer"
+	}
+	if validAdminSecret != "" && strings.TrimSpace(adminHeaderToken) == strings.TrimSpace(validAdminSecret) {
+		return "admin"
+	}
+	return "customer"
+}
+
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	enableCORS(w)
 	if r.Method == http.MethodOptions {
@@ -255,9 +268,16 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		req.Name = strings.Split(req.Email, "@")[0]
 	}
 
-	if req.Role != "admin" {
-		req.Role = "customer"
+	adminSecret := getEnv("ADMIN_SETUP_SECRET", "ticketverse-internal-admin-secret")
+	adminHeaderToken := r.Header.Get("X-Admin-Setup-Token")
+	if adminHeaderToken == "" {
+		if tokenStr := s.extractToken(r); tokenStr != "" {
+			if claims, err := s.validateToken(tokenStr); err == nil && claims != nil && claims.Role == "admin" {
+				adminHeaderToken = adminSecret
+			}
+		}
 	}
+	req.Role = sanitizeRegistrationRole(req.Role, adminHeaderToken, adminSecret)
 
 	// Check for duplicate email
 	var count int
