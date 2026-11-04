@@ -76,7 +76,7 @@ export const Header: React.FC<HeaderProps> = ({
                 aria-label="Currency"
                 value={currentCurrency}
                 onChange={(e) => onCurrencyChange(e.target.value)}
-                className="bg-transparent text-cyan-300 font-bold text-xs outline-none cursor-pointer pr-1"
+                className="currency-select-dropdown bg-transparent text-cyan-300 font-bold text-xs outline-none cursor-pointer pr-1"
                 data-testid="currency-selector"
               >
                 {Object.values(SUPPORTED_CURRENCIES).map((c) => (
@@ -125,7 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <BellIcon size={16} />
               {unreadNotificationsCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-rose-500/50">
+                <span className="notification-badge-counter absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-rose-500/50">
                   {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
                 </span>
               )}

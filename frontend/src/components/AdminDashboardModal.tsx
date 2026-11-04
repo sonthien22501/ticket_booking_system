@@ -7,6 +7,7 @@ import {
   createAdminVoucher,
 } from '../services/api';
 import { AdminAnalyticsData, CreateEventPayload, User, VoucherItem, CreateVoucherPayload } from '../types';
+import { interpolateCountUp, calculateRingDashOffset } from '../utils/motion';
 import {
   XIcon,
   ChartBarIcon,
@@ -97,6 +98,38 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
       setSuccessMsg(null);
     }
   }, [isOpen]);
+
+  // Smooth count-up animation progress (0 -> 1) when analytics arrive
+  const [animProgress, setAnimProgress] = useState(1);
+
+  useEffect(() => {
+    if (!analytics) return;
+    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+      setAnimProgress(1);
+      return;
+    }
+    let startTs: number | null = null;
+    let rafId: number;
+    const duration = 650;
+    setAnimProgress(0);
+
+    const step = (ts: number) => {
+      if (startTs === null) startTs = ts;
+      const elapsed = ts - startTs;
+      const p = Math.min(1, elapsed / duration);
+      setAnimProgress(p);
+      if (p < 1) {
+        rafId = window.requestAnimationFrame(step);
+      }
+    };
+    rafId = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [analytics]);
+
+  const animatedRevenue = analytics ? interpolateCountUp(0, analytics.totalRevenue, animProgress) : 0;
+  const animatedTickets = analytics ? Math.round(interpolateCountUp(0, analytics.totalTicketsSold, animProgress)) : 0;
+  const animatedOccupancy = analytics ? interpolateCountUp(0, analytics.averageOccupancy, animProgress) : 0;
+  const occupancyRing = calculateRingDashOffset(animatedOccupancy, 16);
 
   if (!isOpen) return null;
 
@@ -285,27 +318,27 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
             <>
               {/* 4 KPI Metrics Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-slate-800/60 border border-slate-700/50 p-4 rounded-xl flex flex-col justify-between">
+                <div className="kpi-telemetry-card bg-slate-800/60 border border-slate-700/50 p-4 rounded-xl flex flex-col justify-between">
                   <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
                     <span>Total Revenue</span>
                     <CurrencyDollarIcon size={18} className="text-emerald-400" />
                   </div>
                   <div className="mt-3">
-                    <span className="text-2xl font-extrabold text-white">
-                      ${analytics ? analytics.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                    <span className="text-2xl font-extrabold text-white font-mono">
+                      ${analytics ? animatedRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
                     </span>
                     <p className="text-[11px] text-emerald-400 mt-1">Confirmed gross receipts</p>
                   </div>
                 </div>
 
-                <div className="bg-slate-800/60 border border-slate-700/50 p-4 rounded-xl flex flex-col justify-between">
+                <div className="kpi-telemetry-card bg-slate-800/60 border border-slate-700/50 p-4 rounded-xl flex flex-col justify-between">
                   <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
                     <span>Tickets Issued</span>
                     <TicketIcon size={18} className="text-indigo-400" />
                   </div>
                   <div className="mt-3">
-                    <span className="text-2xl font-extrabold text-white">
-                      {analytics ? analytics.totalTicketsSold : 0}
+                    <span className="text-2xl font-extrabold text-white font-mono">
+                      {analytics ? animatedTickets : 0}
                     </span>
                     <p className="text-[11px] text-slate-400 mt-1">
                       From {analytics ? analytics.confirmedBookings : 0} orders
@@ -313,31 +346,59 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   </div>
                 </div>
 
-                <div className="bg-slate-800/60 border border-slate-700/50 p-4 rounded-xl flex flex-col justify-between">
+                <div className="kpi-telemetry-card bg-slate-800/60 border border-slate-700/50 p-4 rounded-xl flex flex-col justify-between">
                   <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
                     <span>Avg Occupancy</span>
-                    <ChartBarIcon size={18} className="text-amber-400" />
+                    <svg
+                      width="40"
+                      height="40"
+                      viewBox="0 0 40 40"
+                      className="occupancy-ring-gauge -my-2"
+                      data-testid="occupancy-ring-gauge"
+                      aria-hidden="true"
+                    >
+                      <circle
+                        cx="20"
+                        cy="20"
+                        r="16"
+                        fill="none"
+                        stroke="rgba(51, 65, 85, 0.6)"
+                        strokeWidth="3.5"
+                      />
+                      <circle
+                        cx="20"
+                        cy="20"
+                        r="16"
+                        fill="none"
+                        stroke="#fbbf24"
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
+                        strokeDasharray={occupancyRing.circumference}
+                        strokeDashoffset={occupancyRing.dashOffset}
+                        transform="rotate(-90 20 20)"
+                      />
+                    </svg>
                   </div>
                   <div className="mt-3">
-                    <span className="text-2xl font-extrabold text-white">
-                      {analytics ? analytics.averageOccupancy.toFixed(1) : '0.0'}%
+                    <span className="text-2xl font-extrabold text-white font-mono">
+                      {analytics ? animatedOccupancy.toFixed(1) : '0.0'}%
                     </span>
                     <div className="w-full bg-slate-700/60 h-1.5 rounded-full mt-2 overflow-hidden">
                       <div
                         className="bg-amber-400 h-full rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(analytics ? analytics.averageOccupancy : 0, 100)}%` }}
+                        style={{ width: `${Math.min(analytics ? animatedOccupancy : 0, 100)}%` }}
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-slate-800/60 border border-slate-700/50 p-4 rounded-xl flex flex-col justify-between">
+                <div className="kpi-telemetry-card bg-slate-800/60 border border-slate-700/50 p-4 rounded-xl flex flex-col justify-between">
                   <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
                     <span>Active Events</span>
                     <CalendarIcon size={18} className="text-sky-400" />
                   </div>
                   <div className="mt-3">
-                    <span className="text-2xl font-extrabold text-white">
+                    <span className="text-2xl font-extrabold text-white font-mono">
                       {analytics ? analytics.activeEventsCount : 0}
                     </span>
                     <p className="text-[11px] text-slate-400 mt-1">Ready for ticket booking</p>

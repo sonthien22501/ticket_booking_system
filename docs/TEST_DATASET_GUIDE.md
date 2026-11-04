@@ -224,12 +224,112 @@ curl -s http://localhost:8080/api/admin/analytics | jq .
 
 ---
 
-## 🧪 9. Automated Regression & Concurrency Verification
+## 🌐 9. External API Mash-Up Hub, OpenAPI 3.0 & Runtime AI Concierge (M33)
 
-Run the full end-to-end test suite against the running environment at any time:
+The system composes multi-provider external APIs (Open-Meteo Weather forecast, Apple iTunes media preview search, and ECB / Frankfurter live foreign exchange) alongside runtime heuristic AI recommendation models.
+
+| Capability | Provider / Protocol | Public Route | Sample Output / Demonstration |
+| :--- | :--- | :--- | :--- |
+| **Open-Meteo Live Weather** | Open-Meteo REST API | `GET /api/events/:id/mashup` | Temperature (°C & °F), weather code, outdoor suitability, transit advisory. |
+| **Apple iTunes Media Preview** | Apple iTunes Search API | `GET /api/events/:id/mashup` | Artist, track, album art, 30s playable AAC audio preview URL. |
+| **OpenAPI 3.0.3 Contract** | OpenAPI 3.0 Spec JSON | `GET /api/openapi.json` | Fully resolved OpenAPI spec with all microservice schemas & routes. |
+| **Interactive Swagger UI** | Swagger UI Dist 5 | `GET /api/docs/` | Interactive Swagger API documentation explorer in dark theme. |
+| **Runtime AI Concierge** | Heuristic Synthesis Model | `POST /api/concierge/advise` | Synthesizes weather, FX rates, venue telemetry, budget, and vouchers. |
+
+### Example Mash-Up & Concierge Commands:
+```bash
+# 1. Fetch Berlin Live Weather & iTunes Audio Preview (Neon Symphony evt-101)
+curl -s http://localhost:8080/api/events/evt-101/mashup | jq .
+
+# 2. Fetch Tokyo Live Weather & iTunes Audio Preview (Cyberpunk Synth evt-105)
+curl -s http://localhost:8080/api/events/evt-105/mashup | jq .
+
+# 3. Query Runtime AI Concierge Advice
+curl -s -X POST http://localhost:8080/api/concierge/advise \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"I want an electric concert experience in Berlin","budget":180,"currency":"EUR","EventID":"evt-101"}' | jq .
+
+# 4. Inspect OpenAPI 3.0 Specification
+curl -s http://localhost:8080/api/openapi.json | jq '{openapi: .openapi, title: .info.title, paths: .paths | keys}'
+
+# 5. Access Interactive Swagger UI Documentation in Browser
+open http://localhost:8080/api/docs/
+```
+
+---
+
+## 🎁 10. VIP Add-Ons, Verified Reviews, Floorplans & Async Notifications (M29–M32)
+
+Demonstrates post-booking upsell items, verified attendee social proof ratings, venue vector seating floorplans, and asynchronous multi-channel notification dispatching.
+
+| Feature | Milestone | Route | Details |
+| :--- | :--- | :--- | :--- |
+| **VIP Add-Ons & Merch** | M29 | `GET /api/events/:id/addons` | Parking passes, merchandise t-shirts, backstage lounge access. |
+| **Verified Buyer Reviews** | M30 | `GET /api/events/:id/reviews` | Average star ratings, review distributions, verified buyer badges. |
+| **Multi-Facet Geo Search** | M31 | `GET /api/events/search?city=Berlin` | Distance-based city filters, category facets, min/max prices. |
+| **Venue Vector Floorplans** | M31 | `GET /api/events/:id/floorplan` | SVG coordinate sections, tier polygons, stage orientations. |
+| **Async Notification Worker** | M32 | `GET /api/notifications/deliveries` | Multi-channel dispatch audit logs (EMAIL, SMS, WEBHOOK, PUSH). |
+
+### Example CLI Verification Commands:
+```bash
+# 1. Inspect VIP Add-Ons for Neon Symphony
+curl -s http://localhost:8080/api/events/evt-101/addons | jq .
+
+# 2. View Attendee Reviews & Star Ratings
+curl -s http://localhost:8080/api/events/evt-101/reviews | jq .
+
+# 3. Search Events by City with Facet Aggregations
+curl -s "http://localhost:8080/api/events/search?city=Berlin" | jq .
+
+# 4. Retrieve Venue Architectural Floorplan
+curl -s http://localhost:8080/api/events/evt-101/floorplan | jq .
+
+# 5. Audit Asynchronous Notification Delivery History
+curl -s http://localhost:8080/api/notifications/deliveries | jq .
+```
+
+---
+
+## 🧪 11. Automated Regression & Concurrency Verification (Tiers 1–5)
+
+Run the comprehensive end-to-end verification harness covering all 5 tiers across the running system:
 
 ```bash
 python3 scripts/verify_e2e.py
 ```
 
-All 11 test assertions (API health, frontend web delivery, catalog retrieval, booking creation, exact inventory decrement, duplicate seat conflict 409 rejection, capacity limit 400 rejection, missing event 404, malformed payload 400, and 10-thread single-seat race contention with zero overselling) will execute and verify **100% PASS**.
+### Verified Test Matrix (20 Assertions):
+1. **Tier 1 (Smoke & Liveness)**:
+   - `1.1` API Gateway `/health` Liveness (HTTP 200)
+   - `1.2` React Frontend Web Delivery (HTTP 200 + HTML DOM)
+   - `1.3` Notification Service Delivery Audit (`/api/notifications/deliveries`)
+2. **Tier 2 (Acceptance & Inventory Integrity)**:
+   - `2.1` Fetch Event Catalog (`/api/events`)
+   - `2.2` Initial Inventory Baseline ($S_0$) Check
+   - `2.3` Booking Creation (`POST /api/bookings` -> 201 CONFIRMED)
+   - `2.4` Exact Inventory Decrement Assertion ($S_0 - Q$)
+3. **Tier 3 (Boundary & Corner Cases)**:
+   - `3.1` Duplicate Seat Conflict Rejection (HTTP 409)
+   - `3.2` Overbooking Capacity Limit Rejection (HTTP 400)
+   - `3.3` Nonexistent Event Lookup Handling (HTTP 404)
+   - `3.4` Malformed Booking Payload Rejection (HTTP 400)
+4. **Tier 4 (High-Concurrency Contention)**:
+   - `4.1` 10-Thread Single-Seat Race Contention (strictly 1 winner, 9 conflicts, zero overselling)
+5. **Tier 5 (Extended Features & External API Mash-Up Hub - M25–M33)**:
+   - `5.1` Promotional Voucher Validation Engine (HTTP 200, 20% discount applied)
+   - `5.2` Multi-Currency FX Rates & PDF Tax Invoice (USD, EUR, GBP, JPY & `INV-20261022-2026-001`)
+   - `5.3` Waitlist Queue & iCalendar `.ics` Export (`evt-106` queue + `BEGIN:VCALENDAR`)
+   - `5.4` VIP Add-Ons & Verified Buyer Reviews (Addons list + 4.7★ average rating)
+   - `5.5` Geolocation Multi-Facet Search & Venue Floorplans (Berlin search + 4 venue sections)
+   - `5.6` External API Mash-Up Hub (Open-Meteo live weather + Apple iTunes AAC audio preview)
+   - `5.7` OpenAPI 3.0.3 Contract & Interactive Swagger UI (`/api/openapi.json` + `/api/docs/`)
+   - `5.8` Runtime AI Event Concierge Synthesis (`/api/concierge/advise` itinerary synthesis)
+
+### Targeted Tier Execution:
+```bash
+# Execute only Tier 5 Extended Features:
+python3 scripts/verify_e2e.py --tier 5
+
+# Execute only Tier 4 Concurrency Race Contention:
+python3 scripts/verify_e2e.py --tier 4
+```

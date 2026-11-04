@@ -55,7 +55,7 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
         <div className="column-label-spacer"></div>
       </div>
 
-      {groupedRows.map(([rowLabel, rowSeats]) => {
+      {groupedRows.map(([rowLabel, rowSeats], rowIdx) => {
         const isVipRow = rowLabel === 'A' || rowLabel === 'B' || rowSeats[0]?.tierId?.includes('vip');
         return (
           <div key={rowLabel} className="seat-row-wrapper">
@@ -65,12 +65,14 @@ export const SeatGrid: React.FC<SeatGridProps> = ({
             </div>
 
             <div className="seat-row-items">
-              {rowSeats.map((seat) => (
+              {rowSeats.map((seat, colIdx) => (
                 <SeatNode
                   key={seat.id}
                   seat={seat}
                   isSelected={selectedSeatIds.has(seat.id)}
                   onToggle={onToggleSeat}
+                  rowIndex={rowIdx}
+                  colIndex={colIdx}
                 />
               ))}
             </div>

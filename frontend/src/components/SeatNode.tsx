@@ -1,18 +1,29 @@
 import React from 'react';
 import { SeatItem } from '../types';
+import { calculateStaggerDelay } from '../utils/motion';
 
 interface SeatNodeProps {
   seat: SeatItem;
   isSelected: boolean;
   onToggle: (seat: SeatItem) => void;
+  rowIndex?: number;
+  colIndex?: number;
 }
 
-export const SeatNode: React.FC<SeatNodeProps> = ({ seat, isSelected, onToggle }) => {
+export const SeatNode: React.FC<SeatNodeProps> = ({
+  seat,
+  isSelected,
+  onToggle,
+  rowIndex = 0,
+  colIndex = 0,
+}) => {
   const isHeld = seat.status === 'HOLD';
   const isBooked = seat.status === 'BOOKED' || seat.status === 'BLOCKED';
   const isWaitlist = seat.status === 'WAITLIST';
   const isDisabled = isHeld || isBooked || isWaitlist;
   const isVip = seat.tierId?.toLowerCase().includes('vip') || seat.row === 'A' || seat.row === 'B';
+
+  const waveDelayMs = calculateStaggerDelay(rowIndex * 4 + colIndex, 14, 420);
 
   const handleClick = () => {
     if (!isDisabled) {
@@ -51,7 +62,8 @@ export const SeatNode: React.FC<SeatNodeProps> = ({ seat, isSelected, onToggle }
   return (
     <button
       type="button"
-      className={`seat-node ${statusClass} ${isVip ? 'seat-vip' : ''} ${!isDisabled ? 'cursor-pointer' : ''}`}
+      className={`seat-node seat-wave-in ${statusClass} ${isVip ? 'seat-vip' : ''} ${!isDisabled ? 'cursor-pointer' : ''}`}
+      style={{ '--seat-stagger': `${waveDelayMs}ms` } as React.CSSProperties}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       disabled={isDisabled}
@@ -61,6 +73,7 @@ export const SeatNode: React.FC<SeatNodeProps> = ({ seat, isSelected, onToggle }
     >
       <span className="seat-label">{seat.number}</span>
       <span className="seat-glow-ring"></span>
+      {isSelected && <span className="seat-ripple-ring" aria-hidden="true"></span>}
     </button>
   );
 };

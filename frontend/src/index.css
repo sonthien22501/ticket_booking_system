@@ -129,6 +129,210 @@ body.light,
   --shadow-glow: 0 0 20px rgba(180, 83, 9, 0.15);
 }
 
+/* ==========================================================================
+   Milestone 34.1: Light Theme High-Contrast Overrides
+   ========================================================================== */
+
+html[data-theme='light'] .site-header,
+body.light .site-header,
+.light .site-header {
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid #cbd5e1;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+html[data-theme='light'] .brand-title,
+body.light .brand-title,
+.light .brand-title {
+  background: linear-gradient(135deg, #1e1b4b 20%, #b45309 85%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+html[data-theme='light'] .brand-subtitle,
+body.light .brand-subtitle,
+.light .brand-subtitle {
+  color: #475569;
+}
+
+html[data-theme='light'] .hero-title,
+body.light .hero-title,
+.light .hero-title {
+  background: linear-gradient(135deg, #1e1b4b 20%, #b45309 85%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+}
+
+html[data-theme='light'] .hero-subtitle,
+body.light .hero-subtitle,
+.light .hero-subtitle {
+  color: #334155;
+}
+
+html[data-theme='light'] .premiere-live-ribbon,
+body.light .premiere-live-ribbon,
+.light .premiere-live-ribbon {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  color: #0f172a;
+}
+
+html[data-theme='light'] .ribbon-badge,
+body.light .ribbon-badge,
+.light .ribbon-badge {
+  color: #b45309;
+}
+
+html[data-theme='light'] .ribbon-metric,
+body.light .ribbon-metric,
+.light .ribbon-metric {
+  color: #334155;
+}
+
+html[data-theme='light'] .premiere-showcase-card,
+body.light .premiere-showcase-card,
+.light .premiere-showcase-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 60%, #ede9fe 100%);
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+}
+
+html[data-theme='light'] .premiere-showcase-title,
+body.light .premiere-showcase-title,
+.light .premiere-showcase-title {
+  color: #0f172a;
+}
+
+html[data-theme='light'] .premiere-showcase-desc,
+body.light .premiere-showcase-desc,
+.light .premiere-showcase-desc {
+  color: #334155;
+}
+
+html[data-theme='light'] .premiere-venue-tag,
+body.light .premiere-venue-tag,
+.light .premiere-venue-tag {
+  color: #475569;
+}
+
+html[data-theme='light'] .currency-selector-pill,
+body.light .currency-selector-pill,
+.light .currency-selector-pill {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+html[data-theme='light'] .currency-select-dropdown,
+body.light .currency-select-dropdown,
+.light .currency-select-dropdown {
+  color: #0e7490 !important;
+}
+
+html[data-theme='light'] .currency-select-dropdown option,
+body.light .currency-select-dropdown option,
+.light .currency-select-dropdown option {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+html[data-theme='light'] .btn-notifications,
+body.light .btn-notifications,
+.light .btn-notifications {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+html[data-theme='light'] .btn-notifications:hover,
+body.light .btn-notifications:hover,
+.light .btn-notifications:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme='light'] .btn-my-tickets,
+body.light .btn-my-tickets,
+.light .btn-my-tickets {
+  background: #ede9fe !important;
+  border-color: #c4b5fd !important;
+  color: #5b21b6 !important;
+}
+
+html[data-theme='light'] .btn-my-tickets:hover,
+body.light .btn-my-tickets:hover,
+.light .btn-my-tickets:hover {
+  background: #ddd6fe !important;
+  color: #4c1d95 !important;
+}
+
+html[data-theme='light'] .catalog-sort-select,
+body.light .catalog-sort-select,
+.light .catalog-sort-select {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+html[data-theme='light'] .city-pill,
+body.light .city-pill,
+.light .city-pill {
+  background: #ffffff;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+html[data-theme='light'] .city-pill:hover,
+body.light .city-pill:hover,
+.light .city-pill:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+html[data-theme='light'] .city-pill.active,
+body.light .city-pill.active,
+.light .city-pill.active {
+  background: #0891b2;
+  color: #ffffff;
+  border-color: #0e7490;
+}
+
+html[data-theme='light'] .budget-pill,
+body.light .budget-pill,
+.light .budget-pill {
+  color: #475569;
+}
+
+html[data-theme='light'] .budget-pill:hover,
+body.light .budget-pill:hover,
+.light .budget-pill:hover {
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+html[data-theme='light'] .budget-pill.active,
+body.light .budget-pill.active,
+.light .budget-pill.active {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+html[data-theme='light'] .event-scarcity-widget,
+body.light .event-scarcity-widget,
+.light .event-scarcity-widget {
+  background: rgba(248, 250, 252, 0.95);
+  border-color: #e2e8f0;
+}
+
+html[data-theme='light'] .event-card-footer,
+body.light .event-card-footer,
+.light .event-card-footer {
+  border-top-color: #e2e8f0;
+}
+
 /* Modern Cross-Browser Scrollbars (Chromium, Firefox, WebKit) - R32 */
 * {
   box-sizing: border-box;
@@ -394,6 +598,62 @@ body {
   }
 }
 
+/* Header Action Controls & Currency Selector (Milestone 34.1) */
+.currency-selector-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  line-height: 1;
+}
+
+.currency-select-dropdown {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  cursor: pointer;
+  outline: none;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #67e8f9;
+}
+
+.currency-select-dropdown option {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.btn-my-tickets {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  line-height: 1;
+}
+
+.btn-notifications {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  line-height: 1;
+}
+
+.notification-badge-counter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.btn-admin-studio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  line-height: 1;
+}
+
 /* Hero & Catalog */
 .hero-banner {
   text-align: center;
@@ -491,6 +751,134 @@ body {
   color: #0f172a;
   font-weight: 700;
   box-shadow: 0 0 15px rgba(202, 138, 4, 0.5);
+}
+
+/* Catalog Search and Filter Controls (Milestone 34.1) */
+.catalog-search-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.catalog-sort-select {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: #0f172a;
+  border: 1px solid #334155;
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.catalog-sort-select:focus {
+  border-color: #fbbf24;
+}
+
+.btn-reset-filters {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: #1e293b;
+  color: #fda4af;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #334155;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-reset-filters:hover {
+  background: #334155;
+  color: #f43f5e;
+}
+
+.city-facets-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  font-size: 0.75rem;
+}
+
+.city-facets-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: #94a3b8;
+  white-space: nowrap;
+  padding-right: 0.25rem;
+}
+
+.city-pill {
+  padding: 0.3rem 0.7rem;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.85);
+  color: #cbd5e1;
+  border: 1px solid #1e293b;
+  transition: all var(--transition-fast);
+}
+
+.city-pill:hover {
+  background: #1e293b;
+  color: #f8fafc;
+  border-color: #475569;
+}
+
+.city-pill.active {
+  background: #06b6d4;
+  color: #020617;
+  font-weight: 700;
+  border-color: #22d3ee;
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.35);
+}
+
+.catalog-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(51, 65, 85, 0.6);
+}
+
+.budget-pills-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.budget-pill {
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  cursor: pointer;
+  color: #94a3b8;
+  border: 1px solid transparent;
+  background: transparent;
+  transition: all var(--transition-fast);
+}
+
+.budget-pill:hover {
+  color: #f1f5f9;
+  background: rgba(51, 65, 85, 0.3);
+}
+
+.budget-pill.active {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+  font-weight: 700;
+  border-color: rgba(245, 158, 11, 0.45);
 }
 
 /* Events Grid */
@@ -2022,7 +2410,24 @@ body {
 .font-medium { font-weight: 500; }
 .mr-1 { margin-right: 0.25rem; }
 .mr-2 { margin-right: 0.5rem; }
-.inline-icon { vertical-align: -2px; }
+.inline-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* Screen Reader Only Accessible Utility (Milestone 34.1) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
 
 /* ==========================================================================
    Authentication & User Profile Styles (R3.1)
@@ -2309,6 +2714,659 @@ body {
   color: #10b981;
 }
 
+/* ==========================================================================
+   Milestone 34: Cinema Premiere & Holographic Glow Motion Engine
+   ========================================================================== */
+
+:root {
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 1. Premiere Hero Aurora & Dual IMAX Projector Beams */
+.premiere-hero-container {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.hero-aurora-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.aurora-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(55px);
+  opacity: 0.38;
+  animation: auroraDrift 14s ease-in-out infinite alternate;
+}
+
+.aurora-orb-gold {
+  width: 340px;
+  height: 340px;
+  background: radial-gradient(circle, rgba(234, 179, 8, 0.45), transparent 70%);
+  top: -120px;
+  left: 8%;
+}
+
+.aurora-orb-indigo {
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.45), transparent 70%);
+  bottom: -150px;
+  right: 10%;
+  animation-delay: -5s;
+}
+
+.aurora-orb-purple {
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.4), transparent 70%);
+  top: 20%;
+  right: 35%;
+  animation-delay: -9s;
+}
+
+.imax-projector-beam {
+  position: absolute;
+  top: -40%;
+  width: 220px;
+  height: 180%;
+  background: linear-gradient(
+    180deg,
+    rgba(250, 204, 21, 0.14) 0%,
+    rgba(129, 140, 248, 0.05) 55%,
+    transparent 100%
+  );
+  filter: blur(18px);
+  transform-origin: top center;
+  pointer-events: none;
+}
+
+.imax-projector-beam.beam-left {
+  left: 15%;
+  transform: rotate(-22deg);
+  animation: projectorSweepLeft 11s ease-in-out infinite alternate;
+}
+
+.imax-projector-beam.beam-right {
+  right: 15%;
+  transform: rotate(22deg);
+  animation: projectorSweepRight 11s ease-in-out infinite alternate;
+}
+
+/* Live Telemetry Ribbon */
+.premiere-live-ribbon {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.9rem;
+  margin-bottom: 0.9rem;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.15);
+  font-size: 0.72rem;
+  color: #e2e8f0;
+  backdrop-filter: blur(10px);
+}
+
+.ribbon-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #fde047;
+}
+
+.live-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: liveDotPulse 2s ease-in-out infinite;
+}
+
+.ribbon-divider {
+  color: rgba(148, 163, 184, 0.5);
+}
+
+.ribbon-metric {
+  display: inline-flex;
+  align-items: center;
+  color: #cbd5e1;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* Premiere Featured Spotlight Carousel Card */
+.premiere-showcase-card {
+  position: relative;
+  z-index: 1;
+  max-width: 920px;
+  min-height: 172px;
+  margin: 0 auto 1.5rem auto;
+  padding: 1.25rem 1.5rem;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(30, 27, 75, 0.88) 0%, rgba(15, 23, 42, 0.92) 60%, rgba(49, 46, 129, 0.82) 100%);
+  border: 1px solid rgba(234, 179, 8, 0.42);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(202, 138, 4, 0.16);
+  text-align: left;
+  overflow: hidden;
+  backdrop-filter: blur(14px);
+  transition: transform 300ms var(--ease-out-expo), box-shadow 300ms var(--ease-out-expo);
+}
+
+@media (min-width: 768px) {
+  .premiere-showcase-card {
+    height: 172px;
+  }
+}
+
+.premiere-showcase-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55), 0 0 38px rgba(234, 179, 8, 0.26);
+}
+
+.premiere-showcase-glow {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 20%, rgba(250, 204, 21, 0.08) 45%, rgba(168, 85, 247, 0.1) 55%, transparent 80%);
+  background-size: 200% 100%;
+  animation: holographicFoil 7s linear infinite;
+  pointer-events: none;
+}
+
+.premiere-showcase-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .premiere-showcase-content {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.premiere-showcase-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.premiere-spotlight-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #ca8a04, #eab308);
+  color: #0f172a;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.premiere-category-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  background: rgba(99, 102, 241, 0.22);
+  border: 1px solid rgba(129, 140, 248, 0.4);
+  color: #c7d2fe;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.premiere-venue-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  color: #cbd5e1;
+}
+
+.premiere-showcase-title {
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0.25rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: titleSlideFade 420ms var(--ease-out-expo);
+}
+
+.premiere-showcase-desc {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  margin-bottom: 0.65rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.5rem;
+  max-height: 2.5rem;
+  line-height: 1.25rem;
+}
+
+.premiere-showcase-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.premiere-price-pill {
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #6ee7b7;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.premiere-showcase-right {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.65rem;
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .premiere-showcase-right {
+    align-items: flex-end;
+  }
+}
+
+.btn-premiere-cta {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #ca8a04 0%, #eab308 50%, #f59e0b 100%);
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 0.85rem;
+  box-shadow: 0 6px 22px rgba(234, 179, 8, 0.4);
+  transition: transform 220ms var(--ease-spring), box-shadow 220ms ease;
+}
+
+.btn-premiere-cta:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 10px 28px rgba(234, 179, 8, 0.6);
+}
+
+.premiere-carousel-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.premiere-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.35);
+  border: none;
+  padding: 0;
+  transition: all 280ms var(--ease-spring);
+}
+
+.premiere-dot.active {
+  width: 24px;
+  background: #eab308;
+  box-shadow: 0 0 10px rgba(234, 179, 8, 0.7);
+}
+
+/* 2. 3D Perspective Event Cards & Dynamic Cursor Spotlight */
+.event-card-3d {
+  --rx: 0deg;
+  --ry: 0deg;
+  --spot-x: 50%;
+  --spot-y: 50%;
+  --stagger-delay: 0ms;
+  position: relative;
+  transform-style: preserve-axis;
+  animation: cardCascadeIn 560ms var(--ease-out-expo) backwards;
+  animation-delay: var(--stagger-delay);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 250ms ease, border-color 250ms ease;
+  will-change: transform;
+}
+
+.event-card-3d.is-tilting:hover {
+  transform: perspective(1050px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(-6px) scale(1.012);
+}
+
+.card-cursor-spotlight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  background: radial-gradient(
+    420px circle at var(--spot-x) var(--spot-y),
+    rgba(250, 204, 21, 0.13),
+    rgba(99, 102, 241, 0.08) 45%,
+    transparent 75%
+  );
+  transition: opacity 250ms ease;
+}
+
+.event-card-3d:hover .card-cursor-spotlight {
+  opacity: 1;
+}
+
+.card-holographic-border {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.45);
+  transition: opacity 250ms ease;
+}
+
+.event-card-3d:hover .card-holographic-border {
+  opacity: 1;
+}
+
+/* Event Scarcity Live Progress Bar */
+.event-scarcity-widget {
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(67, 56, 202, 0.35);
+}
+
+.scarcity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  margin-bottom: 0.35rem;
+}
+
+.scarcity-percent {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+}
+
+.scarcity-track {
+  width: 100%;
+  height: 5px;
+  border-radius: 9999px;
+  background: rgba(51, 65, 85, 0.65);
+  overflow: hidden;
+}
+
+.scarcity-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 600ms var(--ease-out-expo);
+  position: relative;
+}
+
+.scarcity-fill.fill-normal {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.scarcity-fill.fill-hot {
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+}
+
+.scarcity-fill.fill-soldout {
+  background: linear-gradient(90deg, #06b6d4, #3b82f6);
+}
+
+/* Shimmer CTA Button */
+.btn-shimmer-cta {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shimmer-cta::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 65%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.35),
+    transparent
+  );
+  transform: skewX(-20deg);
+  animation: shimmerSweep 4.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* 3. Interactive Seat Arena Wave Entrance & Selection Ripple */
+.seat-wave-in {
+  --seat-stagger: 0ms;
+  animation: seatWaveIn 420ms var(--ease-spring) backwards;
+  animation-delay: var(--seat-stagger);
+}
+
+.seat-node.seat-selected {
+  animation: seatSelectPop 340ms var(--ease-spring);
+}
+
+.seat-ripple-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 2px solid #fbbf24;
+  pointer-events: none;
+  animation: seatRippleExpand 750ms var(--ease-out-expo) forwards;
+}
+
+/* 4. Live Audio Equalizer Bars in Mashup Hub */
+.audio-equalizer-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+  padding: 0 2px;
+}
+
+.audio-equalizer-bars .eq-bar {
+  width: 2.5px;
+  height: 3px;
+  border-radius: 2px;
+  background: #818cf8;
+  transition: height 180ms ease, background-color 180ms ease;
+}
+
+.audio-equalizer-bars.is-playing .eq-bar {
+  background: #fb7185;
+  animation: equalizerBounce 640ms ease-in-out infinite alternate;
+}
+
+.audio-equalizer-bars.is-playing .eq-bar-1 { animation-delay: 0ms; }
+.audio-equalizer-bars.is-playing .eq-bar-2 { animation-delay: 160ms; }
+.audio-equalizer-bars.is-playing .eq-bar-3 { animation-delay: 310ms; }
+.audio-equalizer-bars.is-playing .eq-bar-4 { animation-delay: 90ms; }
+
+/* 5. Holographic Boarding Pass & Laser QR Scanner */
+.holographic-ticket-pass {
+  --rx: 0deg;
+  --ry: 0deg;
+  --spot-x: 50%;
+  --spot-y: 50%;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 250ms ease;
+}
+
+.holographic-ticket-pass:hover {
+  transform: perspective(1000px) rotateX(var(--rx)) rotateY(var(--ry));
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.65), 0 0 35px rgba(99, 102, 241, 0.3);
+}
+
+.holographic-pass-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(360px circle at var(--spot-x) var(--spot-y), rgba(250, 204, 21, 0.14), rgba(168, 85, 247, 0.1) 45%, transparent 75%),
+    linear-gradient(125deg, transparent 25%, rgba(56, 189, 248, 0.06) 45%, rgba(250, 204, 21, 0.08) 55%, transparent 75%);
+  background-size: 100% 100%, 220% 220%;
+  animation: holographicFoil 6s linear infinite;
+}
+
+.qr-laser-viewport {
+  overflow: hidden;
+}
+
+.qr-scanner-laser {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #10b981, #34d399, #10b981, transparent);
+  box-shadow: 0 0 10px #10b981, 0 0 20px rgba(16, 185, 129, 0.8);
+  z-index: 5;
+  pointer-events: none;
+  animation: laserScanSweep 2.6s ease-in-out infinite alternate;
+}
+
+/* 6. Organizer Studio Telemetry Card Hover & Gauge */
+.kpi-telemetry-card {
+  transition: transform 220ms var(--ease-spring), border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.kpi-telemetry-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(129, 140, 248, 0.55);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Keyframe Definitions */
+@keyframes cardCascadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(22px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes titleSlideFade {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes auroraDrift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(28px, -18px, 0) scale(1.12);
+  }
+}
+
+@keyframes projectorSweepLeft {
+  0% { transform: rotate(-25deg); opacity: 0.55; }
+  100% { transform: rotate(-14deg); opacity: 0.9; }
+}
+
+@keyframes projectorSweepRight {
+  0% { transform: rotate(25deg); opacity: 0.55; }
+  100% { transform: rotate(14deg); opacity: 0.9; }
+}
+
+@keyframes liveDotPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.45); opacity: 0.55; }
+}
+
+@keyframes holographicFoil {
+  0% { background-position: 0% 0%, 0% 50%; }
+  50% { background-position: 0% 0%, 100% 50%; }
+  100% { background-position: 0% 0%, 0% 50%; }
+}
+
+@keyframes shimmerSweep {
+  0%, 65% { left: -120%; }
+  100% { left: 160%; }
+}
+
+@keyframes seatWaveIn {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.75);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes seatSelectPop {
+  0% { transform: scale(0.85); }
+  55% { transform: scale(1.24); }
+  100% { transform: scale(1.1); }
+}
+
+@keyframes seatRippleExpand {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+
+@keyframes equalizerBounce {
+  0% { height: 3px; }
+  100% { height: 12px; }
+}
+
+@keyframes laserScanSweep {
+  0% { top: 10px; opacity: 0.75; }
+  50% { opacity: 1; }
+  100% { top: calc(100% - 12px); opacity: 0.75; }
+}
+
 /* Accessibility & Motion Preferences (MASTER.md) */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -2319,6 +3377,12 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+
+  .event-card-3d.is-tilting:hover,
+  .holographic-ticket-pass:hover {
+    transform: none !important;
+  }
 }
+
 
 

@@ -9,13 +9,18 @@ Zero external dependencies: uses Python 3 standard library exclusively
 (urllib.request, json, time, sys, argparse, concurrent.futures).
 
 Test Hierarchy:
-  - Tier 1: Smoke & Liveness (Gateway /health, Frontend HTTP 200 + HTML DOM)
+  - Tier 1: Smoke & Liveness (Gateway /health, Frontend HTTP 200 + HTML DOM,
+            Notification deliveries audit)
   - Tier 2: Acceptance Criteria (Catalog fetch, initial inventory S_0,
             booking creation 201 CONFIRMED, inventory decrement assertion S_0 - Q)
   - Tier 3: Boundary & Corner Cases (Duplicate seat conflict 409,
             overbooking rejection 400/409, nonexistent event 404, malformed request 400)
   - Tier 4: Concurrency Contention (Simultaneous race condition for single seat,
             asserting strictly 1 winner and N-1 conflicts, zero overselling)
+  - Tier 5: Extended Features & External API Mash-Up Hub (M25–M33: Promotional vouchers,
+            multi-currency rates & invoice, waitlist queue & .ics export, VIP add-ons,
+            verified buyer reviews, geolocation search & floorplans, external mashup
+            weather/music APIs, OpenAPI 3.0 contracts & Swagger docs, runtime AI concierge)
 """
 
 import argparse
@@ -538,6 +543,286 @@ def run_tier_4_concurrency(ctx: TestContext, event_id: Optional[str]):
 
 
 # ==============================================================================
+# Tier 5: Extended Features & External API Mash-Up Hub (M25–M33)
+# ==============================================================================
+
+def run_tier_5_extended_features(ctx: TestContext):
+    ctx.log_section("TIER 5: Extended Features & External API Mash-Up Hub (M25–M33)")
+
+    # 5.1 Promotional Voucher Validation (M25)
+    test_name = "5.1 Promotional Voucher Validation Engine (M25)"
+    try:
+        voucher_payload = {"code": "EARLYBIRD20", "subtotal": 100}
+        status, data, _ = http_request(
+            f"{ctx.gateway_url}/api/vouchers/validate",
+            method="POST",
+            payload=voucher_payload,
+            timeout=ctx.timeout
+        )
+        if status != 200:
+            raise TestFailure(f"Voucher validation failed with HTTP {status}")
+        if not isinstance(data, dict):
+            raise TestFailure("Expected JSON object from voucher validation")
+        is_valid = data.get("valid") is True
+        discount = data.get("discountAmount", data.get("discount_amount", 0))
+        if not is_valid:
+            raise TestFailure(f"Expected voucher EARLYBIRD20 to be valid, got: {data}")
+        if abs(float(discount) - 20.0) > 0.01:
+            raise TestFailure(f"Expected discountAmount of 20, got {discount}")
+        ctx.record_pass(test_name, f"HTTP 200 OK, valid=True, discountAmount=${discount:.2f}")
+    except Exception as e:
+        ctx.record_fail(test_name, str(e))
+
+    # 5.2 Multi-Currency Live FX Rates & PDF Tax Invoice (M26 / M33)
+    test_name = "5.2 Multi-Currency Live FX Rates & PDF Tax Invoice (M26/M33)"
+    try:
+        # FX Rates
+        status_fx, data_fx, _ = http_request(
+            f"{ctx.gateway_url}/api/currencies/rates",
+            method="GET",
+            timeout=ctx.timeout
+        )
+        if status_fx != 200 or not isinstance(data_fx, dict):
+            raise TestFailure(f"Currencies rates failed with HTTP {status_fx}")
+        rates = data_fx.get("rates", {})
+        currencies = [c.get("code") for c in data_fx.get("currencies", [])] if "currencies" in data_fx else []
+        for curr in ["USD", "EUR", "GBP", "JPY"]:
+            if curr not in rates and curr not in currencies:
+                raise TestFailure(f"Currency {curr} missing from live exchange rate table")
+
+        # Invoice JSON
+        status_inv, data_inv, _ = http_request(
+            f"{ctx.gateway_url}/api/bookings/bkg-demo-001/invoice",
+            method="GET",
+            timeout=ctx.timeout
+        )
+        if status_inv != 200 or not isinstance(data_inv, dict):
+            raise TestFailure(f"Invoice lookup failed with HTTP {status_inv}")
+        if not (data_inv.get("invoiceNumber") or data_inv.get("bookingId") == "bkg-demo-001"):
+            raise TestFailure(f"Invoice payload missing valid invoiceNumber or bookingId: {data_inv}")
+
+        ctx.record_pass(test_name, f"HTTP 200 OK, FX rates verified (USD, EUR, GBP, JPY), Invoice: {data_inv.get('invoiceNumber')}")
+    except Exception as e:
+        ctx.record_fail(test_name, str(e))
+
+    # 5.3 Waitlist Queue & Calendar .ics Export (M27 / M28)
+    test_name = "5.3 Waitlist Queue & Calendar .ics Export (M27/M28)"
+    try:
+        # Waitlist Queue
+        status_wl, data_wl, _ = http_request(
+            f"{ctx.gateway_url}/api/waitlist?eventId=evt-106",
+            method="GET",
+            timeout=ctx.timeout
+        )
+        if status_wl != 200:
+            raise TestFailure(f"Waitlist lookup failed with HTTP {status_wl}")
+        entries = data_wl if isinstance(data_wl, list) else data_wl.get("waitlist", [])
+        if len(entries) < 1:
+            raise TestFailure(f"Expected waitlist queue entries for sold-out event evt-106, got {entries}")
+
+        # Calendar .ics
+        status_ics, data_ics, _ = http_request(
+            f"{ctx.gateway_url}/api/bookings/bkg-demo-001/calendar.ics",
+            method="GET",
+            headers={"Accept": "text/calendar,*/*"},
+            timeout=ctx.timeout
+        )
+        if status_ics != 200:
+            raise TestFailure(f"Calendar .ics export failed with HTTP {status_ics}")
+        if "BEGIN:VCALENDAR" not in str(data_ics):
+            raise TestFailure("Calendar export does not contain valid VCALENDAR payload")
+
+        ctx.record_pass(test_name, f"HTTP 200 OK, {len(entries)} waitlist entries, iCalendar .ics validated")
+    except Exception as e:
+        ctx.record_fail(test_name, str(e))
+
+    # 5.4 VIP Add-Ons & Verified Buyer Reviews (M29 / M30)
+    test_name = "5.4 VIP Add-Ons & Verified Buyer Reviews (M29/M30)"
+    try:
+        # Addons
+        status_add, data_add, _ = http_request(
+            f"{ctx.gateway_url}/api/events/evt-101/addons",
+            method="GET",
+            timeout=ctx.timeout
+        )
+        if status_add != 200:
+            raise TestFailure(f"Event addons query failed with HTTP {status_add}")
+        addons = data_add if isinstance(data_add, list) else data_add.get("addons", [])
+        if len(addons) < 1:
+            raise TestFailure("Expected at least 1 add-on for event evt-101")
+
+        # Reviews
+        status_rev, data_rev, _ = http_request(
+            f"{ctx.gateway_url}/api/events/evt-101/reviews",
+            method="GET",
+            timeout=ctx.timeout
+        )
+        if status_rev != 200 or not isinstance(data_rev, dict):
+            raise TestFailure(f"Event reviews query failed with HTTP {status_rev}")
+        reviews = data_rev.get("reviews", [])
+        summary = data_rev.get("summary", {})
+        avg_rating = summary.get("averageRating", data_rev.get("averageRating"))
+        if len(reviews) < 1 or avg_rating is None:
+            raise TestFailure(f"Expected reviews and averageRating, got summary={summary}")
+
+        ctx.record_pass(test_name, f"HTTP 200 OK, {len(addons)} add-ons, {len(reviews)} reviews (avg {avg_rating}★)")
+    except Exception as e:
+        ctx.record_fail(test_name, str(e))
+
+    # 5.5 Geolocation Multi-Facet Search & Venue Floorplans (M31)
+    test_name = "5.5 Geolocation Multi-Facet Search & Venue Floorplans (M31)"
+    try:
+        # Search
+        status_search, data_search, _ = http_request(
+            f"{ctx.gateway_url}/api/events/search?city=Berlin",
+            method="GET",
+            timeout=ctx.timeout
+        )
+        if status_search != 200 or not isinstance(data_search, dict):
+            raise TestFailure(f"Event search failed with HTTP {status_search}")
+        events = data_search.get("events", [])
+        if len(events) < 1:
+            raise TestFailure("Expected matching Berlin events in search response")
+
+        # Floorplan
+        status_fp, data_fp, _ = http_request(
+            f"{ctx.gateway_url}/api/events/evt-101/floorplan",
+            method="GET",
+            timeout=ctx.timeout
+        )
+        if status_fp != 200 or not isinstance(data_fp, dict):
+            raise TestFailure(f"Floorplan query failed with HTTP {status_fp}")
+        sections = data_fp.get("sections", [])
+        if len(sections) < 1:
+            raise TestFailure("Expected venue sections in floorplan response")
+
+        ctx.record_pass(test_name, f"HTTP 200 OK, {len(events)} events in Berlin, {len(sections)} floorplan sections")
+    except Exception as e:
+        ctx.record_fail(test_name, str(e))
+
+    # 5.6 External API Mash-Up Hub — Open-Meteo Weather & Apple iTunes Preview (M33)
+    test_name = "5.6 External API Mash-Up Hub — Weather & Media Preview (M33)"
+    try:
+        # Test evt-101 (Berlin)
+        status_mu1, data_mu1, _ = http_request(
+            f"{ctx.gateway_url}/api/events/evt-101/mashup",
+            method="GET",
+            timeout=ctx.timeout
+        )
+        if status_mu1 != 200 or not isinstance(data_mu1, dict):
+            raise TestFailure(f"Mash-up query for evt-101 failed with HTTP {status_mu1}")
+        
+        weather1 = data_mu1.get("weather", {})
+        temp1 = weather1.get("temperatureC", weather1.get("temperatureCelsius"))
+        cond1 = weather1.get("condition")
+        if temp1 is None or not cond1:
+            raise TestFailure(f"Invalid weather object in mash-up response: {weather1}")
+
+        media1 = data_mu1.get("mediaPreview", {})
+        track1 = media1.get("trackName")
+        url1 = media1.get("previewUrl")
+        if not track1 or not url1:
+            raise TestFailure(f"Invalid mediaPreview object in mash-up response: {media1}")
+
+        # Test evt-105 (Tokyo Cyberpunk)
+        status_mu2, data_mu2, _ = http_request(
+            f"{ctx.gateway_url}/api/events/evt-105/mashup",
+            method="GET",
+            timeout=ctx.timeout
+        )
+        if status_mu2 != 200 or not isinstance(data_mu2, dict):
+            raise TestFailure(f"Mash-up query for evt-105 failed with HTTP {status_mu2}")
+        weather2 = data_mu2.get("weather", {})
+        media2 = data_mu2.get("mediaPreview", {})
+        if not weather2.get("condition") or not media2.get("trackName"):
+            raise TestFailure(f"Invalid mash-up data for evt-105: {data_mu2}")
+
+        ctx.record_pass(
+            test_name,
+            f"HTTP 200 OK, evt-101 ({cond1}, {temp1}°C, track '{track1}'), evt-105 ({weather2.get('condition')}, track '{media2.get('trackName')}')"
+        )
+    except Exception as e:
+        ctx.record_fail(test_name, str(e))
+
+    # 5.7 OpenAPI 3.0.3 Contract & Interactive Swagger Docs (M33)
+    test_name = "5.7 OpenAPI 3.0.3 Contract & Interactive Swagger Docs (M33)"
+    try:
+        # OpenAPI spec
+        status_oas, data_oas, _ = http_request(
+            f"{ctx.gateway_url}/api/openapi.json",
+            method="GET",
+            timeout=ctx.timeout
+        )
+        if status_oas != 200 or not isinstance(data_oas, dict):
+            raise TestFailure(f"OpenAPI spec failed with HTTP {status_oas}")
+        version = data_oas.get("openapi", "")
+        if not str(version).startswith("3.0"):
+            raise TestFailure(f"Expected OpenAPI version 3.0.x, got '{version}'")
+        paths = data_oas.get("paths", {})
+        if "/api/events/{id}/mashup" not in paths or "/api/concierge/advise" not in paths:
+            raise TestFailure(f"OpenAPI specification missing M33 paths. Present paths: {list(paths.keys())}")
+
+        # Interactive Swagger Docs HTML
+        status_docs, data_docs, _ = http_request(
+            f"{ctx.gateway_url}/api/docs/",
+            method="GET",
+            headers={"Accept": "text/html,*/*"},
+            timeout=ctx.timeout
+        )
+        if status_docs != 200 or "swagger-ui" not in str(data_docs):
+            raise TestFailure(f"Swagger UI docs failed or missing 'swagger-ui' token, status {status_docs}")
+
+        ctx.record_pass(test_name, f"HTTP 200 OK, OpenAPI {version} verified with M33 endpoints & Swagger UI HTML")
+    except Exception as e:
+        ctx.record_fail(test_name, str(e))
+
+    # 5.8 Runtime AI Event Concierge Synthesis (M33)
+    test_name = "5.8 Runtime AI Event Concierge Synthesis (M33)"
+    try:
+        concierge_payload = {
+            "prompt": "I want an electric concert experience in Berlin",
+            "budget": 180,
+            "currency": "EUR",
+            "EventID": "evt-101",
+        }
+        status_con, data_con, _ = http_request(
+            f"{ctx.gateway_url}/api/concierge/advise",
+            method="POST",
+            payload=concierge_payload,
+            timeout=ctx.timeout
+        )
+        if status_con != 200 or not isinstance(data_con, dict):
+            raise TestFailure(f"AI Concierge failed with HTTP {status_con}")
+
+        rec_event = data_con.get("recommendedEventId") or data_con.get("eventId")
+        rec_tier = data_con.get("recommendedTier")
+        conv_price = data_con.get("convertedPrice")
+        curr = data_con.get("currency")
+        weather_adv = data_con.get("weatherAdvisory")
+        voucher = data_con.get("suggestedVoucher")
+
+        if not rec_event or rec_event != "evt-101":
+            raise TestFailure(f"Expected recommendedEventId/eventId 'evt-101', got '{rec_event}'")
+        if not rec_tier:
+            raise TestFailure("Expected recommendedTier in concierge response")
+        if conv_price is None or float(conv_price) <= 0:
+            raise TestFailure(f"Expected positive convertedPrice, got {conv_price}")
+        if curr != "EUR":
+            raise TestFailure(f"Expected currency 'EUR', got '{curr}'")
+        if not weather_adv:
+            raise TestFailure("Expected weatherAdvisory in concierge response")
+        if not voucher:
+            raise TestFailure("Expected suggestedVoucher in concierge response")
+
+        ctx.record_pass(
+            test_name,
+            f"HTTP 200 OK, Event: {rec_event}, Tier: '{rec_tier}', Price: {conv_price} {curr}, Voucher: {voucher}"
+        )
+    except Exception as e:
+        ctx.record_fail(test_name, str(e))
+
+
+# ==============================================================================
 # Health Check Wait Loop
 # ==============================================================================
 
@@ -593,7 +878,7 @@ def main():
     )
     parser.add_argument(
         "--tier",
-        choices=["all", "1", "2", "3", "4"],
+        choices=["all", "1", "2", "3", "4", "5"],
         default="all",
         help="Execute specific test tier (default: all)"
     )
@@ -629,8 +914,8 @@ def main():
     if args.tier in ("all", "2"):
         event_id, _ = run_tier_2_acceptance(ctx)
 
-    # For standalone tier 3 or 4 runs if tier 2 wasn't run
-    if args.tier in ("3", "4") and not event_id:
+    # For standalone tier 3, 4, or 5 runs if tier 2 wasn't run
+    if args.tier in ("3", "4", "5") and not event_id:
         try:
             _, catalog_data, _ = http_request(f"{ctx.gateway_url}/api/events", method="GET", timeout=ctx.timeout)
             events = catalog_data if isinstance(catalog_data, list) else catalog_data.get("events", [])
@@ -644,6 +929,9 @@ def main():
 
     if args.tier in ("all", "4"):
         run_tier_4_concurrency(ctx, event_id)
+
+    if args.tier in ("all", "5"):
+        run_tier_5_extended_features(ctx)
 
     elapsed = time.time() - start_time
 

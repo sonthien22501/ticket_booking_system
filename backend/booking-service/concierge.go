@@ -11,25 +11,32 @@ import (
 
 type ConciergeAdviceRequest struct {
 	EventID          string  `json:"eventId"`
+	EventIDAlt       string  `json:"EventID,omitempty"`
 	EventTitle       string  `json:"eventTitle"`
 	Category         string  `json:"category"`
 	VenueName        string  `json:"venueName"`
 	VenueLocation    string  `json:"venueLocation"`
 	Currency         string  `json:"currency"`
 	BudgetMax        float64 `json:"budgetMax"`
+	Budget           float64 `json:"budget,omitempty"`
 	WeatherCondition string  `json:"weatherCondition"`
 	RainProbability  int     `json:"rainProbability"`
 	Preferences      string  `json:"preferences"`
+	Prompt           string  `json:"prompt,omitempty"`
 }
 
 type ConciergeAdviceResponse struct {
 	EventID              string   `json:"eventId"`
+	RecommendedEventID   string   `json:"recommendedEventId"`
 	Headline             string   `json:"headline"`
 	WeatherAdvisory      string   `json:"weatherAdvisory"`
 	RecommendedTier      string   `json:"recommendedTier"`
 	RecommendedAddonName string   `json:"recommendedAddonName"`
 	RecommendedAddonID   string   `json:"recommendedAddonId"`
 	LocalizedBudgetNote  string   `json:"localizedBudgetNote"`
+	ConvertedPrice       float64  `json:"convertedPrice"`
+	Currency             string   `json:"currency"`
+	SuggestedVoucher     string   `json:"suggestedVoucher"`
 	InsiderTips          []string `json:"insiderTips"`
 	ComposedSources      []string `json:"composedSources"`
 	Engine               string   `json:"engine"`
@@ -60,6 +67,16 @@ func (s *Server) handleConciergeAdvise(w http.ResponseWriter, r *http.Request) {
 			"fallbackUsed": false,
 		})
 		return
+	}
+
+	if strings.TrimSpace(req.EventID) == "" && strings.TrimSpace(req.EventIDAlt) != "" {
+		req.EventID = strings.TrimSpace(req.EventIDAlt)
+	}
+	if req.BudgetMax == 0 && req.Budget > 0 {
+		req.BudgetMax = req.Budget
+	}
+	if req.Preferences == "" && req.Prompt != "" {
+		req.Preferences = req.Prompt
 	}
 
 	if strings.TrimSpace(req.EventID) == "" {
@@ -165,14 +182,27 @@ func synthesizeConciergeAdvice(req ConciergeAdviceRequest) ConciergeAdviceRespon
 
 	headline := fmt.Sprintf("Concierge Itinerary: %s at %s", eventTitle, venue)
 
+	convertedPrice := req.BudgetMax
+	if convertedPrice <= 0 {
+		convertedPrice = 120.0
+	}
+	suggestedVoucher := "EARLYBIRD20"
+	if convertedPrice >= 200.0 {
+		suggestedVoucher = "VIP50"
+	}
+
 	return ConciergeAdviceResponse{
 		EventID:              req.EventID,
+		RecommendedEventID:   req.EventID,
 		Headline:             headline,
 		WeatherAdvisory:      weatherAdv,
 		RecommendedTier:      recTier,
 		RecommendedAddonName: addonName,
 		RecommendedAddonID:   addonID,
 		LocalizedBudgetNote:  budgetNote,
+		ConvertedPrice:       convertedPrice,
+		Currency:             curr,
+		SuggestedVoucher:     suggestedVoucher,
 		InsiderTips:          tips,
 		ComposedSources: []string{
 			"catalog-service:event",
