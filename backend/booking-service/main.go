@@ -79,6 +79,14 @@ type CreateBookingRequest struct {
 	Addons            []AddonItemRequest `json:"addons,omitempty"`
 }
 
+type BookingRequest = CreateBookingRequest
+
+func decodeStrictJSON(r *http.Request, dst interface{}) error {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	return dec.Decode(dst)
+}
+
 type Ticket struct {
 	ID         string    `json:"id"`
 	TicketID   string    `json:"ticketId"`
@@ -319,7 +327,7 @@ func applyTax(totalPreTax float64, currency string) (float64, float64, float64) 
 
 func (s *Server) createBooking(w http.ResponseWriter, r *http.Request) {
 	var req CreateBookingRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"Invalid request payload: %v"}`, err), http.StatusBadRequest)
 		return
 	}
@@ -902,6 +910,79 @@ func (s *Server) fetchCatalogEventMetadata(eventID string) (string, map[string]f
 	return "", tiers, fmt.Errorf("catalog service metadata fetch unavailable")
 }
 
+type EventMetadata struct {
+	ID            string           `json:"id"`
+	Title         string           `json:"title"`
+	Description   string           `json:"description,omitempty"`
+	Category      string           `json:"category,omitempty"`
+	VenueName     string           `json:"venueName"`
+	VenueLocation string           `json:"venueLocation"`
+	StartTime     time.Time        `json:"startTime"`
+	EndTime       *time.Time       `json:"endTime,omitempty"`
+	Tiers         []TicketTierMeta `json:"tiers,omitempty"`
+}
+
+type TicketTierMeta struct {
+	ID       string  `json:"id"`
+	Name     string  `json:"name,omitempty"`
+	Price    float64 `json:"price"`
+	Capacity int     `json:"capacity,omitempty"`
+}
+
+func (s *Server) getEventMetadata(eventID string) (*EventMetadata, error) {
+	if eventID == "" {
+		return nil, fmt.Errorf("event ID is required")
+	}
+	catalogURL := s.catalogServiceURL
+	if catalogURL == "" {
+		catalogURL = "http://catalog-service:8081"
+	}
+	client := s.httpClient
+	if client == nil {
+		client = &http.Client{Timeout: 3 * time.Second}
+	}
+	reqURL := fmt.Sprintf("%s/events/%s", strings.TrimRight(catalogURL, "/"), eventID)
+	resp, err := client.Get(reqURL)
+	if err == nil && resp.StatusCode == http.StatusOK {
+		defer resp.Body.Close()
+		var meta EventMetadata
+		if decErr := json.NewDecoder(resp.Body).Decode(&meta); decErr == nil && meta.Title != "" {
+			return &meta, nil
+		}
+	}
+
+	// Fallback to local DB if available
+	if s.db != nil {
+		var meta EventMetadata
+		var desc sql.NullString
+		var endTime sql.NullTime
+		qErr := s.db.QueryRow(
+			`SELECT id, title, description, category, venue_name, venue_location, start_time, end_time FROM events WHERE id = $1`,
+			eventID,
+		).Scan(&meta.ID, &meta.Title, &desc, &meta.Category, &meta.VenueName, &meta.VenueLocation, &meta.StartTime, &endTime)
+		if qErr == nil && meta.Title != "" {
+			if desc.Valid {
+				meta.Description = desc.String
+			}
+			if endTime.Valid {
+				meta.EndTime = &endTime.Time
+			}
+			rows, tErr := s.db.Query(`SELECT id, name, price, capacity FROM ticket_tiers WHERE event_id = $1`, eventID)
+			if tErr == nil {
+				defer rows.Close()
+				for rows.Next() {
+					var t TicketTierMeta
+					if rows.Scan(&t.ID, &t.Name, &t.Price, &t.Capacity) == nil {
+						meta.Tiers = append(meta.Tiers, t)
+					}
+				}
+			}
+			return &meta, nil
+		}
+	}
+	return nil, fmt.Errorf("event metadata not found for event %s", eventID)
+}
+
 func (s *Server) fetchEventInfo(eventID, tierID string) (string, float64) {
 	// Database-per-service pattern: query authoritative Catalog Service HTTP API first
 	if metaTitle, metaTiers, err := s.fetchCatalogEventMetadata(eventID); err == nil && metaTitle != "" {
@@ -1168,6 +1249,10 @@ func (s *Server) handleCancelBooking(w http.ResponseWriter, r *http.Request, boo
 
 	// 3. Idempotency check: If already cancelled
 	if b.Status == "CANCELLED" {
+		if r.Method == http.MethodDelete {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -1207,6 +1292,10 @@ func (s *Server) handleCancelBooking(w http.ResponseWriter, r *http.Request, boo
 				_ = s.rdb.Del(context.Background(), "idempotency:booking:"+b.IdempotencyKey).Err()
 			}
 
+			if r.Method == http.MethodDelete {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -1245,6 +1334,10 @@ func (s *Server) handleCancelBooking(w http.ResponseWriter, r *http.Request, boo
 				_ = s.rdb.Del(context.Background(), "idempotency:booking:"+b.IdempotencyKey).Err()
 			}
 
+			if r.Method == http.MethodDelete {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -1278,7 +1371,7 @@ func (s *Server) handleVerifyTicket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req VerifyTicketRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"Invalid request payload: %v"}`, err), http.StatusBadRequest)
 		return
 	}
@@ -1837,7 +1930,7 @@ func (s *Server) handleDLQSimulate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req DLQSimulateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "Invalid payload"})

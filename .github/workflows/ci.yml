@@ -49,7 +49,7 @@ jobs:
               - 'scripts/validate_openapi.py'
 
   catalog-tests:
-    name: Catalog Service Unit Tests
+    name: Catalog Service CI Pipeline
     needs: changes
     if: ${{ needs.changes.outputs.catalog == 'true' || github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
@@ -60,13 +60,29 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-      - name: Run Unit Tests
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Lint Service (go vet)
+        run: |
+          cd backend/catalog-service
+          go vet ./...
+      - name: Run Unit & Contract Violation Tests
         run: |
           cd backend/catalog-service
           go test -v -timeout 30s ./...
+      - name: OpenAPI Contract Validation
+        run: |
+          cd backend/catalog-service
+          python3 ../../scripts/validate_openapi.py
+      - name: Docker Build Check
+        run: |
+          cd backend/catalog-service
+          docker build -t catalog-service:ci .
 
   inventory-tests:
-    name: Inventory Service Unit Tests
+    name: Inventory Service CI Pipeline
     needs: changes
     if: ${{ needs.changes.outputs.inventory == 'true' || github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
@@ -77,13 +93,29 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-      - name: Run Unit Tests
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Lint Service (go vet)
+        run: |
+          cd backend/inventory-service
+          go vet ./...
+      - name: Run Unit & Contract Violation Tests
         run: |
           cd backend/inventory-service
           go test -v -timeout 30s ./...
+      - name: OpenAPI Contract Validation
+        run: |
+          cd backend/inventory-service
+          python3 ../../scripts/validate_openapi.py
+      - name: Docker Build Check
+        run: |
+          cd backend/inventory-service
+          docker build -t inventory-service:ci .
 
   booking-tests:
-    name: Booking Service Unit Tests
+    name: Booking Service CI Pipeline
     needs: changes
     if: ${{ needs.changes.outputs.booking == 'true' || github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
@@ -94,13 +126,29 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-      - name: Run Unit Tests
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Lint Service (go vet)
+        run: |
+          cd backend/booking-service
+          go vet ./...
+      - name: Run Unit & Contract Violation Tests
         run: |
           cd backend/booking-service
           go test -v -timeout 30s ./...
+      - name: OpenAPI Contract Validation
+        run: |
+          cd backend/booking-service
+          python3 ../../scripts/validate_openapi.py
+      - name: Docker Build Check
+        run: |
+          cd backend/booking-service
+          docker build -t booking-service:ci .
 
   auth-tests:
-    name: Auth Service Unit Tests
+    name: Auth Service CI Pipeline
     needs: changes
     if: ${{ needs.changes.outputs.auth == 'true' || github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
@@ -111,13 +159,29 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-      - name: Run Unit Tests
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Lint Service (go vet)
+        run: |
+          cd backend/auth-service
+          go vet ./...
+      - name: Run Unit & Contract Violation Tests
         run: |
           cd backend/auth-service
           go test -v -timeout 30s ./...
+      - name: OpenAPI Contract Validation
+        run: |
+          cd backend/auth-service
+          python3 ../../scripts/validate_openapi.py
+      - name: Docker Build Check
+        run: |
+          cd backend/auth-service
+          docker build -t auth-service:ci .
 
   notification-tests:
-    name: Notification Service Unit Tests
+    name: Notification Service CI Pipeline
     needs: changes
     if: ${{ needs.changes.outputs.notification == 'true' || github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
@@ -128,10 +192,26 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-      - name: Run Unit Tests
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Lint Service (go vet)
+        run: |
+          cd backend/notification-service
+          go vet ./...
+      - name: Run Unit & Contract Violation Tests
         run: |
           cd backend/notification-service
           go test -v -timeout 30s ./...
+      - name: OpenAPI Contract Validation
+        run: |
+          cd backend/notification-service
+          python3 ../../scripts/validate_openapi.py
+      - name: Docker Build Check
+        run: |
+          cd backend/notification-service
+          docker build -t notification-service:ci .
 
   frontend-build:
     name: Frontend Build & Typecheck

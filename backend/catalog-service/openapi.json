@@ -3,7 +3,7 @@
   "info": {
     "title": "Catalog Service API",
     "version": "1.0.0",
-    "description": "Event Catalog, Ticket Tiers, Search, Venue Floorplan, Reviews, and External Mashup API."
+    "description": "Event Catalog, Ticket Tiers, Search, Venue Floorplan, Pricing, Reviews, and External Mashup API."
   },
   "servers": [
     {
@@ -15,62 +15,802 @@
     "/api/events": {
       "get": {
         "summary": "List catalog events",
+        "description": "Retrieve list of all active events with ticket tiers and venue info.",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "description": "Filter events by category (e.g. Music, Tech, Sports)",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Music"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of events to return",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 20
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Pagination offset",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 0
+          }
+        ],
         "responses": {
-          "200": { "description": "List of active events" }
+          "200": {
+            "description": "List of active events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventListResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       },
       "post": {
         "summary": "Create new event",
+        "description": "Admin endpoint to publish a new event.",
+        "requestBody": {
+          "required": true,
+          "description": "Event creation payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEventRequest"
+              }
+            }
+          }
+        },
         "responses": {
-          "201": { "description": "Event created" }
+          "201": {
+            "description": "Event created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or invalid request payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized administrator access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/events/search": {
       "get": {
-        "summary": "Search events by city or category",
+        "summary": "Search events by title, city, or category",
+        "description": "Full-text search query across events.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Search keyword query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Rock Festival"
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "description": "City where event is hosted",
+            "schema": {
+              "type": "string"
+            },
+            "example": "London"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "description": "Category filter",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Concert"
+          }
+        ],
         "responses": {
-          "200": { "description": "Search results" }
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventListResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/events/{id}": {
       "get": {
         "summary": "Get event details by ID",
+        "description": "Retrieve comprehensive event metadata including ticket tiers.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Unique event identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "evt-101"
+          }
+        ],
         "responses": {
-          "200": { "description": "Event details" },
-          "404": { "description": "Event not found" }
+          "200": {
+            "description": "Event details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid event identifier",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}/status": {
+      "put": {
+        "summary": "Update event lifecycle status (PUT)",
+        "description": "Transition event state between DRAFT, PUBLISHED, ARCHIVED, or CANCELLED.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Unique event identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "evt-101"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Event status update payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventStatusUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event status updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status transition payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Partially update event lifecycle status (PATCH)",
+        "description": "Patch event lifecycle state.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Unique event identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "evt-101"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Event status patch payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventStatusUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event status updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status transition payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}/pricing": {
+      "get": {
+        "summary": "Get dynamic surge pricing telemetry",
+        "description": "Calculates surge multiplier and live pricing breakdown.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Event identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "evt-101"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Surge pricing information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPricingResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/events/{id}/floorplan": {
       "get": {
         "summary": "Get venue seating floorplan",
+        "description": "Returns venue layout and seat coordinates.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Event identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "evt-101"
+          }
+        ],
         "responses": {
-          "200": { "description": "Floorplan layout" }
+          "200": {
+            "description": "Floorplan layout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FloorplanResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/events/{id}/mashup": {
       "get": {
         "summary": "Get event mashup intelligence (weather and audio preview)",
+        "description": "Orchestrates catalog data with live Open-Meteo weather forecast and Apple iTunes track preview.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Event identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "evt-101"
+          }
+        ],
         "responses": {
-          "200": { "description": "Mashup data" },
-          "404": { "description": "Event not found" }
+          "200": {
+            "description": "Composed external mashup data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventMashupResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/events/{id}/reviews": {
       "get": {
         "summary": "Get verified buyer reviews",
+        "description": "List reviews and ratings submitted for this event.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Event identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "evt-101"
+          }
+        ],
         "responses": {
-          "200": { "description": "Review list" }
+          "200": {
+            "description": "Review list retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventReviewsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       },
       "post": {
         "summary": "Submit event review",
+        "description": "Authenticated attendee submits rating and feedback.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Event identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "evt-101"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Review submission payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewRequest"
+              }
+            }
+          }
+        },
         "responses": {
-          "201": { "description": "Review submitted" }
+          "201": {
+            "description": "Review submitted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid review parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bookings": {
+      "post": {
+        "summary": "Create ticket booking",
+        "description": "Gateway route for booking confirmation.",
+        "requestBody": {
+          "required": true,
+          "description": "Booking payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Booking created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booking"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid booking payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Seat conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/currencies/rates": {
+      "get": {
+        "summary": "Get currency exchange rates",
+        "description": "Returns ECB live rates.",
+        "responses": {
+          "200": {
+            "description": "Currency rates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrencyRatesResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/concierge/advise": {
+      "post": {
+        "summary": "Generate AI concierge advisory",
+        "description": "Synthesizes event, weather, and budget tips.",
+        "requestBody": {
+          "required": true,
+          "description": "Concierge advisory parameters",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConciergeAdviceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Advisory recommendation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConciergeAdviceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -79,11 +819,821 @@
     "schemas": {
       "Event": {
         "type": "object",
+        "required": [
+          "id",
+          "title",
+          "category",
+          "venueName"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "title": { "type": "string" },
-          "category": { "type": "string" },
-          "venueName": { "type": "string" }
+          "id": {
+            "type": "string",
+            "description": "Unique identifier of the event",
+            "example": "evt-101"
+          },
+          "title": {
+            "type": "string",
+            "description": "Public headline title of the event",
+            "example": "Coldplay Music of the Spheres"
+          },
+          "description": {
+            "type": "string",
+            "description": "Detailed event summary and itinerary",
+            "example": "Experience Coldplay live in concert with special visual effects."
+          },
+          "category": {
+            "type": "string",
+            "description": "Classification category for the event",
+            "example": "Music"
+          },
+          "venueName": {
+            "type": "string",
+            "description": "Name of the stadium or auditorium",
+            "example": "Wembley Stadium"
+          },
+          "venueLocation": {
+            "type": "string",
+            "description": "Geographical address and host city",
+            "example": "London, UK"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 start timestamp",
+            "example": "2026-08-15T19:00:00Z"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 conclusion timestamp",
+            "example": "2026-08-15T22:30:00Z"
+          },
+          "status": {
+            "type": "string",
+            "description": "Current lifecycle status (DRAFT, PUBLISHED, ARCHIVED, CANCELLED)",
+            "example": "PUBLISHED"
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "Poster banner image URL",
+            "example": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745"
+          },
+          "tiers": {
+            "type": "array",
+            "description": "Associated seating and pricing tiers",
+            "items": {
+              "$ref": "#/components/schemas/EventTier"
+            },
+            "example": [
+              {
+                "tierId": "tier-vip",
+                "name": "VIP Lounge",
+                "price": 250.0
+              }
+            ]
+          }
+        }
+      },
+      "EventTier": {
+        "type": "object",
+        "required": [
+          "tierId",
+          "name",
+          "price"
+        ],
+        "properties": {
+          "tierId": {
+            "type": "string",
+            "description": "Unique identifier of the ticket tier",
+            "example": "tier-vip"
+          },
+          "eventId": {
+            "type": "string",
+            "description": "Referenced parent event identifier",
+            "example": "evt-101"
+          },
+          "name": {
+            "type": "string",
+            "description": "Tier display label",
+            "example": "VIP Front Row"
+          },
+          "price": {
+            "type": "number",
+            "format": "double",
+            "description": "Base unit ticket price in EUR",
+            "example": 150.0
+          },
+          "capacity": {
+            "type": "integer",
+            "description": "Total seat allocation in this tier",
+            "example": 100
+          },
+          "available": {
+            "type": "integer",
+            "description": "Number of unsold available seats",
+            "example": 42
+          },
+          "availableSeats": {
+            "type": "integer",
+            "description": "Alternative alias for remaining seats",
+            "example": 42
+          },
+          "description": {
+            "type": "string",
+            "description": "Tier perks and amenities description",
+            "example": "Includes priority entrance and complimentary beverage."
+          }
+        }
+      },
+      "EventListResponse": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "description": "Collection of matching event objects",
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            },
+            "example": [
+              {
+                "id": "evt-101",
+                "title": "Coldplay Tour"
+              }
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of events matching query",
+            "example": 1
+          }
+        }
+      },
+      "CreateEventRequest": {
+        "type": "object",
+        "required": [
+          "title",
+          "category",
+          "venueName",
+          "venueLocation",
+          "startTime"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Optional client-specified event identifier",
+            "example": "evt-101"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of the new event",
+            "example": "Glastonbury Summer Fest"
+          },
+          "description": {
+            "type": "string",
+            "description": "Comprehensive event description",
+            "example": "Three-day music and arts festival."
+          },
+          "category": {
+            "type": "string",
+            "description": "Event genre or category",
+            "example": "Festival"
+          },
+          "venueName": {
+            "type": "string",
+            "description": "Host venue name",
+            "example": "Worthy Farm"
+          },
+          "venueLocation": {
+            "type": "string",
+            "description": "City and country of venue",
+            "example": "Pilton, Somerset, UK"
+          },
+          "startTime": {
+            "type": "string",
+            "description": "Scheduled start time",
+            "example": "2026-06-24T12:00:00Z"
+          },
+          "endTime": {
+            "type": "string",
+            "description": "Scheduled finish time",
+            "example": "2026-06-28T23:59:59Z"
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "Public URL for event promotional banner",
+            "example": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819"
+          },
+          "totalCapacity": {
+            "type": "integer",
+            "description": "Total audience capacity across all tiers",
+            "example": 200000
+          }
+        }
+      },
+      "EventStatusUpdateRequest": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Target lifecycle state",
+            "example": "PUBLISHED"
+          }
+        }
+      },
+      "FloorplanResponse": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Associated event identifier",
+            "example": "evt-101"
+          },
+          "venueName": {
+            "type": "string",
+            "description": "Name of the venue",
+            "example": "Wembley Stadium"
+          },
+          "totalRows": {
+            "type": "integer",
+            "description": "Number of seated rows in venue",
+            "example": 26
+          },
+          "seatsPerRow": {
+            "type": "integer",
+            "description": "Number of seats per row",
+            "example": 30
+          },
+          "layout": {
+            "type": "string",
+            "description": "Venue layout configuration architecture",
+            "example": "ARENA_HORSESHOE"
+          }
+        }
+      },
+      "EventPricingResponse": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Associated event identifier",
+            "example": "evt-101"
+          },
+          "basePrice": {
+            "type": "number",
+            "description": "Standard non-surged price in EUR",
+            "example": 80.0
+          },
+          "currentMultiplier": {
+            "type": "number",
+            "description": "Active dynamic surge demand multiplier",
+            "example": 1.25
+          },
+          "surgeReason": {
+            "type": "string",
+            "description": "Explanation for surge pricing trigger",
+            "example": "High demand: >80% capacity reserved in last 10 minutes"
+          },
+          "effectivePrice": {
+            "type": "number",
+            "description": "Calculated price after dynamic multiplier",
+            "example": 100.0
+          }
+        }
+      },
+      "WeatherForecast": {
+        "type": "object",
+        "properties": {
+          "temperatureC": {
+            "type": "number",
+            "description": "Ambient temperature in Celsius",
+            "example": 21.5
+          },
+          "temperatureF": {
+            "type": "number",
+            "description": "Ambient temperature in Fahrenheit",
+            "example": 70.7
+          },
+          "condition": {
+            "type": "string",
+            "description": "General weather condition label",
+            "example": "Partly Cloudy"
+          },
+          "weatherCode": {
+            "type": "integer",
+            "description": "WMO standardized meteorological weather code",
+            "example": 2
+          },
+          "precipitationProb": {
+            "type": "integer",
+            "description": "Probability of rain percentage (0-100)",
+            "example": 10
+          },
+          "windSpeedKmh": {
+            "type": "number",
+            "description": "Wind speed in km/h",
+            "example": 14.2
+          },
+          "isOutdoorFriendly": {
+            "type": "boolean",
+            "description": "True if weather is suitable for open-air seating",
+            "example": true
+          },
+          "advisory": {
+            "type": "string",
+            "description": "Actionable attendee weather guidance",
+            "example": "Comfortable evening expected; light jacket recommended."
+          },
+          "source": {
+            "type": "string",
+            "description": "Upstream weather telemetry provider",
+            "example": "Open-Meteo API"
+          }
+        }
+      },
+      "MediaTrackPreview": {
+        "type": "object",
+        "properties": {
+          "trackName": {
+            "type": "string",
+            "description": "Title of preview music track",
+            "example": "Yellow"
+          },
+          "artistName": {
+            "type": "string",
+            "description": "Performing artist or band name",
+            "example": "Coldplay"
+          },
+          "albumName": {
+            "type": "string",
+            "description": "Album or single title",
+            "example": "Parachutes"
+          },
+          "previewUrl": {
+            "type": "string",
+            "description": "30-second AAC audio preview stream URL",
+            "example": "https://audio-ssl.itunes.apple.com/preview.m4a"
+          },
+          "artworkUrl": {
+            "type": "string",
+            "description": "Album sleeve high-resolution artwork URL",
+            "example": "https://is1-ssl.mzstatic.com/image.jpg"
+          },
+          "genre": {
+            "type": "string",
+            "description": "Music genre classification",
+            "example": "Alternative Rock"
+          },
+          "releaseDate": {
+            "type": "string",
+            "description": "Track commercial release date",
+            "example": "2000-06-26"
+          },
+          "source": {
+            "type": "string",
+            "description": "Upstream audio metadata provider",
+            "example": "Apple iTunes Search API"
+          }
+        }
+      },
+      "EventMashupResponse": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Unique event identifier",
+            "example": "evt-101"
+          },
+          "eventTitle": {
+            "type": "string",
+            "description": "Event headline title",
+            "example": "Coldplay World Tour"
+          },
+          "venueName": {
+            "type": "string",
+            "description": "Venue name",
+            "example": "Wembley Stadium"
+          },
+          "venueCity": {
+            "type": "string",
+            "description": "Host venue city",
+            "example": "London"
+          },
+          "latitude": {
+            "type": "number",
+            "description": "Geographical latitude coordinate",
+            "example": 51.556
+          },
+          "longitude": {
+            "type": "number",
+            "description": "Geographical longitude coordinate",
+            "example": -0.2796
+          },
+          "weather": {
+            "$ref": "#/components/schemas/WeatherForecast",
+            "description": "Live weather forecast data",
+            "example": {
+              "temperatureC": 21.5,
+              "condition": "Partly Cloudy"
+            }
+          },
+          "mediaPreview": {
+            "$ref": "#/components/schemas/MediaTrackPreview",
+            "description": "Live audio preview track",
+            "example": {
+              "trackName": "Yellow",
+              "artistName": "Coldplay"
+            }
+          },
+          "fallbackUsed": {
+            "type": "boolean",
+            "description": "True if upstream third-party was offline and cached fallback was served",
+            "example": false
+          },
+          "cached": {
+            "type": "boolean",
+            "description": "True if response was served from high-performance Redis cache",
+            "example": true
+          },
+          "fetchedAt": {
+            "type": "string",
+            "description": "ISO-8601 composition timestamp",
+            "example": "2026-10-27T10:00:00Z"
+          }
+        }
+      },
+      "Review": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique review identifier",
+            "example": "rev-101"
+          },
+          "eventId": {
+            "type": "string",
+            "description": "Target event identifier",
+            "example": "evt-101"
+          },
+          "userId": {
+            "type": "string",
+            "description": "Reviewer user ID",
+            "example": "usr-101"
+          },
+          "userName": {
+            "type": "string",
+            "description": "Reviewer display name",
+            "example": "Alice Smith"
+          },
+          "rating": {
+            "type": "integer",
+            "description": "Star rating score from 1 to 5",
+            "example": 5
+          },
+          "comment": {
+            "type": "string",
+            "description": "Written attendee evaluation feedback",
+            "example": "Unforgettable performance and stellar audio quality!"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Review creation timestamp",
+            "example": "2026-08-16T09:30:00Z"
+          }
+        }
+      },
+      "EventReviewsResponse": {
+        "type": "object",
+        "properties": {
+          "reviews": {
+            "type": "array",
+            "description": "List of attendee review entries",
+            "items": {
+              "$ref": "#/components/schemas/Review"
+            },
+            "example": [
+              {
+                "id": "rev-101",
+                "rating": 5,
+                "comment": "Great show!"
+              }
+            ]
+          },
+          "averageRating": {
+            "type": "number",
+            "description": "Arithmetic mean star rating across all reviews",
+            "example": 4.8
+          },
+          "totalReviews": {
+            "type": "integer",
+            "description": "Total review count submitted for event",
+            "example": 240
+          }
+        }
+      },
+      "CreateReviewRequest": {
+        "type": "object",
+        "required": [
+          "rating",
+          "comment"
+        ],
+        "properties": {
+          "rating": {
+            "type": "integer",
+            "description": "Star rating integer between 1 and 5",
+            "example": 5
+          },
+          "comment": {
+            "type": "string",
+            "description": "Review commentary text",
+            "example": "Brilliant concert experience!"
+          }
+        }
+      },
+      "Booking": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique booking identifier",
+            "example": "bkg-101"
+          },
+          "bookingReference": {
+            "type": "string",
+            "description": "Human-readable alpha-numeric reference code",
+            "example": "BKG-ABCD-1234"
+          },
+          "totalAmount": {
+            "type": "number",
+            "description": "Total final paid amount in EUR",
+            "example": 120.0
+          },
+          "status": {
+            "type": "string",
+            "description": "Booking confirmation status",
+            "example": "CONFIRMED"
+          }
+        }
+      },
+      "BookingRequest": {
+        "type": "object",
+        "required": [
+          "eventId",
+          "tierId",
+          "quantity",
+          "customerEmail"
+        ],
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Event identifier",
+            "example": "evt-101"
+          },
+          "tierId": {
+            "type": "string",
+            "description": "Chosen ticket tier",
+            "example": "tier-vip"
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Number of tickets requested",
+            "example": 2
+          },
+          "customerEmail": {
+            "type": "string",
+            "description": "Attendee confirmation email address",
+            "example": "customer@example.com"
+          }
+        }
+      },
+      "CurrencyRatesResponse": {
+        "type": "object",
+        "properties": {
+          "base": {
+            "type": "string",
+            "description": "Base reference currency code",
+            "example": "EUR"
+          },
+          "rates": {
+            "type": "object",
+            "description": "Map of ISO currency code to ECB foreign exchange rates",
+            "example": {
+              "USD": 1.08,
+              "GBP": 0.86
+            }
+          },
+          "symbols": {
+            "type": "object",
+            "description": "Currency graphical symbol map",
+            "example": {
+              "EUR": "€",
+              "USD": "$"
+            }
+          },
+          "taxRates": {
+            "type": "object",
+            "description": "Regional VAT or sales tax decimal rate by currency",
+            "example": {
+              "EUR": 0.2,
+              "USD": 0.08
+            }
+          },
+          "decimals": {
+            "type": "object",
+            "description": "Standard decimal display precision",
+            "example": {
+              "EUR": 2,
+              "USD": 2
+            }
+          },
+          "currencies": {
+            "type": "array",
+            "description": "List of supported currency codes",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "EUR",
+              "USD",
+              "GBP",
+              "JPY",
+              "CHF"
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Timestamp of last ECB rates synchronization",
+            "example": "2026-10-27T08:00:00Z"
+          },
+          "source": {
+            "type": "string",
+            "description": "Upstream FX rate data provider",
+            "example": "Frankfurter ECB API"
+          },
+          "fallbackUsed": {
+            "type": "boolean",
+            "description": "True if offline deterministic fallback rates were utilized",
+            "example": false
+          }
+        }
+      },
+      "ConciergeAdviceRequest": {
+        "type": "object",
+        "required": [
+          "eventId"
+        ],
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Target event identifier for concierge advice",
+            "example": "evt-101"
+          },
+          "eventTitle": {
+            "type": "string",
+            "description": "Event title",
+            "example": "Coldplay Music of the Spheres"
+          },
+          "category": {
+            "type": "string",
+            "description": "Event genre",
+            "example": "Music"
+          },
+          "venueName": {
+            "type": "string",
+            "description": "Venue name",
+            "example": "Wembley Stadium"
+          },
+          "venueLocation": {
+            "type": "string",
+            "description": "Venue city and country",
+            "example": "London, UK"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Preferred attendee currency",
+            "example": "EUR"
+          },
+          "budgetMax": {
+            "type": "number",
+            "description": "Maximum budget ceiling",
+            "example": 200.0
+          },
+          "weatherCondition": {
+            "type": "string",
+            "description": "Current forecast condition",
+            "example": "Clear Sky"
+          },
+          "rainProbability": {
+            "type": "integer",
+            "description": "Rain probability percentage",
+            "example": 5
+          },
+          "preferences": {
+            "type": "string",
+            "description": "User preference keywords",
+            "example": "good acoustic view, covered seating"
+          }
+        }
+      },
+      "ConciergeAdviceResponse": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Target event identifier",
+            "example": "evt-101"
+          },
+          "headline": {
+            "type": "string",
+            "description": "Concierge summary advisory headline",
+            "example": "Optimal Tier: VIP Lounge with covered seating for Coldplay"
+          },
+          "weatherAdvisory": {
+            "type": "string",
+            "description": "Concierge weather preparation note",
+            "example": "Pleasant 21°C evening expected. No rain gear required."
+          },
+          "recommendedTier": {
+            "type": "string",
+            "description": "AI-recommended seating tier identifier",
+            "example": "tier-vip"
+          },
+          "recommendedAddonName": {
+            "type": "string",
+            "description": "Recommended merchandise or VIP experience package",
+            "example": "VIP Fast Track & Acoustic Lounge"
+          },
+          "recommendedAddonId": {
+            "type": "string",
+            "description": "Recommended addon identifier",
+            "example": "addon-vip-pass"
+          },
+          "localizedBudgetNote": {
+            "type": "string",
+            "description": "Budget breakdown note in user currency",
+            "example": "Total estimated cost €165.00 fits comfortably within €200.00 budget."
+          },
+          "insiderTips": {
+            "type": "array",
+            "description": "Curated practical advice for venue navigation and travel",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Arrive 45 minutes early for acoustic check.",
+              "Take the Jubilee line to avoid transit delays."
+            ]
+          },
+          "composedSources": {
+            "type": "array",
+            "description": "Data sources leveraged in generating the recommendation",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Catalog Service",
+              "Open-Meteo",
+              "Frankfurter FX",
+              "Gemini 2.5 Flash"
+            ]
+          },
+          "engine": {
+            "type": "string",
+            "description": "AI model engine used to synthesize advice",
+            "example": "gemini-2.5-flash"
+          },
+          "fallbackUsed": {
+            "type": "boolean",
+            "description": "True if heuristic rule engine was used instead of LLM",
+            "example": false
+          },
+          "generatedAt": {
+            "type": "string",
+            "description": "Advisory generation timestamp",
+            "example": "2026-10-27T10:05:00Z"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Machine-readable error classification code",
+            "example": "INVALID_REQUEST_PAYLOAD"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable diagnostic explanation",
+            "example": "Mandatory field 'title' is missing."
+          },
+          "code": {
+            "type": "string",
+            "description": "Optional numerical or categorical error tag",
+            "example": "ERR_VALIDATION_FAILED"
+          }
         }
       }
     }

@@ -415,19 +415,23 @@ func (s *Server) ListWaitlistEntries(ctx context.Context, eventID, userID, statu
 
 type CreateWaitlistRequest struct {
 	EventID          string `json:"eventId"`
-	EventIDAlt       string `json:"event_id"`
-	TierID           string `json:"tierId"`
-	TierIDAlt        string `json:"tier_id"`
-	SeatID           string `json:"seatId"`
-	SeatIDAlt        string `json:"seat_id"`
-	UserID           string `json:"userId"`
-	UserIDAlt        string `json:"user_id"`
-	CustomerName     string `json:"customerName"`
-	CustomerNameAlt  string `json:"customer_name"`
-	CustomerEmail    string `json:"customerEmail"`
-	CustomerEmailAlt string `json:"customer_email"`
-	Quantity         int    `json:"quantity"`
+	EventIDAlt       string `json:"event_id,omitempty"`
+	TierID           string `json:"tierId,omitempty"`
+	TierIDAlt        string `json:"tier_id,omitempty"`
+	SeatID           string `json:"seatId,omitempty"`
+	SeatIDAlt        string `json:"seat_id,omitempty"`
+	UserID           string `json:"userId,omitempty"`
+	UserIDAlt        string `json:"user_id,omitempty"`
+	CustomerName     string `json:"customerName,omitempty"`
+	CustomerNameAlt  string `json:"customer_name,omitempty"`
+	CustomerEmail    string `json:"customerEmail,omitempty"`
+	CustomerEmailAlt string `json:"customer_email,omitempty"`
+	Quantity         int    `json:"quantity,omitempty"`
+	TicketCount      int    `json:"ticketCount,omitempty"`
+	TicketCountAlt   int    `json:"ticket_count,omitempty"`
 }
+
+type WaitlistRequest = CreateWaitlistRequest
 
 func (s *Server) handleWaitlist(w http.ResponseWriter, r *http.Request) {
 	enableCORS(w)
@@ -448,7 +452,7 @@ func (s *Server) handleWaitlist(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) createWaitlist(w http.ResponseWriter, r *http.Request) {
 	var req CreateWaitlistRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"Invalid request payload: %v"}`, err), http.StatusBadRequest)
 		return
 	}
@@ -647,12 +651,7 @@ func (s *Server) cancelWaitlistByID(w http.ResponseWriter, r *http.Request, id s
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]string{
-		"message": "Waitlist entry cancelled",
-		"status":  "CANCELLED",
-	})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) handleWaitlistClaim(w http.ResponseWriter, r *http.Request) {
@@ -744,12 +743,28 @@ func (s *Server) handleWaitlistClaim(w http.ResponseWriter, r *http.Request) {
 
 	var seats []string
 	if entry.ReservationID != "" {
-		var seatJSON string
-		_ = s.db.QueryRowContext(r.Context(),
-			`SELECT seat_ids FROM reservations WHERE reservation_id = $1`,
-			entry.ReservationID).Scan(&seatJSON)
-		if seatJSON != "" {
-			_ = json.Unmarshal([]byte(seatJSON), &seats)
+		if s.httpClient != nil && s.inventoryServiceURL != "" {
+			resURL := fmt.Sprintf("%s/inventory/reservations/%s", strings.TrimRight(s.inventoryServiceURL, "/"), entry.ReservationID)
+			if resResp, hErr := s.httpClient.Get(resURL); hErr == nil && resResp != nil {
+				defer resResp.Body.Close()
+				if resResp.StatusCode == http.StatusOK {
+					var resData struct {
+						SeatIDs []string `json:"seatIds"`
+					}
+					if decErr := json.NewDecoder(resResp.Body).Decode(&resData); decErr == nil && len(resData.SeatIDs) > 0 {
+						seats = resData.SeatIDs
+					}
+				}
+			}
+		}
+		if len(seats) == 0 && s.db != nil {
+			var seatJSON string
+			_ = s.db.QueryRowContext(r.Context(),
+				`SELECT seat_ids FROM reservations WHERE reservation_id = $1`,
+				entry.ReservationID).Scan(&seatJSON)
+			if seatJSON != "" {
+				_ = json.Unmarshal([]byte(seatJSON), &seats)
+			}
 		}
 	}
 	if len(seats) == 0 && entry.SeatID != "" {
@@ -760,16 +775,29 @@ func (s *Server) handleWaitlistClaim(w http.ResponseWriter, r *http.Request) {
 	}
 
 	eventTitle := entry.EventID
-	var title string
-	if err := s.db.QueryRowContext(r.Context(), "SELECT title FROM events WHERE id = $1", entry.EventID).Scan(&title); err == nil && title != "" {
-		eventTitle = title
-	}
-
 	var price float64 = 60.0
-	if entry.TierID != "" {
-		var p float64
-		if err := s.db.QueryRowContext(r.Context(), "SELECT price FROM ticket_tiers WHERE id = $1", entry.TierID).Scan(&p); err == nil && p > 0 {
-			price = p
+
+	// Use getEventMetadata via REST first (Pillar 1 isolation)
+	if meta, mErr := s.getEventMetadata(entry.EventID); mErr == nil && meta != nil {
+		if meta.Title != "" {
+			eventTitle = meta.Title
+		}
+		for _, t := range meta.Tiers {
+			if t.ID == entry.TierID && t.Price > 0 {
+				price = t.Price
+				break
+			}
+		}
+	} else if s.db != nil {
+		var title string
+		if err := s.db.QueryRowContext(r.Context(), "SELECT title FROM events WHERE id = $1", entry.EventID).Scan(&title); err == nil && title != "" {
+			eventTitle = title
+		}
+		if entry.TierID != "" {
+			var p float64
+			if err := s.db.QueryRowContext(r.Context(), "SELECT price FROM ticket_tiers WHERE id = $1", entry.TierID).Scan(&p); err == nil && p > 0 {
+				price = p
+			}
 		}
 	}
 	totalAmount := price * float64(entry.Quantity)

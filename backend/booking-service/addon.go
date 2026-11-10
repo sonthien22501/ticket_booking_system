@@ -138,7 +138,7 @@ func (s *Server) handleAddons(w http.ResponseWriter, r *http.Request) {
 			Category       string  `json:"category"`
 			TotalInventory int     `json:"totalInventory"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.EventID == "" || req.Name == "" || req.Price <= 0 {
+		if err := decodeStrictJSON(r, &req); err != nil || req.EventID == "" || req.Name == "" || req.Price <= 0 {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
 			_ = json.NewEncoder(w).Encode(map[string]string{

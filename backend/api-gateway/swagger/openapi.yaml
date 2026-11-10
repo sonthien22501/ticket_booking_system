@@ -1,1578 +1,112 @@
-openapi: 3.0.3
-info:
-  title: Distributed Ticket Booking System API
-  description: |
-    Production-grade OpenAPI 3.0 specification for the Distributed Ticket Booking System.
-    Covers Authentication, Event Catalog, Seat Inventory, Booking & Saga Orchestration,
-    Waitlist Management, and RabbitMQ Dead Letter Queue (DLQ) operations.
-  version: 1.0.0
-  contact:
-    name: System Engineering Team
-    email: engineering@tickets.com
-servers:
-  - url: http://localhost:8080
-    description: API Gateway (Unified Entrypoint)
-
-tags:
-  - name: Authentication
-    description: User registration, login, JWT issuance, and RBAC token verification
-  - name: Catalog
-    description: High-throughput event discovery and ticket tier details with Redis caching
-  - name: Inventory
-    description: Real-time seat inventory, distributed Redis locks, and hold reservation lifecycles
-  - name: Bookings
-    description: Distributed booking lifecycle, idempotency key deduplication, and Saga orchestration
-  - name: Waitlist
-    description: FIFO waitlist queueing, cancellation, and automatic promotion claiming
-  - name: DLQ
-    description: Dead Letter Queue introspection, reprocessing, purging, and failure simulation
-  - name: System
-    description: Infrastructure health checks and diagnostic telemetry
-
-paths:
-  /health:
-    get:
-      tags:
-        - System
-      summary: Service Health Check
-      description: Returns operational readiness and status of components (PostgreSQL, Redis, RabbitMQ) and uptime.
-      responses:
-        '200':
-          description: System is healthy
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HealthResponse'
-        '503':
-          description: System dependency is unhealthy or degraded
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HealthResponse'
-
-  /metrics:
-    get:
-      tags:
-        - System
-      summary: Service Metrics & Actuator Telemetry (R23)
-      description: Returns Go runtime memory metrics, database connection pool saturation, Redis pool statistics, and Prometheus exposition.
-      parameters:
-        - in: query
-          name: format
-          schema:
-            type: string
-            enum: [json, prometheus]
-          description: Exposition format (JSON default, or Prometheus text format)
-      responses:
-        '200':
-          description: Operational telemetry metrics
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MetricsResponse'
-            text/plain:
-              schema:
-                type: string
-
-  /api/auth/register:
-    post:
-      tags:
-        - Authentication
-      summary: Register a new user
-      description: Creates a new user account with hashed password credentials and returns a JWT bearer token.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegisterRequest'
-      responses:
-        '201':
-          description: User registered successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          description: Validation error or duplicate email
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/auth/login:
-    post:
-      tags:
-        - Authentication
-      summary: Authenticate user credentials
-      description: Verifies user credentials and generates a signed JWT token.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-      responses:
-        '200':
-          description: Authentication successful
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '401':
-          description: Invalid email or password
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/auth/verify:
-    get:
-      tags:
-        - Authentication
-      summary: Verify JWT token validity
-      description: Decodes and validates the caller's JWT token, returning token claims.
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: Token is valid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserClaims'
-        '401':
-          description: Token is expired, malformed, or missing
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/auth/me:
-    get:
-      tags:
-        - Authentication
-      summary: Current user profile
-      description: Returns profile details for the authenticated user context.
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: User profile retrieved
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  user:
-                    $ref: '#/components/schemas/User'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/auth/users:
-    get:
-      tags:
-        - Authentication
-      summary: List all registered users (Admin only)
-      description: Retrieves a list of all registered accounts. Restricted to administrators.
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: User list retrieved
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/User'
-        '403':
-          description: Forbidden - Admin role required
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/events:
-    get:
-      tags:
-        - Catalog
-      summary: List all events
-      description: Retrieves upcoming events with active ticket tiers. Results are cached in Redis with a 30s TTL.
-      parameters:
-        - name: category
-          in: query
-          description: Optional filter by event category (e.g., Music, Sports, Theatre)
-          required: false
-          schema:
-            type: string
-        - name: search
-          in: query
-          description: Optional search string matching event titles or descriptions
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Array of events
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EventListResponse'
-
-  /api/events/{id}:
-    get:
-      tags:
-        - Catalog
-      summary: Get event details
-      description: Retrieves detailed metadata for a single event including all ticket tier pricing and capacities.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Event ID (e.g., evt-101)
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Event details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Event'
-        '404':
-          description: Event not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/events/{id}/pricing:
-    get:
-      tags:
-        - Catalog
-      summary: Get dynamic surge pricing for event (R27, R33)
-      description: Returns real-time dynamic ticket pricing calculated from seat inventory scarcity and booking velocity, with service isolation fallback.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Event ID (e.g., evt-101)
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Dynamic surge pricing analysis
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  eventId:
-                    type: string
-                  basePrice:
-                    type: number
-                  currentPrice:
-                    type: number
-                  surgeMultiplier:
-                    type: number
-                  surgeFactor:
-                    type: string
-                  capacity:
-                    type: integer
-                  available:
-                    type: integer
-                  soldPercentage:
-                    type: number
-                  velocityPerMinute:
-                    type: number
-                  degraded:
-                    type: boolean
-                  calculatedAt:
-                    type: string
-                    format: date-time
-        '404':
-          description: Event not found
-
-  /api/inventory/{eventId}:
-
-    get:
-      tags:
-        - Inventory
-      summary: Get event seat inventory overview
-      description: Returns aggregate seat availability, booked count, and hold count grouped by tier.
-      parameters:
-        - name: eventId
-          in: path
-          required: true
-          description: Event ID
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Inventory summary
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InventoryResponse'
-
-  /api/inventory/{eventId}/seats:
-    get:
-      tags:
-        - Inventory
-      summary: List individual seat layouts
-      description: Returns a matrix of all seats, rows, seat numbers, and current hold/booked statuses.
-      parameters:
-        - name: eventId
-          in: path
-          required: true
-          description: Event ID
-        - name: status
-          in: query
-          required: false
-          description: Filter seats by status (AVAILABLE, HOLD, BOOKED)
-          schema:
-            type: string
-            enum: [AVAILABLE, HOLD, BOOKED]
-      responses:
-        '200':
-          description: Detailed seat list
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  eventId:
-                    type: string
-                  summary:
-                    type: object
-                    properties:
-                      total:
-                        type: integer
-                      available:
-                        type: integer
-                      held:
-                        type: integer
-                      booked:
-                        type: integer
-                  seats:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/SeatItem'
-
-  /api/inventory/{eventId}/seats/realtime:
-    get:
-      tags:
-        - Inventory
-      summary: Real-time seat availability snapshot (R10)
-      description: Returns live seat matrix and inventory count breakdown bypassing all caches.
-      parameters:
-        - name: eventId
-          in: path
-          required: true
-          description: Event ID
-          schema:
-            type: string
-        - name: status
-          in: query
-          required: false
-          description: Filter seats by status (AVAILABLE, HOLD, BOOKED)
-          schema:
-            type: string
-            enum: [AVAILABLE, HOLD, BOOKED]
-      responses:
-        '200':
-          description: Real-time seat availability snapshot
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  eventId:
-                    type: string
-                  summary:
-                    type: object
-                    properties:
-                      total:
-                        type: integer
-                      available:
-                        type: integer
-                      held:
-                        type: integer
-                      booked:
-                        type: integer
-                  seats:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/SeatItem'
-
-  /api/inventory/{eventId}/seats/stream:
-    get:
-      tags:
-        - Inventory
-      summary: Real-time seat availability SSE stream (R10)
-      description: Server-Sent Events (SSE) push stream broadcasting seat status changes in real time.
-      parameters:
-        - name: eventId
-          in: path
-          required: true
-          description: Event ID
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Continuous text/event-stream of seat state changes
-          content:
-            text/event-stream:
-              schema:
-                type: string
-
-  /api/inventory/reserve:
-    post:
-      tags:
-        - Inventory
-      summary: Reserve seats with temporary hold
-      description: Places a temporary hold (default 120s) on specified seats using distributed Redis locking.
-      parameters:
-        - name: Idempotency-Key
-          in: header
-          required: false
-          description: Unique idempotency key to prevent duplicate reservation calls
-          schema:
-            type: string
-        - name: X-Correlation-ID
-          in: header
-          required: false
-          description: Distributed trace correlation identifier
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReserveSeatsRequest'
-      responses:
-        '200':
-          description: Seats held successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReservationResponse'
-        '409':
-          description: Conflict - Seats are already held or booked
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/inventory/commit:
-    post:
-      tags:
-        - Inventory
-      summary: Commit reservation to booked status
-      description: Finalizes a temporary reservation into permanently BOOKED seats upon payment confirmation.
-      parameters:
-        - name: X-Correlation-ID
-          in: header
-          required: false
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - reservationId
-                - bookingId
-              properties:
-                reservationId:
-                  type: string
-                bookingId:
-                  type: string
-      responses:
-        '200':
-          description: Reservation committed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: COMMITTED
-
-  /api/inventory/release:
-    post:
-      tags:
-        - Inventory
-      summary: Release held reservation
-      description: Manually or automatically releases held seats back to AVAILABLE status.
-      parameters:
-        - name: X-Correlation-ID
-          in: header
-          required: false
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - reservationId
-              properties:
-                reservationId:
-                  type: string
-                reason:
-                  type: string
-      responses:
-        '200':
-          description: Reservation released
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: RELEASED
-
-  /api/inventory/cancel:
-    post:
-      tags:
-        - Inventory
-      summary: Cancel booked seats (Compensating transaction)
-      description: Compensating transaction endpoint called during Saga rollback or customer booking cancellation.
-      parameters:
-        - name: X-Correlation-ID
-          in: header
-          required: false
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                reservationId:
-                  type: string
-                bookingId:
-                  type: string
-                eventId:
-                  type: string
-                tierId:
-                  type: string
-                quantity:
-                  type: integer
-                seatIds:
-                  type: array
-                  items:
-                    type: string
-                reason:
-                  type: string
-      responses:
-        '200':
-          description: Seats reverted to available
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: CANCELLED
-
-  /api/inventory/reservations/{id}:
-    get:
-      tags:
-        - Inventory
-      summary: Inspect reservation hold status
-      description: Queries the status, remaining hold duration, and seat assignments for a reservation.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Reservation ID
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Active reservation status
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReservationResponse'
-        '404':
-          description: Reservation not found or expired
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/inventory/janitor/sweep:
-    post:
-      tags:
-        - Inventory
-      summary: Trigger janitor sweep of expired holds
-      description: Maintenance endpoint that audits expired HOLD seats and returns them to AVAILABLE.
-      responses:
-        '200':
-          description: Janitor sweep report
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: COMPLETED
-                  sweptReservations:
-                    type: integer
-
-  /api/bookings:
-    get:
-      tags:
-        - Bookings
-      summary: List bookings
-      description: Retrieves booking records with optional filters for user, event, or status.
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: userId
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: eventId
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: status
-          in: query
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: List of bookings
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Booking'
-    post:
-      tags:
-        - Bookings
-      summary: Create booking (Saga Orchestration)
-      description: |
-        Initiates a multi-step Saga distributed transaction: reserves inventory, captures payment,
-        and generates confirmed tickets. Supports replay-safe idempotency.
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: Idempotency-Key
-          in: header
-          required: false
-          description: Unique client key for preventing double charging and duplicate reservations
-          schema:
-            type: string
-        - name: X-Correlation-ID
-          in: header
-          required: false
-          description: Distributed trace correlation identifier
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateBookingRequest'
-      responses:
-        '201':
-          description: Booking confirmed and tickets issued
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Booking'
-        '200':
-          description: Idempotent replay of previously confirmed booking
-          headers:
-            X-Idempotent-Replay:
-              schema:
-                type: string
-              description: Indicates request was served from cached idempotency record
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Booking'
-        '400':
-          description: Invalid request payload
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Concurrency conflict or sold out
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/bookings/{id}:
-    get:
-      tags:
-        - Bookings
-      summary: Get booking details
-      description: Retrieves single booking record with individual ticket barcode tokens.
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Booking ID or booking reference code
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Booking retrieved
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Booking'
-        '404':
-          description: Booking not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - Bookings
-      summary: Cancel booking
-      description: Cancels confirmed booking and triggers compensating inventory release.
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Booking ID
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Booking cancelled
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CancelBookingResponse'
-
-  /api/bookings/{id}/cancel:
-    post:
-      tags:
-        - Bookings
-      summary: Cancel booking via POST
-      description: Alternative POST endpoint to cancel a booking and execute compensating releases.
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Booking ID
-          schema:
-            type: string
-        - name: X-Correlation-ID
-          in: header
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Booking cancelled
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CancelBookingResponse'
-
-  /api/waitlist:
-    get:
-      tags:
-        - Waitlist
-      summary: Query waitlist entries
-      description: Lists waitlist queue status filtered by event, user, or status.
-      parameters:
-        - name: eventId
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: userId
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: status
-          in: query
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Waitlist entries
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/WaitlistEntry'
-    post:
-      tags:
-        - Waitlist
-      summary: Join event waitlist
-      description: Enqueues a customer onto the FIFO waitlist when an event or ticket tier is sold out.
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: Idempotency-Key
-          in: header
-          required: false
-          description: Idempotency key for waitlist submission
-          schema:
-            type: string
-        - name: X-Correlation-ID
-          in: header
-          required: false
-          description: Distributed trace correlation identifier
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JoinWaitlistRequest'
-      responses:
-        '201':
-          description: Joined waitlist
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WaitlistEntry'
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/waitlist/{id}:
-    get:
-      tags:
-        - Waitlist
-      summary: Get waitlist status and position
-      description: Returns position in queue, promotion timestamp, and hold expiry.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Waitlist entry ID
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Waitlist details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WaitlistEntry'
-        '404':
-          description: Entry not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - Waitlist
-      summary: Cancel waitlist position
-      description: Voluntarily leaves the waitlist queue.
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Waitlist entry ID
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Waitlist entry cancelled
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  status:
-                    type: string
-                    example: CANCELLED
-
-  /api/waitlist/{id}/claim:
-    post:
-      tags:
-        - Waitlist
-      summary: Claim promoted waitlist seat
-      description: Converts a promoted waitlist hold into a confirmed booking.
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Waitlist entry ID
-          schema:
-            type: string
-        - name: X-Correlation-ID
-          in: header
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Successfully claimed and booked
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Booking'
-        '400':
-          description: Not eligible or hold expired
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/waitlist/{id}/cancel:
-    post:
-      tags:
-        - Waitlist
-      summary: Cancel waitlist entry via POST
-      description: Alternate endpoint to cancel a waitlist reservation.
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Waitlist entry ID
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Cancelled
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  status:
-                    type: string
-
-  /api/dlq/stats:
-    get:
-      tags:
-        - DLQ
-      summary: Get RabbitMQ Dead Letter Queue telemetry
-      description: Inspects active message count, consumer readiness, and unroutable dead-letter depth.
-      responses:
-        '200':
-          description: DLQ metrics
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DLQStatsResponse'
-
-  /api/dlq/messages:
-    get:
-      tags:
-        - DLQ
-      summary: Peek DLQ poison messages
-      description: Inspects failed messages currently dwelling in the dead letter exchange.
-      parameters:
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 100
-      responses:
-        '200':
-          description: Messages array
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  queueName:
-                    type: string
-                  count:
-                    type: integer
-                  messages:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/DLQMessage'
-    delete:
-      tags:
-        - DLQ
-      summary: Purge all DLQ messages
-      description: Administrative purge of all unprocessable poison messages.
-      responses:
-        '200':
-          description: Purge count
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: PURGED
-                  purged:
-                    type: integer
-
-  /api/dlq/retry:
-    post:
-      tags:
-        - DLQ
-      summary: Reprocess DLQ messages
-      description: Re-queues dead-lettered messages back into primary processing queues for reprocessing.
-      responses:
-        '200':
-          description: Reprocess summary
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DLQRetryResponse'
-
-  /api/dlq/simulate:
-    post:
-      tags:
-        - DLQ
-      summary: Simulate DLQ poison pill ingestion
-      description: Diagnostics endpoint to trigger controlled failures and test dead-letter routing.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - type
-                - errorMessage
-              properties:
-                type:
-                  type: string
-                  enum: [poison, retry_fail, direct_dlq]
-                routingKey:
-                  type: string
-                payload:
-                  type: object
-                errorMessage:
-                  type: string
-      responses:
-        '200':
-          description: Poison pill routed to DLQ
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: SIMULATED
-
-  /api/webhooks/subscriptions:
-    post:
-      tags:
-        - Webhooks
-      summary: Register partner webhook subscription (R26, R22)
-      description: Subscribes an external partner endpoint to event lifecycle webhooks (e.g., event capacity reached, revenue threshold) with HMAC-SHA256 signatures.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [targetUrl, events]
-              properties:
-                eventId:
-                  type: string
-                  example: evt-101
-                targetUrl:
-                  type: string
-                  example: https://partner.example.com/webhooks/tickets
-                secret:
-                  type: string
-                  example: partner-secret-key-123
-                events:
-                  type: array
-                  items:
-                    type: string
-                  example: ["event.capacity_reached", "event.revenue_threshold"]
-      responses:
-        '201':
-          description: Subscription registered successfully
-        '400':
-          description: Bad Request
-    get:
-      tags:
-        - Webhooks
-      summary: List partner webhook subscriptions
-      description: Retrieves all active partner webhook subscriptions, optionally filtered by eventId.
-      parameters:
-        - name: eventId
-          in: query
-          required: false
-          schema:
-            type: string
-      responses:
-        '200':
-          description: List of subscriptions
-
-  /api/webhooks/subscriptions/{id}:
-    get:
-      tags:
-        - Webhooks
-      summary: Get webhook subscription details
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Subscription details
-        '404':
-          description: Subscription not found
-    delete:
-      tags:
-        - Webhooks
-      summary: Delete webhook subscription
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Subscription removed
-        '404':
-          description: Subscription not found
-
-  /api/webhooks/deliveries:
-    get:
-      tags:
-        - Webhooks
-      summary: Query webhook delivery audit logs
-      parameters:
-        - name: subscriptionId
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 50
-      responses:
-        '200':
-          description: List of delivery audit entries
-
-  /api/webhooks/dispatch:
-    post:
-      tags:
-        - Webhooks
-      summary: Test dispatch a webhook event
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                eventId:
-                  type: string
-                eventType:
-                  type: string
-                  example: event.capacity_reached
-                data:
-                  type: object
-      responses:
-        '200':
-          description: Event dispatched to matching subscribers
-
 components:
-
-  securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: Standard Bearer JWT token obtained from `/api/auth/login` or `/api/auth/register`.
-
   schemas:
-    User:
-      type: object
-      required:
-        - id
-        - email
-        - name
-        - role
-      properties:
-        id:
-          type: string
-          example: usr-1718000000
-        email:
-          type: string
-          format: email
-          example: customer@tickets.com
-        name:
-          type: string
-          example: Alex Customer
-        role:
-          type: string
-          enum: [customer, admin]
-          example: customer
-        createdAt:
-          type: string
-          format: date-time
-
-    RegisterRequest:
-      type: object
-      required:
-        - email
-        - password
-        - name
-      properties:
-        email:
-          type: string
-          format: email
-          example: newuser@tickets.com
-        password:
-          type: string
-          format: password
-          example: securepass123
-        name:
-          type: string
-          example: Morgan Reed
-        role:
-          type: string
-          enum: [customer, admin]
-          default: customer
-
-    LoginRequest:
-      type: object
-      required:
-        - email
-        - password
-      properties:
-        email:
-          type: string
-          format: email
-          example: customer@tickets.com
-        password:
-          type: string
-          format: password
-          example: securepass123
-
     AuthResponse:
-      type: object
+      properties:
+        token:
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+          type: string
+          description: Cryptographically signed JWT bearer token
+        user:
+          $ref: "#/components/schemas/User"
+          description: Authenticated user identity profile
+          example:
+            id: "usr-101"
+            email: "customer@example.com"
+            name: John Doe
+            role: customer
       required:
         - token
         - user
-      properties:
-        token:
-          type: string
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-        user:
-          $ref: '#/components/schemas/User'
-
-    UserClaims:
       type: object
-      properties:
-        userId:
-          type: string
-          example: usr-1718000000
-        email:
-          type: string
-          example: customer@tickets.com
-        name:
-          type: string
-          example: Alex Customer
-        role:
-          type: string
-          example: customer
-
-    EventTier:
-      type: object
-      required:
-        - tierId
-        - name
-        - price
-        - capacity
-      properties:
-        tierId:
-          type: string
-          example: tier-vip
-        eventId:
-          type: string
-          example: evt-101
-        name:
-          type: string
-          example: VIP Seating
-        price:
-          type: number
-          format: double
-          example: 120.00
-        capacity:
-          type: integer
-          example: 100
-        availableSeats:
-          type: integer
-          example: 85
-
-    Event:
-      type: object
-      required:
-        - id
-        - title
-        - category
-        - venueName
-        - startTime
-        - endTime
-        - status
-      properties:
-        id:
-          type: string
-          example: evt-101
-        title:
-          type: string
-          example: Coldplay - Music of the Spheres World Tour
-        description:
-          type: string
-          example: Live stadium concert experience
-        category:
-          type: string
-          example: Concert
-        venueName:
-          type: string
-          example: Wembley Stadium
-        venueLocation:
-          type: string
-          example: London, UK
-        startTime:
-          type: string
-          format: date-time
-        endTime:
-          type: string
-          format: date-time
-        status:
-          type: string
-          example: ACTIVE
-        imageUrl:
-          type: string
-          example: https://images.unsplash.com/photo-1470225620780-dba8ba36b745
-        tiers:
-          type: array
-          items:
-            $ref: '#/components/schemas/EventTier'
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    EventListResponse:
-      type: array
-      items:
-        $ref: '#/components/schemas/Event'
-
-    SeatItem:
-      type: object
-      required:
-        - id
-        - eventId
-        - tierId
-        - row
-        - number
-        - status
-      properties:
-        id:
-          type: string
-          example: seat-a1
-        eventId:
-          type: string
-          example: evt-101
-        tierId:
-          type: string
-          example: tier-vip
-        row:
-          type: string
-          example: A
-        number:
-          type: integer
-          example: 1
-        status:
-          type: string
-          enum: [AVAILABLE, HOLD, BOOKED, BLOCKED]
-          example: AVAILABLE
-        reservationId:
-          type: string
-          nullable: true
-          example: res-abc12345
-        holdExpiresAt:
-          type: string
-          format: date-time
-          nullable: true
-
-    InventoryResponse:
-      type: object
-      properties:
-        eventId:
-          type: string
-          example: evt-101
-        totalSeats:
-          type: integer
-          example: 200
-        availableSeats:
-          type: integer
-          example: 150
-        reservedSeats:
-          type: integer
-          example: 20
-        bookedSeats:
-          type: integer
-          example: 30
-        tiers:
-          type: array
-          items:
-            type: object
-            properties:
-              tier_id:
-                type: string
-              tier_name:
-                type: string
-              total_seats:
-                type: integer
-              available_seats:
-                type: integer
-
-    ReserveSeatsRequest:
-      type: object
-      required:
-        - eventId
-      properties:
-        eventId:
-          type: string
-          example: evt-101
-        tierId:
-          type: string
-          example: tier-vip
-        seats:
-          type: array
-          items:
-            type: string
-          example: ["A-1", "A-2"]
-        ticketCount:
-          type: integer
-          example: 2
-        holdSeconds:
-          type: integer
-          default: 120
-          example: 120
-
-    ReservationResponse:
-      type: object
-      required:
-        - reservationId
-        - eventId
-        - status
-        - expiresAt
-      properties:
-        reservationId:
-          type: string
-          example: res-1718000000-xyz
-        eventId:
-          type: string
-          example: evt-101
-        status:
-          type: string
-          example: HOLD
-        expiresAt:
-          type: string
-          format: date-time
-        seats:
-          type: array
-          items:
-            type: string
-          example: ["A-1", "A-2"]
-        quantity:
-          type: integer
-          example: 2
-
-    BookingTicket:
-      type: object
-      properties:
-        id:
-          type: string
-          example: tkt-001
-        ticketId:
-          type: string
-          example: tkt-001
-        bookingId:
-          type: string
-          example: bkg-101
-        seatId:
-          type: string
-          example: seat-a1
-        seatLabel:
-          type: string
-          example: Row A, Seat 1
-        ticketCode:
-          type: string
-          example: CODE-COLDPLAY-VIP-001
-        status:
-          type: string
-          example: VALID
-        createdAt:
-          type: string
-          format: date-time
-
     Booking:
-      type: object
+      properties:
+        bookingReference:
+          example: "BKG-ABCD-1234"
+          type: string
+          description: "Human-readable booking reference code"
+        createdAt:
+          format: "date-time"
+          type: string
+          description: "ISO-8601 booking creation timestamp"
+          example: "2026-10-18T10:00:00Z"
+        customerEmail:
+          example: "john@example.com"
+          type: string
+          description: Contact email address of purchaser
+        customerName:
+          example: John Doe
+          type: string
+          description: Name of the purchaser
+        eventId:
+          example: "evt-101"
+          type: string
+          description: Associated event identifier
+        eventTitle:
+          example: Coldplay World Tour
+          type: string
+          description: Title of the booked event
+        id:
+          example: "bkg-1718000000"
+          type: string
+          description: Unique booking order identifier
+        idempotencyKey:
+          example: "idem-key-1718000000"
+          type: string
+          description: Unique client idempotency token
+        paymentStatus:
+          example: COMPLETED
+          type: string
+          description: Payment processing state
+        quantity:
+          example: 2
+          type: integer
+          description: Number of tickets included in booking
+        reservationId:
+          example: "res-101"
+          type: string
+          description: Associated seat hold reservation identifier
+        seatIds:
+          example:
+            - "seat-a1"
+            - "seat-a2"
+          items:
+            type: string
+          type: array
+          description: Array of reserved seat identifiers
+        status:
+          enum:
+            - CONFIRMED
+            - PENDING
+            - CANCELLED
+          example: CONFIRMED
+          type: string
+          description: Current lifecycle status of booking
+        tickets:
+          items:
+            $ref: "#/components/schemas/BookingTicket"
+          type: array
+          description: Collection of individual ticket barcodes
+          example:
+            - id: "tkt-1"
+              seatLabel: "Row A, Seat 1"
+        tierId:
+          example: "tier-vip"
+          type: string
+          description: Purchased seating tier identifier
+        totalAmount:
+          example: 240
+          format: double
+          type: number
+          description: Total price paid in EUR
+        updatedAt:
+          format: "date-time"
+          type: string
+          description: "ISO-8601 timestamp of last status update"
+          example: "2026-10-18T10:01:00Z"
+        userId:
+          example: "usr-101"
+          type: string
+          description: Authenticated customer account ID
       required:
         - id
         - bookingReference
@@ -1581,129 +115,775 @@ components:
         - quantity
         - totalAmount
         - status
+      type: object
+    BookingTicket:
       properties:
+        bookingId:
+          example: "bkg-101"
+          type: string
+          description: Parent booking order identifier
+        createdAt:
+          format: "date-time"
+          type: string
+          description: Ticket issuance timestamp
+          example: "2026-10-18T10:01:00Z"
         id:
+          example: "tkt-001"
           type: string
-          example: bkg-1718000000
+          description: Unique ticket identifier
+        seatId:
+          example: "seat-a1"
+          type: string
+          description: Allocated seat identifier
+        seatLabel:
+          example: "Row A, Seat 1"
+          type: string
+          description: Physical seating location label
+        status:
+          example: VALID
+          type: string
+          description: "Ticket admission status (ACTIVE, USED, TRANSFERRED, CANCELLED)"
+        ticketCode:
+          example: "CODE-COLDPLAY-VIP-001"
+          type: string
+          description: Verification barcode string
+        ticketId:
+          example: "tkt-001"
+          type: string
+          description: Alternative alias for ticket identifier
+      type: object
+    CancelBookingResponse:
+      properties:
+        bookingId:
+          example: "bkg-101"
+          type: string
+          description: Identifier of cancelled booking order
+        message:
+          example: Booking cancelled successfully
+          type: string
+          description: Confirmation details of cancellation and refund
+        status:
+          example: CANCELLED
+          type: string
+          description: Final cancellation state
+      type: object
+    ClaimWaitlistResponse:
+      properties:
         bookingReference:
+          example: "BKG-WL-1234"
           type: string
-          example: BKG-ABCD-1234
-        userId:
+          description: New booking reference code created from claimed seat
+        id:
+          example: "bkg-101"
           type: string
-          example: usr-101
-        customerName:
+          description: Waitlist entry identifier
+        status:
+          example: CONFIRMED
           type: string
-          example: John Doe
+          description: Claim outcome status
+      type: object
+    CreateBookingRequest:
+      properties:
         customerEmail:
+          example: "john@example.com"
+          format: email
           type: string
-          example: john@example.com
+          description: Email address for confirmation receipt
+        customerName:
+          example: John Doe
+          type: string
+          description: Legal full name of purchaser
         eventId:
+          example: "evt-101"
           type: string
-          example: evt-101
-        eventTitle:
-          type: string
-          example: Coldplay World Tour
-        tierId:
-          type: string
-          example: tier-vip
-        quantity:
+          description: Target event identifier
+        holdSeconds:
+          default: 120
           type: integer
-          example: 2
-        seatIds:
-          type: array
+          description: Temporary hold lease duration in seconds
+          example: 600
+        idempotencyKey:
+          example: "idem-xyz-987"
+          type: string
+          description: "Client-provided deduplication key"
+        paymentInfo:
+          properties:
+            cardToken:
+              example: tok_visa_4242
+              type: string
+            method:
+              example: card
+              type: string
+          type: object
+          description: Payment transaction details
+          example:
+            method: CREDIT_CARD
+            token: tok_visa
+        seats:
+          example:
+            - "A-1"
+            - "A-2"
           items:
             type: string
-          example: ["seat-a1", "seat-a2"]
-        totalAmount:
-          type: number
-          format: double
-          example: 240.00
-        status:
-          type: string
-          enum: [CONFIRMED, PENDING, CANCELLED]
-          example: CONFIRMED
-        reservationId:
-          type: string
-          example: res-101
-        paymentStatus:
-          type: string
-          example: COMPLETED
-        idempotencyKey:
-          type: string
-          example: idem-key-1718000000
-        tickets:
           type: array
-          items:
-            $ref: '#/components/schemas/BookingTicket'
-        createdAt:
+          description: Array of specific seats selected
+        ticketCount:
+          example: 2
+          type: integer
+          description: Number of tickets requested
+        tierId:
+          example: "tier-vip"
           type: string
-          format: date-time
-        updatedAt:
+          description: Target ticket tier identifier
+        userId:
+          example: "usr-101"
           type: string
-          format: date-time
-
-    CreateBookingRequest:
-      type: object
+          description: Authenticated customer user identifier
       required:
         - eventId
         - customerEmail
         - ticketCount
+      type: object
+    DLQMessage:
+      properties:
+        errorMessage:
+          example: Connection reset during saga reservation
+          type: string
+          description: Stack trace or error explanation
+        messageId:
+          example: "msg-101"
+          type: string
+          description: Unique message identifier in broker
+        payload:
+          type: object
+          description: Original message payload object
+          example:
+            bookingId: "bkg-101"
+            eventId: "evt-101"
+        queueName:
+          example: saga.dlq
+          type: string
+          description: Source AMQP queue where failure occurred
+        retryCount:
+          example: 3
+          type: integer
+          description: Total number of consumer retries attempted
+        routingKey:
+          example: inventory.reserve
+          type: string
+          description: Message AMQP routing key
+        timestamp:
+          format: "date-time"
+          type: string
+          description: Timestamp when message was routed to DLQ
+          example: "2026-10-18T10:05:00Z"
+      type: object
+    DLQRetryResponse:
+      properties:
+        reprocessed:
+          example: 5
+          type: integer
+          description: Count of successfully reprocessed messages
+        status:
+          example: REPROCESSED
+          type: string
+          description: "Outcome status of dead-letter requeue operation"
+      type: object
+    DLQStatsResponse:
+      properties:
+        consumerCount:
+          example: 1
+          type: integer
+          description: Number of active consumer worker processes listening
+        messageCount:
+          example: 0
+          type: integer
+          description: Number of dead messages currently waiting in queue
+        queueName:
+          example: saga.dlq
+          type: string
+          description: Name of Dead Letter Queue
+      type: object
+    ErrorResponse:
+      properties:
+        error:
+          example: RATE_LIMIT_EXCEEDED
+          type: string
+          description: "Machine-readable error tag"
+        message:
+          example: Too many requests. Please slow down.
+          type: string
+          description: "Human-readable error explanation"
+        retryAfter:
+          example: 1
+          type: integer
+          description: Suggested wait time in seconds before retrying
+      required:
+        - error
+      type: object
+    Event:
+      properties:
+        category:
+          example: Concert
+          type: string
+          description: Event genre classification
+        createdAt:
+          format: "date-time"
+          type: string
+          description: "ISO-8601 event publication timestamp"
+          example: "2026-10-18T00:00:00Z"
+        description:
+          example: Live stadium concert experience
+          type: string
+          description: Event itinerary and details
+        endTime:
+          format: "date-time"
+          type: string
+          description: "ISO-8601 concert end time"
+          example: "2026-08-15T22:30:00Z"
+        id:
+          example: "evt-101"
+          type: string
+          description: Unique event identifier
+        imageUrl:
+          example: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745"
+          type: string
+          description: Promotional poster artwork URL
+        startTime:
+          format: "date-time"
+          type: string
+          description: "ISO-8601 concert start time"
+          example: "2026-08-15T19:00:00Z"
+        status:
+          example: ACTIVE
+          type: string
+          description: "Event lifecycle state (DRAFT, PUBLISHED, ARCHIVED, CANCELLED)"
+        tiers:
+          items:
+            $ref: "#/components/schemas/EventTier"
+          type: array
+          description: List of associated seating and ticket tiers
+          example:
+            - tierId: "tier-vip"
+              name: VIP
+              price: 150.0
+        title:
+          example: "Coldplay - Music of the Spheres World Tour"
+          type: string
+          description: Public title of the event
+        updatedAt:
+          format: "date-time"
+          type: string
+          description: "ISO-8601 timestamp of last event update"
+          example: "2026-10-18T01:00:00Z"
+        venueLocation:
+          example: "London, UK"
+          type: string
+          description: City and country location
+        venueName:
+          example: Wembley Stadium
+          type: string
+          description: Auditorium or stadium name
+      required:
+        - id
+        - title
+        - category
+        - venueName
+        - startTime
+        - endTime
+        - status
+      type: object
+    EventListResponse:
+      items:
+        $ref: "#/components/schemas/Event"
+      type: array
+    EventTier:
+      properties:
+        availableSeats:
+          example: 85
+          type: integer
+          description: Remaining unbooked seats
+        capacity:
+          example: 100
+          type: integer
+          description: Total seat allocation in this tier
+        eventId:
+          example: "evt-101"
+          type: string
+          description: Parent event identifier
+        name:
+          example: VIP Seating
+          type: string
+          description: Tier display name
+        price:
+          example: 120
+          format: double
+          type: number
+          description: Ticket unit price in EUR
+        tierId:
+          example: "tier-vip"
+          type: string
+          description: Unique tier identifier
+      required:
+        - tierId
+        - name
+        - price
+        - capacity
+      type: object
+    HealthResponse:
+      properties:
+        components:
+          additionalProperties:
+            properties:
+              details:
+                type: object
+              status:
+                example: UP
+                type: string
+            type: object
+          type: object
+          description: "Subcomponent health diagnostics (PostgreSQL, Redis, RabbitMQ)"
+          example:
+            db:
+              status: UP
+        service:
+          example: "catalog-service"
+          type: string
+          description: Name of the microservice reporting health
+        status:
+          example: UP
+          type: string
+          description: "Service health state (UP, DOWN, DEGRADED)"
+        timestamp:
+          example: "2026-10-18T00:00:00Z"
+          type: string
+          description: "ISO-8601 health check probe timestamp"
+        uptime_seconds:
+          example: 124.5
+          type: number
+          description: System uptime duration in seconds
+        version:
+          example: 1.0.0
+          type: string
+          description: Semantic application version
+      type: object
+    InventoryResponse:
+      properties:
+        availableSeats:
+          example: 150
+          type: integer
+          description: Unreserved available seats
+        bookedSeats:
+          example: 30
+          type: integer
+          description: Permanently confirmed booked seats
+        eventId:
+          example: "evt-101"
+          type: string
+          description: Event identifier
+        reservedSeats:
+          example: 20
+          type: integer
+          description: Seats locked under active checkout hold lease
+        tiers:
+          items:
+            properties:
+              available_seats:
+                type: integer
+              tier_id:
+                type: string
+              tier_name:
+                type: string
+              total_seats:
+                type: integer
+            type: object
+          type: array
+          description: Breakdown of available seats by tier
+          example:
+            - tierId: "tier-vip"
+              name: VIP
+              price: 150.0
+        totalSeats:
+          example: 200
+          type: integer
+          description: Total venue seating capacity
+      type: object
+    JoinWaitlistRequest:
+      properties:
+        customerEmail:
+          example: "jane@example.com"
+          format: email
+          type: string
+          description: Attendee notification email
+        customerName:
+          example: Jane Doe
+          type: string
+          description: Attendee full name
+        eventId:
+          example: "evt-101"
+          type: string
+          description: Target event identifier
+        quantity:
+          default: 1
+          example: 1
+          type: integer
+          description: Desired ticket quantity
+        seatId:
+          example: "seat-a1"
+          type: string
+          description: Specific seat identifier if waitlisting for single seat
+        tierId:
+          example: "tier-vip"
+          type: string
+          description: Target ticket tier identifier
+        userId:
+          example: "usr-101"
+          type: string
+          description: Authenticated customer account ID
+      required:
+        - eventId
+        - customerEmail
+      type: object
+    LoginRequest:
+      properties:
+        email:
+          example: "customer@tickets.com"
+          format: email
+          type: string
+          description: Registered customer email address
+        password:
+          example: securepass123
+          format: password
+          type: string
+          description: Customer authentication password
+      required:
+        - email
+        - password
+      type: object
+    MetricsResponse:
+      properties:
+        connection_pool:
+          properties:
+            idle:
+              example: 4
+              type: integer
+            in_use:
+              example: 1
+              type: integer
+            max_open_connections:
+              example: 25
+              type: integer
+            open_connections:
+              example: 5
+              type: integer
+          type: object
+          description: Database connection pool metrics
+          example:
+            active: 5
+            idle: 15
+            max: 20
+        memory:
+          properties:
+            alloc_bytes:
+              example: 4194304
+              type: integer
+            num_goroutines:
+              example: 12
+              type: integer
+            sys_bytes:
+              example: 16777216
+              type: integer
+          type: object
+          description: Go runtime memory telemetry
+          example:
+            alloc_bytes: 1048576
+            heap_sys_bytes: 4194304
+        service:
+          example: "catalog-service"
+          type: string
+          description: Service name
+        timestamp:
+          example: "2026-10-18T00:00:00Z"
+          type: string
+          description: Metrics collection timestamp
+        uptime_seconds:
+          example: 124.5
+          type: number
+          description: Service uptime in seconds
+      type: object
+    RegisterRequest:
+      properties:
+        email:
+          example: "newuser@tickets.com"
+          format: email
+          type: string
+          description: User registration email address
+        name:
+          example: Morgan Reed
+          type: string
+          description: Full legal user name
+        password:
+          example: securepass123
+          format: password
+          type: string
+          description: User password (min 6 characters)
+        role:
+          default: customer
+          enum:
+            - customer
+            - admin
+          type: string
+          description: "RBAC role assignment (customer, organizer, admin)"
+          example: customer
+      required:
+        - email
+        - password
+        - name
+      type: object
+    ReservationResponse:
       properties:
         eventId:
+          example: "evt-101"
           type: string
-          example: evt-101
-        userId:
+          description: Associated event identifier
+        expiresAt:
+          format: "date-time"
           type: string
-          example: usr-101
-        customerName:
+          description: "ISO-8601 lease expiration timestamp"
+          example: "2026-10-18T10:10:00Z"
+        quantity:
+          example: 2
+          type: integer
+          description: Count of held seats
+        reservationId:
+          example: "res-1718000000-xyz"
           type: string
-          example: John Doe
-        customerEmail:
-          type: string
-          format: email
-          example: john@example.com
-        tierId:
-          type: string
-          example: tier-vip
+          description: Unique seat hold lease identifier
         seats:
-          type: array
+          example:
+            - "A-1"
+            - "A-2"
           items:
             type: string
-          example: ["A-1", "A-2"]
-        ticketCount:
-          type: integer
-          example: 2
-        holdSeconds:
-          type: integer
-          default: 120
-        idempotencyKey:
-          type: string
-          example: idem-xyz-987
-        paymentInfo:
-          type: object
-          properties:
-            method:
-              type: string
-              example: card
-            cardToken:
-              type: string
-              example: tok_visa_4242
-
-    CancelBookingResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          example: Booking cancelled successfully
-        bookingId:
-          type: string
-          example: bkg-101
+          type: array
+          description: Array of reserved seat identifiers
         status:
+          example: HOLD
           type: string
-          example: CANCELLED
-
-    WaitlistEntry:
+          description: "Reservation hold status (HELD, COMMITTED, RELEASED, EXPIRED)"
+      required:
+        - reservationId
+        - eventId
+        - status
+        - expiresAt
       type: object
+    ReserveSeatsRequest:
+      properties:
+        eventId:
+          example: "evt-101"
+          type: string
+          description: Event identifier
+        holdSeconds:
+          default: 120
+          example: 120
+          type: integer
+          description: Lease hold duration in seconds
+        seats:
+          example:
+            - "A-1"
+            - "A-2"
+          items:
+            type: string
+          type: array
+          description: Specific seat codes requested
+        ticketCount:
+          example: 2
+          type: integer
+          description: Number of seats to reserve
+        tierId:
+          example: "tier-vip"
+          type: string
+          description: Ticket tier identifier
+      required:
+        - eventId
+      type: object
+    SeatItem:
+      properties:
+        eventId:
+          example: "evt-101"
+          type: string
+          description: Event identifier
+        holdExpiresAt:
+          format: "date-time"
+          nullable: true
+          type: string
+          description: Timestamp when active hold lease expires
+          example: "2026-10-18T10:10:00Z"
+        id:
+          example: "seat-a1"
+          type: string
+          description: Unique seat identifier
+        number:
+          example: 1
+          type: integer
+          description: Seat position number within row
+        reservationId:
+          example: "res-abc12345"
+          nullable: true
+          type: string
+          description: Active hold reservation lease ID
+        row:
+          example: A
+          type: string
+          description: Seating row label
+        status:
+          enum:
+            - AVAILABLE
+            - HOLD
+            - BOOKED
+            - BLOCKED
+          example: AVAILABLE
+          type: string
+          description: "Occupancy state (AVAILABLE, HELD, BOOKED)"
+        tierId:
+          example: "tier-vip"
+          type: string
+          description: Tier identifier
+      required:
+        - id
+        - eventId
+        - tierId
+        - row
+        - number
+        - status
+      type: object
+    User:
+      properties:
+        createdAt:
+          format: "date-time"
+          type: string
+          description: Account registration timestamp
+          example: "2026-10-18T00:00:00Z"
+        email:
+          example: "customer@tickets.com"
+          format: email
+          type: string
+          description: User email address
+        id:
+          example: "usr-1718000000"
+          type: string
+          description: Unique user account identifier
+        name:
+          example: Alex Customer
+          type: string
+          description: User full legal name
+        role:
+          enum:
+            - customer
+            - admin
+          example: customer
+          type: string
+          description: "RBAC role (customer, organizer, admin)"
+      required:
+        - id
+        - email
+        - name
+        - role
+      type: object
+    UserClaims:
+      properties:
+        email:
+          example: "customer@tickets.com"
+          type: string
+          description: User email address claim
+        name:
+          example: Alex Customer
+          type: string
+          description: User full name claim
+        role:
+          example: customer
+          type: string
+          description: Security role claim
+        userId:
+          example: "usr-1718000000"
+          type: string
+          description: Subject user account identifier
+      type: object
+    WaitlistEntry:
+      properties:
+        createdAt:
+          format: "date-time"
+          type: string
+          description: Queue enrollment timestamp
+          example: "2026-10-18T08:00:00Z"
+        customerEmail:
+          example: "jane@example.com"
+          format: email
+          type: string
+          description: Notification email address
+        customerName:
+          example: Jane Doe
+          type: string
+          description: Attendee name
+        eventId:
+          example: "evt-101"
+          type: string
+          description: Target event identifier
+        expiresAt:
+          format: "date-time"
+          nullable: true
+          type: string
+          description: Expiration timestamp for claiming promoted ticket
+          example: "2026-10-18T10:30:00Z"
+        id:
+          example: "wt-1718000000"
+          type: string
+          description: Unique waitlist queue identifier
+        position:
+          example: 1
+          type: integer
+          description: Current FIFO queue rank position
+        promotedAt:
+          format: "date-time"
+          nullable: true
+          type: string
+          description: Timestamp when entry was promoted to claim offer
+          example: "2026-10-18T10:15:00Z"
+        quantity:
+          example: 1
+          type: integer
+          description: Number of tickets desired
+        reservationId:
+          example: "res-promoted-123"
+          type: string
+          description: Associated hold reservation if promoted
+        seatId:
+          example: "seat-a1"
+          type: string
+          description: Specific seat requested if applicable
+        status:
+          enum:
+            - PENDING
+            - PROMOTED
+            - CLAIMED
+            - EXPIRED
+            - CANCELLED
+          example: PENDING
+          type: string
+          description: "Waitlist state (WAITING, PROMOTED, CLAIMED, CANCELLED)"
+        tierId:
+          example: "tier-vip"
+          type: string
+          description: Target ticket tier identifier
+        updatedAt:
+          format: "date-time"
+          type: string
+          description: Last update timestamp
+          example: "2026-10-18T10:15:00Z"
+        userId:
+          example: "usr-101"
+          type: string
+          description: Attendee user identifier
       required:
         - id
         - eventId
@@ -1712,238 +892,1392 @@ components:
         - customerEmail
         - quantity
         - status
+      type: object
+    WaitlistStatusResponse:
       properties:
-        id:
-          type: string
-          example: wt-1718000000
-        eventId:
-          type: string
-          example: evt-101
-        tierId:
-          type: string
-          example: tier-vip
-        seatId:
-          type: string
-          example: seat-a1
-        userId:
-          type: string
-          example: usr-101
-        customerName:
-          type: string
-          example: Jane Doe
-        customerEmail:
-          type: string
-          format: email
-          example: jane@example.com
-        quantity:
-          type: integer
+        count:
           example: 1
-        status:
-          type: string
-          enum: [PENDING, PROMOTED, CLAIMED, EXPIRED, CANCELLED]
-          example: PENDING
-        reservationId:
-          type: string
-          example: res-promoted-123
-        promotedAt:
-          type: string
-          format: date-time
-          nullable: true
-        expiresAt:
-          type: string
-          format: date-time
-          nullable: true
-        position:
           type: integer
-          example: 1
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    JoinWaitlistRequest:
+          description: Total number of active waitlist entries in queue
+        entries:
+          items:
+            $ref: "#/components/schemas/WaitlistEntry"
+          type: array
+          description: Collection of active waitlist queue entries
+          example:
+            - id: "wait-101"
+              position: 1
+      type: object
+    EventStatusUpdateRequest:
       type: object
       required:
-        - eventId
-        - customerEmail
+        - status
       properties:
-        eventId:
-          type: string
-          example: evt-101
-        tierId:
-          type: string
-          example: tier-vip
-        seatId:
-          type: string
-          example: seat-a1
-        userId:
-          type: string
-          example: usr-101
-        customerName:
-          type: string
-          example: Jane Doe
-        customerEmail:
-          type: string
-          format: email
-          example: jane@example.com
-        quantity:
-          type: integer
-          default: 1
-          example: 1
-
-    WaitlistStatusResponse:
-      type: object
-      properties:
-        entries:
-          type: array
-          items:
-            $ref: '#/components/schemas/WaitlistEntry'
-        count:
-          type: integer
-          example: 1
-
-    ClaimWaitlistResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          example: bkg-101
-        bookingReference:
-          type: string
-          example: BKG-WL-1234
         status:
           type: string
-          example: CONFIRMED
-
-    DLQMessage:
+          description: "Target event lifecycle status (DRAFT, PUBLISHED, ARCHIVED, CANCELLED)"
+          example: PUBLISHED
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - ARCHIVED
+            - CANCELLED
+    DLQSimulateRequest:
       type: object
+      required:
+        - type
+        - errorMessage
       properties:
-        messageId:
+        type:
           type: string
-          example: msg-101
-        queueName:
-          type: string
-          example: saga.dlq
-        routingKey:
-          type: string
-          example: inventory.reserve
-        payload:
-          type: object
+          description: Failure scenario type
+          example: poison
+          enum:
+            - poison
+            - retry_fail
+            - direct_dlq
         errorMessage:
           type: string
-          example: Connection reset during saga reservation
-        timestamp:
+          description: Simulated error diagnostic message
+          example: Simulated consumer processing failure
+        routingKey:
           type: string
-          format: date-time
-        retryCount:
-          type: integer
-          example: 3
-
-    DLQStatsResponse:
+          description: AMQP routing key target
+          example: booking.confirmed
+        payload:
+          type: object
+          description: Synthetic message payload object
+          example:
+            bookingId: "bkg-101"
+    CancelSeatsRequest:
       type: object
       properties:
-        queueName:
+        bookingId:
           type: string
-          example: saga.dlq
-        messageCount:
-          type: integer
-          example: 0
-        consumerCount:
-          type: integer
-          example: 1
-
-    DLQRetryResponse:
-      type: object
-      properties:
-        status:
+          description: Booking order identifier
+          example: "bkg-101"
+        eventId:
           type: string
-          example: REPROCESSED
-        reprocessed:
+          description: Event identifier
+          example: "evt-101"
+        reservationId:
+          type: string
+          description: Reservation hold identifier
+          example: "res-101"
+        tierId:
+          type: string
+          description: Ticket tier identifier
+          example: "tier-vip"
+        quantity:
           type: integer
-          example: 5
-
-    ErrorResponse:
+          description: Seat count to release
+          example: 2
+        seatIds:
+          type: array
+          description: Array of seat identifiers
+          items:
+            type: string
+          example:
+            - "seat-a1"
+            - "seat-a2"
+        reason:
+          type: string
+          description: Cancellation justification note
+          example: Customer requested full refund.
+    CommitSeatsRequest:
       type: object
       required:
-        - error
+        - reservationId
+        - bookingId
       properties:
-        error:
+        reservationId:
           type: string
-          example: RATE_LIMIT_EXCEEDED
-        message:
+          description: Reservation hold lease identifier
+          example: "res-101"
+        bookingId:
           type: string
-          example: Too many requests. Please slow down.
-        retryAfter:
-          type: integer
-          example: 1
-
-    HealthResponse:
+          description: Associated confirmed booking identifier
+          example: "bkg-101"
+    ReleaseSeatsRequest:
       type: object
+      required:
+        - reservationId
       properties:
-        status:
+        reservationId:
           type: string
-          example: UP
-        service:
+          description: Reservation hold lease identifier
+          example: "res-101"
+        reason:
           type: string
-          example: catalog-service
-        timestamp:
-          type: string
-          example: '2026-10-18T00:00:00Z'
-        uptime_seconds:
-          type: number
-          example: 124.5
-        version:
-          type: string
-          example: 1.0.0
-        components:
-          type: object
-          additionalProperties:
-            type: object
-            properties:
-              status:
-                type: string
-                example: UP
-              details:
+          description: Release reason description
+          example: Checkout session timed out
+  securitySchemes:
+    BearerAuth:
+      bearerFormat: JWT
+      description: Standard Bearer JWT token obtained from `/api/auth/login` or `/api/auth/register`.
+      scheme: bearer
+      type: http
+info:
+  contact:
+    email: "engineering@tickets.com"
+    name: System Engineering Team
+  description: |
+    Production-grade OpenAPI 3.0 specification for the Distributed Ticket Booking System.
+    Covers Authentication, Event Catalog, Seat Inventory, Booking & Saga Orchestration,
+    Waitlist Management, and RabbitMQ Dead Letter Queue (DLQ) operations.
+  title: Distributed Ticket Booking System API
+  version: 1.0.0
+openapi: 3.0.3
+paths:
+  /api/auth/login:
+    post:
+      description: Verifies user credentials and generates a signed JWT token.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+          description: Authentication successful
+        401:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Invalid email or password
+      summary: Authenticate user credentials
+      tags:
+        - Authentication
+  /api/auth/me:
+    get:
+      description: Returns profile details for the authenticated user context.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
                 type: object
-
-    MetricsResponse:
-      type: object
-      properties:
-        service:
-          type: string
-          example: catalog-service
-        timestamp:
-          type: string
-          example: '2026-10-18T00:00:00Z'
-        uptime_seconds:
-          type: number
-          example: 124.5
-        memory:
-          type: object
-          properties:
-            alloc_bytes:
-              type: integer
-              example: 4194304
-            sys_bytes:
-              type: integer
-              example: 16777216
-            num_goroutines:
-              type: integer
-              example: 12
-        connection_pool:
-          type: object
-          properties:
-            open_connections:
-              type: integer
-              example: 5
-            in_use:
-              type: integer
-              example: 1
-            idle:
-              type: integer
-              example: 4
-            max_open_connections:
-              type: integer
-              example: 25
+          description: User profile retrieved
+        401:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Unauthorized
+      security:
+        - BearerAuth: []
+      summary: Current user profile
+      tags:
+        - Authentication
+  /api/auth/register:
+    post:
+      description: Creates a new user account with hashed password credentials and returns a JWT bearer token.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+          description: User registered successfully
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Validation error or duplicate email
+      summary: Register a new user
+      tags:
+        - Authentication
+  /api/auth/users:
+    get:
+      description: Retrieves a list of all registered accounts. Restricted to administrators.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/User"
+                type: array
+          description: User list retrieved
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: "Forbidden - Admin role required"
+      security:
+        - BearerAuth: []
+      summary: List all registered users (Admin only)
+      tags:
+        - Authentication
+  /api/auth/verify:
+    get:
+      description: "Decodes and validates the caller's JWT token, returning token claims."
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserClaims"
+          description: Token is valid
+        401:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: "Token is expired, malformed, or missing"
+      security:
+        - BearerAuth: []
+      summary: Verify JWT token validity
+      tags:
+        - Authentication
+  /api/bookings:
+    get:
+      description: "Retrieves booking records with optional filters for user, event, or status."
+      parameters:
+        - in: query
+          name: userId
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: eventId
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Booking"
+                type: array
+          description: List of bookings
+      security:
+        - BearerAuth: []
+      summary: List bookings
+      tags:
+        - Bookings
+    post:
+      description: |
+    Initiates a multi-step Saga distributed transaction: reserves inventory, captures payment,
+    and generates confirmed tickets. Supports replay-safe idempotency.
+      parameters:
+        - description: Unique client key for preventing double charging and duplicate reservations
+          in: header
+          name: "Idempotency-Key"
+          required: false
+          schema:
+            type: string
+        - description: Distributed trace correlation identifier
+          in: header
+          name: "X-Correlation-ID"
+          required: false
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingRequest"
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+          description: Idempotent replay of previously confirmed booking
+          headers:
+            X-Idempotent-Replay:
+              description: Indicates request was served from cached idempotency record
+              schema:
+                type: string
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+          description: Booking confirmed and tickets issued
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Invalid request payload
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Concurrency conflict or sold out
+      security:
+        - BearerAuth: []
+      summary: Create booking (Saga Orchestration)
+      tags:
+        - Bookings
+  /api/bookings/{id}:
+    delete:
+      description: Cancels confirmed booking and triggers compensating inventory release.
+      parameters:
+        - description: Booking ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        204:
+          description: Booking cancelled and deleted / No Content
+        200:
+          description: Booking cancellation summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancelBookingResponse"
+        400:
+          description: Invalid cancellation request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        404:
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Cancel booking
+      tags:
+        - Bookings
+    get:
+      description: Retrieves single booking record with individual ticket barcode tokens.
+      parameters:
+        - description: Booking ID or booking reference code
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+          description: Booking retrieved
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Booking not found
+      security:
+        - BearerAuth: []
+      summary: Get booking details
+      tags:
+        - Bookings
+  /api/bookings/{id}/cancel:
+    post:
+      description: Alternative POST endpoint to cancel a booking and execute compensating releases.
+      parameters:
+        - description: Booking ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: "X-Correlation-ID"
+          required: false
+          schema:
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancelBookingResponse"
+          description: Booking cancelled
+      security:
+        - BearerAuth: []
+      summary: Cancel booking via POST
+      tags:
+        - Bookings
+  /api/dlq/messages:
+    delete:
+      description: Administrative purge of all unprocessable poison messages.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                properties:
+                  purged:
+                    type: integer
+                  status:
+                    example: PURGED
+                    type: string
+                type: object
+          description: Purge count
+      summary: Purge all DLQ messages
+      tags:
+        - DLQ
+    get:
+      description: Inspects failed messages currently dwelling in the dead letter exchange.
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            default: 100
+            type: integer
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                properties:
+                  count:
+                    type: integer
+                  messages:
+                    items:
+                      $ref: "#/components/schemas/DLQMessage"
+                    type: array
+                  queueName:
+                    type: string
+                type: object
+          description: Messages array
+      summary: Peek DLQ poison messages
+      tags:
+        - DLQ
+  /api/dlq/retry:
+    post:
+      description: "Re-queues dead-lettered messages back into primary processing queues for reprocessing."
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DLQRetryResponse"
+          description: Reprocess summary
+      summary: Reprocess DLQ messages
+      tags:
+        - DLQ
+  /api/dlq/simulate:
+    post:
+      description: "Diagnostics endpoint to trigger controlled failures and test dead-letter routing."
+      requestBody:
+        required: true
+        description: Simulation payload
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DLQSimulateRequest"
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                properties:
+                  status:
+                    example: SIMULATED
+                    type: string
+                type: object
+          description: Poison pill routed to DLQ
+      summary: Simulate DLQ poison pill ingestion
+      tags:
+        - DLQ
+  /api/dlq/stats:
+    get:
+      description: "Inspects active message count, consumer readiness, and unroutable dead-letter depth."
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DLQStatsResponse"
+          description: DLQ metrics
+      summary: Get RabbitMQ Dead Letter Queue telemetry
+      tags:
+        - DLQ
+  /api/events:
+    get:
+      description: Retrieves upcoming events with active ticket tiers. Results are cached in Redis with a 30s TTL.
+      parameters:
+        - description: "Optional filter by event category (e.g., Music, Sports, Theatre)"
+          in: query
+          name: category
+          required: false
+          schema:
+            type: string
+        - description: Optional search string matching event titles or descriptions
+          in: query
+          name: search
+          required: false
+          schema:
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventListResponse"
+          description: Array of events
+      summary: List all events
+      tags:
+        - Catalog
+  /api/events/{id}:
+    get:
+      description: Retrieves detailed metadata for a single event including all ticket tier pricing and capacities.
+      parameters:
+        - description: "Event ID (e.g., evt-101)"
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+          description: Event details
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Event not found
+      summary: Get event details
+      tags:
+        - Catalog
+  /api/inventory/cancel:
+    post:
+      description: Compensating transaction endpoint called during Saga rollback or customer booking cancellation.
+      parameters:
+        - in: header
+          name: "X-Correlation-ID"
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: Cancellation payload
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelSeatsRequest"
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                properties:
+                  status:
+                    example: CANCELLED
+                    type: string
+                type: object
+          description: Seats reverted to available
+      summary: Cancel booked seats (Compensating transaction)
+      tags:
+        - Inventory
+  /api/inventory/commit:
+    post:
+      description: Finalizes a temporary reservation into permanently BOOKED seats upon payment confirmation.
+      parameters:
+        - in: header
+          name: "X-Correlation-ID"
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: Commit verification payload
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommitSeatsRequest"
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                properties:
+                  status:
+                    example: COMMITTED
+                    type: string
+                type: object
+          description: Reservation committed
+      summary: Commit reservation to booked status
+      tags:
+        - Inventory
+  /api/inventory/janitor/sweep:
+    post:
+      description: Maintenance endpoint that audits expired HOLD seats and returns them to AVAILABLE.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                properties:
+                  status:
+                    example: COMPLETED
+                    type: string
+                  sweptReservations:
+                    type: integer
+                type: object
+          description: Janitor sweep report
+      summary: Trigger janitor sweep of expired holds
+      tags:
+        - Inventory
+  /api/inventory/release:
+    post:
+      description: Manually or automatically releases held seats back to AVAILABLE status.
+      parameters:
+        - in: header
+          name: "X-Correlation-ID"
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        description: Release payload
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReleaseSeatsRequest"
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                properties:
+                  status:
+                    example: RELEASED
+                    type: string
+                type: object
+          description: Reservation released
+      summary: Release held reservation
+      tags:
+        - Inventory
+  /api/inventory/reservations/{id}:
+    get:
+      description: "Queries the status, remaining hold duration, and seat assignments for a reservation."
+      parameters:
+        - description: Reservation ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReservationResponse"
+          description: Active reservation status
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Reservation not found or expired
+      summary: Inspect reservation hold status
+      tags:
+        - Inventory
+  /api/inventory/reserve:
+    post:
+      description: Places a temporary hold (default 120s) on specified seats using distributed Redis locking.
+      parameters:
+        - description: Unique idempotency key to prevent duplicate reservation calls
+          in: header
+          name: "Idempotency-Key"
+          required: false
+          schema:
+            type: string
+        - description: Distributed trace correlation identifier
+          in: header
+          name: "X-Correlation-ID"
+          required: false
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReserveSeatsRequest"
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReservationResponse"
+          description: Seats held successfully
+        409:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: "Conflict - Seats are already held or booked"
+      summary: Reserve seats with temporary hold
+      tags:
+        - Inventory
+    patch:
+      tags:
+        - Inventory
+      summary: Extend or update temporary seat reservation hold (PATCH)
+      description: Updates lease hold expiration or requested seats under distributed lock.
+      parameters:
+        - name: "Idempotency-Key"
+          in: header
+          required: true
+          description: Unique idempotency token
+          schema:
+            type: string
+          example: "idem-key-1718000000"
+        - name: "X-Correlation-ID"
+          in: header
+          required: false
+          description: Distributed tracing correlation identifier
+          schema:
+            type: string
+          example: "corr-uuid-101"
+      requestBody:
+        required: true
+        description: Seat reservation parameters
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReserveSeatsRequest"
+      responses:
+        200:
+          description: Reservation hold updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReservationResponse"
+        400:
+          description: Invalid reservation request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        409:
+          description: Seat conflict or capacity exhausted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/inventory/{eventId}:
+    get:
+      description: "Returns aggregate seat availability, booked count, and hold count grouped by tier."
+      parameters:
+        - description: Event ID
+          in: path
+          name: eventId
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryResponse"
+          description: Inventory summary
+      summary: Get event seat inventory overview
+      tags:
+        - Inventory
+  /api/inventory/{eventId}/seats:
+    get:
+      description: "Returns a matrix of all seats, rows, seat numbers, and current hold/booked statuses."
+      parameters:
+        - description: Event ID
+          in: path
+          name: eventId
+          required: true
+          schema:
+            type: string
+        - description: "Filter seats by status (AVAILABLE, HOLD, BOOKED)"
+          in: query
+          name: status
+          required: false
+          schema:
+            enum:
+              - AVAILABLE
+              - HOLD
+              - BOOKED
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                  summary:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      available:
+                        type: integer
+                      held:
+                        type: integer
+                      booked:
+                        type: integer
+                  seats:
+                    items:
+                      $ref: "#/components/schemas/SeatItem"
+                    type: array
+          description: Detailed seat list
+      summary: List individual seat layouts
+      tags:
+        - Inventory
+  /api/inventory/{eventId}/seats/realtime:
+    get:
+      description: Returns live seat matrix and inventory count breakdown bypassing all caches.
+      parameters:
+        - description: Event ID
+          in: path
+          name: eventId
+          required: true
+          schema:
+            type: string
+        - description: "Filter seats by status (AVAILABLE, HOLD, BOOKED)"
+          in: query
+          name: status
+          required: false
+          schema:
+            enum:
+              - AVAILABLE
+              - HOLD
+              - BOOKED
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                  summary:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      available:
+                        type: integer
+                      held:
+                        type: integer
+                      booked:
+                        type: integer
+                  seats:
+                    items:
+                      $ref: "#/components/schemas/SeatItem"
+                    type: array
+          description: "Real-time seat availability snapshot"
+      summary: "Real-time seat availability snapshot (R10)"
+      tags:
+        - Inventory
+  /api/inventory/{eventId}/seats/stream:
+    get:
+      description: "Server-Sent Events (SSE) push stream broadcasting seat status changes in real time."
+      parameters:
+        - description: Event ID
+          in: path
+          name: eventId
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          content:
+            text/event-stream:
+              schema:
+                type: string
+          description: "Continuous text/event-stream of seat state changes"
+      summary: "Real-time seat availability SSE stream (R10)"
+      tags:
+        - Inventory
+  /api/waitlist:
+    get:
+      description: "Lists waitlist queue status filtered by event, user, or status."
+      parameters:
+        - in: query
+          name: eventId
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: userId
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/WaitlistEntry"
+                type: array
+          description: Waitlist entries
+      summary: Query waitlist entries
+      tags:
+        - Waitlist
+    post:
+      description: Enqueues a customer onto the FIFO waitlist when an event or ticket tier is sold out.
+      parameters:
+        - description: Idempotency key for waitlist submission
+          in: header
+          name: "Idempotency-Key"
+          required: false
+          schema:
+            type: string
+        - description: Distributed trace correlation identifier
+          in: header
+          name: "X-Correlation-ID"
+          required: false
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinWaitlistRequest"
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WaitlistEntry"
+          description: Joined waitlist
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Invalid request
+      security:
+        - BearerAuth: []
+      summary: Join event waitlist
+      tags:
+        - Waitlist
+  /api/waitlist/{id}:
+    delete:
+      description: Voluntarily leaves the waitlist queue.
+      parameters:
+        - description: Waitlist entry ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        204:
+          description: Waitlist entry deleted / No Content
+        200:
+          description: Waitlist entry cancellation summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WaitlistStatusResponse"
+        400:
+          description: Invalid cancellation request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        404:
+          description: Waitlist entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Cancel waitlist position
+      tags:
+        - Waitlist
+    get:
+      description: "Returns position in queue, promotion timestamp, and hold expiry."
+      parameters:
+        - description: Waitlist entry ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WaitlistEntry"
+          description: Waitlist details
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Entry not found
+      summary: Get waitlist status and position
+      tags:
+        - Waitlist
+  /api/waitlist/{id}/cancel:
+    post:
+      description: Alternate endpoint to cancel a waitlist reservation.
+      parameters:
+        - description: Waitlist entry ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                properties:
+                  message:
+                    type: string
+                  status:
+                    type: string
+                type: object
+          description: Cancelled
+      security:
+        - BearerAuth: []
+      summary: Cancel waitlist entry via POST
+      tags:
+        - Waitlist
+  /api/waitlist/{id}/claim:
+    post:
+      description: Converts a promoted waitlist hold into a confirmed booking.
+      parameters:
+        - description: Waitlist entry ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: "X-Correlation-ID"
+          required: false
+          schema:
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+          description: Successfully claimed and booked
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Not eligible or hold expired
+      security:
+        - BearerAuth: []
+      summary: Claim promoted waitlist seat
+      tags:
+        - Waitlist
+  /health:
+    get:
+      description: "Returns operational readiness and status of components (PostgreSQL, Redis, RabbitMQ) and uptime."
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+          description: System is healthy
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+          description: System dependency is unhealthy or degraded
+      summary: Service Health Check
+      tags:
+        - System
+  /metrics:
+    get:
+      description: "Returns Go runtime memory metrics, database connection pool saturation, Redis pool statistics, and Prometheus exposition."
+      parameters:
+        - description: "Exposition format (JSON default, or Prometheus text format)"
+          in: query
+          name: format
+          schema:
+            enum:
+              - json
+              - prometheus
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetricsResponse"
+            text/plain:
+              schema:
+                type: string
+          description: Operational telemetry metrics
+      summary: "Service Metrics & Actuator Telemetry (R23)"
+      tags:
+        - System
+  /api/webhooks/subscriptions:
+    post:
+      tags:
+        - Webhooks
+      summary: "Register partner webhook subscription (R26, R22)"
+      responses:
+        201:
+          description: Subscription registered
+    get:
+      tags:
+        - Webhooks
+      summary: List partner webhook subscriptions
+      responses:
+        200:
+          description: List of subscriptions
+  /api/webhooks/subscriptions/{id}:
+    get:
+      tags:
+        - Webhooks
+      summary: Get webhook subscription details
+      responses:
+        200:
+          description: Subscription details
+    delete:
+      tags:
+        - Webhooks
+      summary: Delete webhook subscription
+      responses:
+        200:
+          description: Subscription removed
+  /api/webhooks/deliveries:
+    get:
+      tags:
+        - Webhooks
+      summary: Query webhook delivery audit logs
+      responses:
+        200:
+          description: List of delivery audit entries
+  /api/webhooks/dispatch:
+    post:
+      tags:
+        - Webhooks
+      summary: Test dispatch a webhook event
+      responses:
+        200:
+          description: Event dispatched
+  /api/events/{id}/pricing:
+    get:
+      tags:
+        - Catalog
+      summary: "Get dynamic surge pricing for event (R27, R33)"
+      description: "Returns real-time dynamic ticket pricing calculated from seat inventory scarcity and booking velocity, with service isolation fallback."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Dynamic surge pricing analysis
+        404:
+          description: Event not found
+  /api/events/{id}/status:
+    put:
+      tags:
+        - Catalog
+      summary: Update event lifecycle status (PUT)
+      description: "Transitions event state between DRAFT, PUBLISHED, ARCHIVED, or CANCELLED."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique event identifier
+          schema:
+            type: string
+          example: "evt-101"
+      requestBody:
+        required: true
+        description: Event status update payload
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventStatusUpdateRequest"
+      responses:
+        200:
+          description: Event status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        400:
+          description: Invalid status transition payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        401:
+          description: Unauthorized administrator access
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        404:
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      tags:
+        - Catalog
+      summary: Partially update event lifecycle status (PATCH)
+      description: "Transitions event state between DRAFT, PUBLISHED, ARCHIVED, or CANCELLED."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique event identifier
+          schema:
+            type: string
+          example: "evt-101"
+      requestBody:
+        required: true
+        description: Event status update payload
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventStatusUpdateRequest"
+      responses:
+        200:
+          description: Event status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        400:
+          description: Invalid status transition payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        401:
+          description: Unauthorized administrator access
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        404:
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+servers:
+  - description: API Gateway (Unified Entrypoint)
+    url: "http://localhost:8080"
+tags:
+  - description: "User registration, login, JWT issuance, and RBAC token verification"
+    name: Authentication
+  - description: "High-throughput event discovery and ticket tier details with Redis caching"
+    name: Catalog
+  - description: "Real-time seat inventory, distributed Redis locks, and hold reservation lifecycles"
+    name: Inventory
+  - description: "Distributed booking lifecycle, idempotency key deduplication, and Saga orchestration"
+    name: Bookings
+  - description: "FIFO waitlist queueing, cancellation, and automatic promotion claiming"
+    name: Waitlist
+  - description: "Dead Letter Queue introspection, reprocessing, purging, and failure simulation"
+    name: DLQ
+  - description: Infrastructure health checks and diagnostic telemetry
+    name: System

@@ -3,7 +3,7 @@
   "info": {
     "title": "Notification Service API",
     "version": "1.0.0",
-    "description": "Multi-Channel Async Notifications (Email/SMS/Wallet), RabbitMQ Consumer, and Audit Log."
+    "description": "Multi-Channel Async Notifications (Email/SMS/Wallet), RabbitMQ Consumer, and Delivery Audit."
   },
   "servers": [
     {
@@ -15,16 +15,129 @@
     "/api/notifications/deliveries": {
       "get": {
         "summary": "Audit log of sent transactional email, SMS, and wallet notifications",
+        "description": "Queries historical notification log for transactional receipts and alerts.",
+        "parameters": [
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "description": "Delivery channel filter (EMAIL, SMS, IN_APP, WALLET)",
+            "schema": {
+              "type": "string"
+            },
+            "example": "EMAIL"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Delivery dispatch state filter (SENT, FAILED, PENDING)",
+            "schema": {
+              "type": "string"
+            },
+            "example": "SENT"
+          },
+          {
+            "name": "recipient",
+            "in": "query",
+            "required": false,
+            "description": "Recipient address filter",
+            "schema": {
+              "type": "string"
+            },
+            "example": "alice@example.com"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Number of records to return",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 50
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Pagination offset",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 0
+          }
+        ],
         "responses": {
-          "200": { "description": "List of notification deliveries" }
+          "200": {
+            "description": "List of notification delivery records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDeliveryListResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/notifications/dispatch-test": {
       "post": {
         "summary": "Direct dispatch test endpoint for transactional notifications",
+        "description": "Sends immediate test notification through specified delivery channel.",
+        "requestBody": {
+          "required": true,
+          "description": "Test notification dispatch parameters",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationDispatchRequest"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": { "description": "Notification dispatched successfully" }
+          "200": {
+            "description": "Notification dispatched successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDispatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid notification parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to dispatch notification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -34,11 +147,151 @@
       "NotificationDelivery": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "channel": { "type": "string" },
-          "recipient": { "type": "string" },
-          "eventType": { "type": "string" },
-          "status": { "type": "string" }
+          "id": {
+            "type": "string",
+            "description": "Unique notification delivery identifier",
+            "example": "notif-101"
+          },
+          "channel": {
+            "type": "string",
+            "description": "Transmission medium (EMAIL, SMS, IN_APP, WALLET)",
+            "example": "EMAIL"
+          },
+          "recipient": {
+            "type": "string",
+            "description": "Destination address or phone number",
+            "example": "alice@example.com"
+          },
+          "eventType": {
+            "type": "string",
+            "description": "Business trigger event type",
+            "example": "BOOKING_CONFIRMED"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Email subject line or alert header",
+            "example": "Your Coldplay tickets are confirmed!"
+          },
+          "body": {
+            "type": "string",
+            "description": "Rendered message payload or HTML content",
+            "example": "Booking reference: BKG-ABCD-1234"
+          },
+          "status": {
+            "type": "string",
+            "description": "Delivery outcome state (SENT, FAILED, RETRYING)",
+            "example": "SENT"
+          },
+          "sentAt": {
+            "type": "string",
+            "description": "Timestamp of successful dispatch",
+            "example": "2026-10-27T10:02:00Z"
+          },
+          "retryCount": {
+            "type": "integer",
+            "description": "Number of retry attempts executed",
+            "example": 0
+          }
+        }
+      },
+      "NotificationDeliveryListResponse": {
+        "type": "object",
+        "properties": {
+          "deliveries": {
+            "type": "array",
+            "description": "Collection of notification delivery logs",
+            "items": {
+              "$ref": "#/components/schemas/NotificationDelivery"
+            },
+            "example": [
+              {
+                "id": "notif-101",
+                "channel": "EMAIL",
+                "status": "SENT"
+              }
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total records matching query",
+            "example": 1
+          }
+        }
+      },
+      "NotificationDispatchRequest": {
+        "type": "object",
+        "required": [
+          "channel",
+          "recipient",
+          "eventType",
+          "body"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": "Delivery channel (EMAIL, SMS, IN_APP)",
+            "example": "EMAIL"
+          },
+          "recipient": {
+            "type": "string",
+            "description": "Recipient email or phone number",
+            "example": "alice@example.com"
+          },
+          "eventType": {
+            "type": "string",
+            "description": "Triggering event classification",
+            "example": "TICKET_TRANSFER"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Message subject",
+            "example": "Ticket transferred to your account"
+          },
+          "body": {
+            "type": "string",
+            "description": "Notification body content",
+            "example": "You have received 2 tickets for Coldplay."
+          }
+        }
+      },
+      "NotificationDispatchResponse": {
+        "type": "object",
+        "properties": {
+          "deliveryId": {
+            "type": "string",
+            "description": "Generated delivery tracking identifier",
+            "example": "notif-101"
+          },
+          "status": {
+            "type": "string",
+            "description": "Immediate dispatch status",
+            "example": "DISPATCHED"
+          },
+          "dispatchedAt": {
+            "type": "string",
+            "description": "Timestamp when message was passed to broker",
+            "example": "2026-10-27T10:02:00Z"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Machine-readable error tag",
+            "example": "DISPATCH_FAILED"
+          },
+          "message": {
+            "type": "string",
+            "description": "Error detail message",
+            "example": "Failed to connect to SMTP server."
+          },
+          "code": {
+            "type": "string",
+            "description": "Error classification code",
+            "example": "ERR_NOTIF_DISPATCH"
+          }
         }
       }
     }

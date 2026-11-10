@@ -345,7 +345,7 @@ func (s *Server) handleWebhookSubscriptions(w http.ResponseWriter, r *http.Reque
 	switch r.Method {
 	case http.MethodPost:
 		var sub WebhookSubscription
-		if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
+		if err := decodeStrictJSON(r, &sub); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "INVALID_JSON", "message": err.Error()})
 			return
@@ -399,8 +399,7 @@ func (s *Server) handleWebhookSubscriptionByID(w http.ResponseWriter, r *http.Re
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "NOT_FOUND", "message": err.Error()})
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"deleted": true, "id": subID})
+		w.WriteHeader(http.StatusNoContent)
 
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -443,7 +442,7 @@ func (s *Server) handleWebhookTestDispatch(w http.ResponseWriter, r *http.Reques
 		EventType string                 `json:"eventType"`
 		Data      map[string]interface{} `json:"data"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "INVALID_JSON", "message": err.Error()})
 		return

@@ -377,7 +377,7 @@ func (s *Server) handleValidateVoucher(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req ValidateVoucherRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		http.Error(w, `{"error":"Invalid request payload"}`, http.StatusBadRequest)
 		return
 	}
@@ -413,7 +413,7 @@ func (s *Server) handleAdminVouchers(w http.ResponseWriter, r *http.Request) {
 
 	case http.MethodPost:
 		var req CreateVoucherRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := decodeStrictJSON(r, &req); err != nil {
 			http.Error(w, fmt.Sprintf(`{"error":"Invalid request payload: %v"}`, err), http.StatusBadRequest)
 			return
 		}

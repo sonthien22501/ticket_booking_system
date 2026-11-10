@@ -21,6 +21,8 @@ type TicketTransferRequest struct {
 	Note           string `json:"note,omitempty"`
 }
 
+type TransferTicketRequest = TicketTransferRequest
+
 type TicketTransferResponse struct {
 	TransferID     string    `json:"transferId"`
 	BookingID      string    `json:"bookingId"`
@@ -101,7 +103,7 @@ func (s *Server) handleTransferTicket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req TicketTransferRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"Invalid request payload: %v"}`, err), http.StatusBadRequest)
 		return
 	}

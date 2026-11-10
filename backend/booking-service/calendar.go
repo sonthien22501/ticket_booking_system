@@ -81,17 +81,30 @@ func (s *Server) handleBookingCalendarICS(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Query event metadata
+	// Query event metadata via authoritative Catalog Service REST API (Pillar 1 database-per-service isolation)
 	var eventTitle, venue, city string
 	var startTime, endTime time.Time
 
-	err = s.db.QueryRowContext(r.Context(), `
-		SELECT title, venue_name, venue_location, start_time, COALESCE(end_time, start_time + INTERVAL '3 hours')
-		FROM events
-		WHERE id = $1
-	`, eventID).Scan(&eventTitle, &venue, &city, &startTime, &endTime)
+	meta, mErr := s.getEventMetadata(eventID)
+	if mErr == nil && meta != nil {
+		eventTitle = meta.Title
+		venue = meta.VenueName
+		city = meta.VenueLocation
+		startTime = meta.StartTime
+		if meta.EndTime != nil {
+			endTime = *meta.EndTime
+		} else {
+			endTime = startTime.Add(3 * time.Hour)
+		}
+	} else if s.db != nil {
+		_ = s.db.QueryRowContext(r.Context(), `
+			SELECT title, venue_name, venue_location, start_time, COALESCE(end_time, start_time + INTERVAL '3 hours')
+			FROM events
+			WHERE id = $1
+		`, eventID).Scan(&eventTitle, &venue, &city, &startTime, &endTime)
+	}
 
-	if err != nil {
+	if eventTitle == "" {
 		eventTitle = "Live Event"
 		venue = "TicketVerse Main Stage"
 		city = "Online / Global"

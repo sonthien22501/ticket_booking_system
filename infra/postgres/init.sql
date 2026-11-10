@@ -728,8 +728,6 @@ CREATE OR REPLACE VIEW catalog_schema.reviews AS SELECT * FROM public.reviews;
 CREATE OR REPLACE VIEW inventory_schema.event_inventory AS SELECT * FROM public.event_inventory;
 CREATE OR REPLACE VIEW inventory_schema.seat_items AS SELECT * FROM public.seat_items;
 CREATE OR REPLACE VIEW inventory_schema.reservations AS SELECT * FROM public.reservations;
-CREATE OR REPLACE VIEW inventory_schema.events AS SELECT * FROM public.events;
-CREATE OR REPLACE VIEW inventory_schema.ticket_tiers AS SELECT * FROM public.ticket_tiers;
 
 CREATE OR REPLACE VIEW booking_schema.bookings AS SELECT * FROM public.bookings;
 CREATE OR REPLACE VIEW booking_schema.tickets AS SELECT * FROM public.tickets;
@@ -738,8 +736,6 @@ CREATE OR REPLACE VIEW booking_schema.vouchers AS SELECT * FROM public.vouchers;
 CREATE OR REPLACE VIEW booking_schema.ticket_transfers AS SELECT * FROM public.ticket_transfers;
 CREATE OR REPLACE VIEW booking_schema.event_addons AS SELECT * FROM public.event_addons;
 CREATE OR REPLACE VIEW booking_schema.booking_addons AS SELECT * FROM public.booking_addons;
-CREATE OR REPLACE VIEW booking_schema.events AS SELECT * FROM public.events;
-CREATE OR REPLACE VIEW booking_schema.ticket_tiers AS SELECT * FROM public.ticket_tiers;
 
 CREATE OR REPLACE VIEW auth_schema.users AS SELECT * FROM public.users;
 

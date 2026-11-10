@@ -3,7 +3,7 @@
   "info": {
     "title": "Booking Service API",
     "version": "1.0.0",
-    "description": "Order Lifecycle, Waitlist Queue, Multi-Currency Invoicing, Vouchers, and AI Concierge Advice."
+    "description": "Order Lifecycle, Waitlist Queue, Multi-Currency Invoicing, Vouchers, Tickets, and AI Concierge Advice."
   },
   "servers": [
     {
@@ -13,59 +13,1272 @@
   ],
   "paths": {
     "/api/bookings": {
-      "post": {
-        "summary": "Create and confirm ticket booking order",
-        "responses": {
-          "201": { "description": "Booking confirmed" },
-          "409": { "description": "Seat conflict" }
-        }
-      },
       "get": {
         "summary": "List customer booking history",
+        "description": "Returns list of bookings matching customer email or authenticated user.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": false,
+            "description": "Filter bookings by user ID",
+            "schema": {
+              "type": "string"
+            },
+            "example": "usr-101"
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "required": false,
+            "description": "Filter bookings by customer email",
+            "schema": {
+              "type": "string"
+            },
+            "example": "customer@example.com"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of records to return",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 20
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Pagination offset",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 0
+          }
+        ],
         "responses": {
-          "200": { "description": "List of bookings" }
+          "200": {
+            "description": "List of customer bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create and confirm ticket booking order",
+        "description": "Coordinates distributed saga: validates inventory hold, processes payment, issues tickets.",
+        "requestBody": {
+          "required": true,
+          "description": "Booking order payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBookingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Booking created and confirmed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booking"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid booking parameters or missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Seat hold expired or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error during saga execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/bookings/{id}": {
       "get": {
         "summary": "Get booking details by ID",
+        "description": "Retrieves booking order, status, tickets, and payment receipt.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Unique booking identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "bkg-101"
+          }
+        ],
         "responses": {
-          "200": { "description": "Booking details" },
-          "404": { "description": "Booking not found" }
+          "200": {
+            "description": "Booking details retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booking"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Booking not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete / cancel booking by ID (DELETE)",
+        "description": "Cancels booking and releases seats, returning 204 No Content.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Unique booking identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "bkg-101"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Booking cancelled and deleted successfully"
+          },
+          "200": {
+            "description": "Booking cancellation summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelBookingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid booking cancellation request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Booking not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bookings/{id}/cancel": {
+      "post": {
+        "summary": "Cancel booking and initiate refund (POST)",
+        "description": "Triggers compensation workflow to refund payment and release inventory.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Unique booking identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "bkg-101"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking cancelled successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelBookingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid cancellation request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Booking not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bookings/verify-ticket": {
+      "post": {
+        "summary": "Verify ticket barcode or QR code at venue turnstile",
+        "description": "Validates ticket authenticity and admission eligibility.",
+        "requestBody": {
+          "required": true,
+          "description": "Ticket verification payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ticket verification status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyTicketResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid barcode format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Ticket not found or fraudulent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tickets/transfer": {
+      "post": {
+        "summary": "Transfer digital ticket ownership to another recipient",
+        "description": "Re-issues ticket with new QR code and invalidates previous owner barcode.",
+        "requestBody": {
+          "required": true,
+          "description": "Ticket transfer recipient details",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ticket transferred successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferTicketResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid recipient or non-transferable ticket",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized transfer attempt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Ticket not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tickets/transfers": {
+      "get": {
+        "summary": "List audit trail of ticket transfers",
+        "description": "Returns transfer history for authenticated user.",
+        "responses": {
+          "200": {
+            "description": "List of ticket transfers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/waitlist": {
+      "get": {
+        "summary": "List waitlist positions for user or event",
+        "description": "Queries active FIFO waitlist queue status.",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "query",
+            "required": false,
+            "description": "Filter waitlist entries by event",
+            "schema": {
+              "type": "string"
+            },
+            "example": "evt-101"
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": false,
+            "description": "Filter waitlist entries by user",
+            "schema": {
+              "type": "string"
+            },
+            "example": "usr-101"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of waitlist entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaitlistListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "summary": "Join waitlist queue for sold-out event tier",
+        "description": "Enqueues attendee in FIFO queue with automatic promotion when inventory frees up.",
+        "requestBody": {
+          "required": true,
+          "description": "Waitlist subscription parameters",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinWaitlistRequest"
+              }
+            }
+          }
+        },
         "responses": {
-          "201": { "description": "Waitlist entry created" }
+          "201": {
+            "description": "Waitlist entry created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaitlistEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid waitlist parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
-    "/api/vouchers/apply": {
+    "/api/waitlist/{id}": {
+      "get": {
+        "summary": "Get waitlist queue position status",
+        "description": "Returns current queue rank and promotion claim status.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Waitlist entry identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "wait-101"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Waitlist status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaitlistStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Waitlist entry not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Leave / cancel waitlist position (DELETE)",
+        "description": "Removes attendee from waitlist queue, returning 204 No Content.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Waitlist entry identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "wait-101"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Waitlist entry removed / No Content"
+          },
+          "200": {
+            "description": "Waitlist cancellation summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaitlistStatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid waitlist cancellation request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Waitlist entry not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/waitlist/{id}/claim": {
+      "post": {
+        "summary": "Claim promoted waitlist ticket offer",
+        "description": "Claims reserved promoted seat before promotion window expires.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Waitlist entry identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "wait-101"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Waitlist claim token",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimWaitlistRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Promoted ticket successfully claimed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimWaitlistResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid claim token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Waitlist entry not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Claim window expired or already claimed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/waitlist/{id}/cancel": {
+      "post": {
+        "summary": "Cancel waitlist subscription (POST)",
+        "description": "Explicit cancellation endpoint.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Waitlist entry identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "wait-101"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Waitlist entry cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaitlistStatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid cancellation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Waitlist entry not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vouchers/validate": {
       "post": {
         "summary": "Validate and calculate discount for promotional voucher code",
+        "description": "Verifies coupon expiration, usage limits, and calculates net price deduction.",
+        "requestBody": {
+          "required": true,
+          "description": "Voucher validation parameters",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateVoucherRequest"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": { "description": "Voucher applied" },
-          "400": { "description": "Invalid or expired voucher" }
+          "200": {
+            "description": "Voucher applied and discount computed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoucherValidationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired voucher code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/currencies/rates": {
       "get": {
         "summary": "Get multi-currency ECB exchange rates",
+        "description": "Composes live Frankfurter foreign exchange rates with regional tax matrix.",
         "responses": {
-          "200": { "description": "Current exchange rates" }
+          "200": {
+            "description": "Exchange rates and tax rules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrencyRatesResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/currencies/convert": {
+      "post": {
+        "summary": "Convert ticket order amount into target currency",
+        "description": "Calculates localized price and tax in target ISO currency.",
+        "requestBody": {
+          "required": true,
+          "description": "Currency conversion request",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConvertCurrencyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Converted amount and exchange rate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConvertCurrencyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported currency code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/concierge/advise": {
       "post": {
         "summary": "Runtime AI event concierge synthesizing live event, weather, and budget advice",
+        "description": "Composes catalog data, live weather, FX rates, and LLM reasoning into advice.",
+        "requestBody": {
+          "required": true,
+          "description": "Concierge advisory parameters",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConciergeAdviceRequest"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": { "description": "Synthesized concierge advisory" }
+          "200": {
+            "description": "Synthesized concierge advisory",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConciergeAdviceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dlq/stats": {
+      "get": {
+        "summary": "Get Dead Letter Queue diagnostic health statistics",
+        "description": "Returns counts of unrouted, failed, and pending dead-letter messages in RabbitMQ.",
+        "responses": {
+          "200": {
+            "description": "DLQ statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DLQStatsResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dlq/messages": {
+      "get": {
+        "summary": "Inspect dead-letter queue messages",
+        "description": "Paginates through dead messages trapped in DLQ queue.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Number of messages to inspect",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 20
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Filter by message state",
+            "schema": {
+              "type": "string"
+            },
+            "example": "FAILED"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of DLQ messages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DLQMessageListResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Purge dead-letter queue messages",
+        "description": "Deletes all processed or discardable messages from DLQ.",
+        "responses": {
+          "200": {
+            "description": "DLQ purged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DLQActionResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dlq/retry": {
+      "post": {
+        "summary": "Reprocess and requeue dead-letter messages",
+        "description": "Re-injects failed message back into main transactional consumer queue.",
+        "requestBody": {
+          "required": true,
+          "description": "DLQ retry request payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DLQRetryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Message reprocessed and queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DLQRetryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid retry request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dlq/simulate": {
+      "post": {
+        "summary": "Simulate consumer crash or messaging failure",
+        "description": "Injects synthetic consumer failure to verify DLQ ingestion and circuit breaker behavior.",
+        "requestBody": {
+          "required": true,
+          "description": "Simulation configuration payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DLQSimulateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Failure simulated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DLQSimulateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid simulation scenario",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -74,11 +1287,1183 @@
     "schemas": {
       "Booking": {
         "type": "object",
+        "required": [
+          "id",
+          "bookingReference",
+          "eventId",
+          "totalAmount",
+          "status"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "bookingReference": { "type": "string" },
-          "totalAmount": { "type": "number" },
-          "status": { "type": "string" }
+          "id": {
+            "type": "string",
+            "description": "Unique booking identifier",
+            "example": "bkg-101"
+          },
+          "bookingReference": {
+            "type": "string",
+            "description": "Human-readable booking reference code",
+            "example": "BKG-ABCD-1234"
+          },
+          "eventId": {
+            "type": "string",
+            "description": "Referenced event identifier",
+            "example": "evt-101"
+          },
+          "eventTitle": {
+            "type": "string",
+            "description": "Event title",
+            "example": "Coldplay Music of the Spheres"
+          },
+          "tierId": {
+            "type": "string",
+            "description": "Purchased ticket tier identifier",
+            "example": "tier-vip"
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Number of tickets booked",
+            "example": 2
+          },
+          "totalAmount": {
+            "type": "number",
+            "description": "Total final paid amount in EUR",
+            "example": 240.0
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency of transaction",
+            "example": "EUR"
+          },
+          "customerName": {
+            "type": "string",
+            "description": "Purchaser legal full name",
+            "example": "John Doe"
+          },
+          "customerEmail": {
+            "type": "string",
+            "description": "Purchaser email address",
+            "example": "john@example.com"
+          },
+          "reservationId": {
+            "type": "string",
+            "description": "Associated 2PC hold reservation identifier",
+            "example": "res-101"
+          },
+          "status": {
+            "type": "string",
+            "description": "Lifecycle state (CONFIRMED, PENDING, CANCELLED)",
+            "example": "CONFIRMED"
+          },
+          "paymentStatus": {
+            "type": "string",
+            "description": "Payment authorization state (COMPLETED, FAILED, REFUNDED)",
+            "example": "COMPLETED"
+          },
+          "seatIds": {
+            "type": "array",
+            "description": "List of confirmed seat identifiers",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "seat-a1",
+              "seat-a2"
+            ]
+          },
+          "tickets": {
+            "type": "array",
+            "description": "Individual ticket barcodes generated for booking",
+            "items": {
+              "$ref": "#/components/schemas/BookingTicket"
+            },
+            "example": [
+              {
+                "id": "tkt-1",
+                "ticketCode": "TC-9999"
+              }
+            ]
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "Client idempotency deduplication key",
+            "example": "idem-key-101"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Order creation timestamp",
+            "example": "2026-10-27T09:00:00Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Order last updated timestamp",
+            "example": "2026-10-27T09:01:00Z"
+          }
+        }
+      },
+      "BookingTicket": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique ticket identifier",
+            "example": "tkt-101"
+          },
+          "ticketId": {
+            "type": "string",
+            "description": "Alternative alias for ticket identifier",
+            "example": "tkt-101"
+          },
+          "bookingId": {
+            "type": "string",
+            "description": "Parent booking order identifier",
+            "example": "bkg-101"
+          },
+          "seatId": {
+            "type": "string",
+            "description": "Associated allocated seat identifier",
+            "example": "seat-a1"
+          },
+          "seatLabel": {
+            "type": "string",
+            "description": "Physical row and seat label",
+            "example": "Row A, Seat 1"
+          },
+          "ticketCode": {
+            "type": "string",
+            "description": "Cryptographically signed ticket verification code",
+            "example": "TC-XYZ-789"
+          },
+          "status": {
+            "type": "string",
+            "description": "Ticket validity status (ACTIVE, USED, TRANSFERRED, CANCELLED)",
+            "example": "ACTIVE"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Ticket issuance timestamp",
+            "example": "2026-10-27T09:01:00Z"
+          }
+        }
+      },
+      "BookingListResponse": {
+        "type": "object",
+        "properties": {
+          "bookings": {
+            "type": "array",
+            "description": "Collection of customer booking records",
+            "items": {
+              "$ref": "#/components/schemas/Booking"
+            },
+            "example": [
+              {
+                "id": "bkg-101",
+                "bookingReference": "BKG-ABCD-1234"
+              }
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total records count",
+            "example": 1
+          }
+        }
+      },
+      "CreateBookingRequest": {
+        "type": "object",
+        "required": [
+          "eventId",
+          "tierId",
+          "quantity",
+          "customerEmail"
+        ],
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Target event identifier",
+            "example": "evt-101"
+          },
+          "tierId": {
+            "type": "string",
+            "description": "Selected ticket tier",
+            "example": "tier-vip"
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Number of tickets to purchase",
+            "example": 2
+          },
+          "ticketCount": {
+            "type": "integer",
+            "description": "Alternative alias for ticket count",
+            "example": 2
+          },
+          "customerName": {
+            "type": "string",
+            "description": "Purchaser name",
+            "example": "John Doe"
+          },
+          "customerEmail": {
+            "type": "string",
+            "description": "Purchaser email",
+            "example": "john@example.com"
+          },
+          "customerPhone": {
+            "type": "string",
+            "description": "Purchaser contact phone number",
+            "example": "+447911123456"
+          },
+          "userId": {
+            "type": "string",
+            "description": "Authenticated user ID",
+            "example": "usr-101"
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "Chosen payment gateway method",
+            "example": "CREDIT_CARD"
+          },
+          "paymentInfo": {
+            "type": "object",
+            "description": "Payment authorization token or details",
+            "example": {
+              "paymentToken": "tok_visa"
+            }
+          },
+          "voucherCode": {
+            "type": "string",
+            "description": "Optional promotional discount voucher code",
+            "example": "SUMMER10"
+          },
+          "targetCurrency": {
+            "type": "string",
+            "description": "Requested transaction currency",
+            "example": "EUR"
+          },
+          "reservationId": {
+            "type": "string",
+            "description": "Prior seat reservation hold identifier",
+            "example": "res-101"
+          },
+          "seats": {
+            "type": "array",
+            "description": "Specific seats requested for reservation",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "seat-a1",
+              "seat-a2"
+            ]
+          },
+          "seatIds": {
+            "type": "array",
+            "description": "Alternative alias for allocated seat identifiers",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "seat-a1",
+              "seat-a2"
+            ]
+          },
+          "holdSeconds": {
+            "type": "integer",
+            "description": "Hold duration in seconds",
+            "example": 600
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "Unique client idempotency key",
+            "example": "idem-key-101"
+          }
+        }
+      },
+      "CancelBookingResponse": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "description": "Cancelled booking identifier",
+            "example": "bkg-101"
+          },
+          "status": {
+            "type": "string",
+            "description": "Cancellation outcome status",
+            "example": "CANCELLED"
+          },
+          "refundAmount": {
+            "type": "number",
+            "description": "Amount refunded to customer in EUR",
+            "example": 240.0
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable cancellation confirmation note",
+            "example": "Booking successfully cancelled and refund initiated."
+          }
+        }
+      },
+      "VerifyTicketRequest": {
+        "type": "object",
+        "required": [
+          "barcode"
+        ],
+        "properties": {
+          "ticketId": {
+            "type": "string",
+            "description": "Optional ticket identifier",
+            "example": "tkt-101"
+          },
+          "barcode": {
+            "type": "string",
+            "description": "Barcode or QR code data string",
+            "example": "TC-XYZ-789"
+          }
+        }
+      },
+      "VerifyTicketResponse": {
+        "type": "object",
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "description": "True if ticket is genuine and admission permitted",
+            "example": true
+          },
+          "ticketId": {
+            "type": "string",
+            "description": "Verified ticket identifier",
+            "example": "tkt-101"
+          },
+          "eventTitle": {
+            "type": "string",
+            "description": "Event title",
+            "example": "Coldplay Music of the Spheres"
+          },
+          "customerName": {
+            "type": "string",
+            "description": "Ticket bearer name",
+            "example": "John Doe"
+          },
+          "admissionStatus": {
+            "type": "string",
+            "description": "Admission gate status (ADMITTED, ALREADY_SCANNED, VOID)",
+            "example": "ADMITTED"
+          }
+        }
+      },
+      "TransferTicketRequest": {
+        "type": "object",
+        "required": [
+          "ticketId",
+          "recipientEmail"
+        ],
+        "properties": {
+          "ticketId": {
+            "type": "string",
+            "description": "Identifier of ticket to transfer",
+            "example": "tkt-101"
+          },
+          "recipientEmail": {
+            "type": "string",
+            "description": "Email address of the recipient",
+            "example": "alice@example.com"
+          },
+          "recipientName": {
+            "type": "string",
+            "description": "Legal full name of recipient",
+            "example": "Alice Smith"
+          }
+        }
+      },
+      "TransferTicketResponse": {
+        "type": "object",
+        "properties": {
+          "transferId": {
+            "type": "string",
+            "description": "Unique transfer tracking identifier",
+            "example": "xfer-101"
+          },
+          "ticketId": {
+            "type": "string",
+            "description": "Re-issued ticket identifier",
+            "example": "tkt-102"
+          },
+          "previousOwnerEmail": {
+            "type": "string",
+            "description": "Transferor email address",
+            "example": "john@example.com"
+          },
+          "newOwnerEmail": {
+            "type": "string",
+            "description": "Transferee recipient email address",
+            "example": "alice@example.com"
+          },
+          "status": {
+            "type": "string",
+            "description": "Transfer execution state",
+            "example": "COMPLETED"
+          }
+        }
+      },
+      "TransferListResponse": {
+        "type": "object",
+        "properties": {
+          "transfers": {
+            "type": "array",
+            "description": "Historical ticket transfers",
+            "items": {
+              "$ref": "#/components/schemas/TransferTicketResponse"
+            },
+            "example": [
+              {
+                "transferId": "xfer-101",
+                "status": "COMPLETED"
+              }
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total transfer records count",
+            "example": 1
+          }
+        }
+      },
+      "WaitlistEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique waitlist entry identifier",
+            "example": "wait-101"
+          },
+          "eventId": {
+            "type": "string",
+            "description": "Waitlisted event identifier",
+            "example": "evt-101"
+          },
+          "tierId": {
+            "type": "string",
+            "description": "Desired ticket tier",
+            "example": "tier-vip"
+          },
+          "userId": {
+            "type": "string",
+            "description": "Attendee user identifier",
+            "example": "usr-101"
+          },
+          "customerName": {
+            "type": "string",
+            "description": "Attendee legal name",
+            "example": "Alice Smith"
+          },
+          "customerEmail": {
+            "type": "string",
+            "description": "Attendee notification email address",
+            "example": "alice@example.com"
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Number of seats desired",
+            "example": 2
+          },
+          "seatId": {
+            "type": "string",
+            "description": "Specific seat if waitlisted for single seat",
+            "example": "seat-a1"
+          },
+          "reservationId": {
+            "type": "string",
+            "description": "Associated reservation hold if promoted",
+            "example": "res-101"
+          },
+          "position": {
+            "type": "integer",
+            "description": "Current rank in FIFO waitlist queue",
+            "example": 1
+          },
+          "status": {
+            "type": "string",
+            "description": "Waitlist status (WAITING, PROMOTED, CLAIMED, CANCELLED)",
+            "example": "WAITING"
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "Promotion claim window expiration timestamp",
+            "example": "2026-10-27T10:30:00Z"
+          },
+          "promotedAt": {
+            "type": "string",
+            "description": "Timestamp when waitlist entry was promoted",
+            "example": "2026-10-27T10:15:00Z"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Waitlist enrollment timestamp",
+            "example": "2026-10-27T08:00:00Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Waitlist entry last update timestamp",
+            "example": "2026-10-27T10:15:00Z"
+          }
+        }
+      },
+      "WaitlistListResponse": {
+        "type": "object",
+        "properties": {
+          "entries": {
+            "type": "array",
+            "description": "Active waitlist registrations",
+            "items": {
+              "$ref": "#/components/schemas/WaitlistEntry"
+            },
+            "example": [
+              {
+                "id": "wait-101",
+                "position": 1
+              }
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total waitlisted count",
+            "example": 1
+          }
+        }
+      },
+      "JoinWaitlistRequest": {
+        "type": "object",
+        "required": [
+          "eventId",
+          "tierId",
+          "customerEmail"
+        ],
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Target event identifier",
+            "example": "evt-101"
+          },
+          "tierId": {
+            "type": "string",
+            "description": "Target ticket tier",
+            "example": "tier-vip"
+          },
+          "userId": {
+            "type": "string",
+            "description": "Attendee user identifier",
+            "example": "usr-101"
+          },
+          "customerName": {
+            "type": "string",
+            "description": "Attendee name",
+            "example": "Alice Smith"
+          },
+          "customerEmail": {
+            "type": "string",
+            "description": "Notification email for promotion offer",
+            "example": "alice@example.com"
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Requested ticket count",
+            "example": 2
+          },
+          "seatId": {
+            "type": "string",
+            "description": "Optional specific seat identifier",
+            "example": "seat-a1"
+          }
+        }
+      },
+      "WaitlistStatusResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Waitlist entry identifier",
+            "example": "wait-101"
+          },
+          "eventId": {
+            "type": "string",
+            "description": "Associated event identifier",
+            "example": "evt-101"
+          },
+          "tierId": {
+            "type": "string",
+            "description": "Associated tier identifier",
+            "example": "tier-vip"
+          },
+          "position": {
+            "type": "integer",
+            "description": "Current position in FIFO queue",
+            "example": 1
+          },
+          "count": {
+            "type": "integer",
+            "description": "Total queue depth",
+            "example": 12
+          },
+          "status": {
+            "type": "string",
+            "description": "Queue status state",
+            "example": "PROMOTED"
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "Expiration timestamp for claiming offer",
+            "example": "2026-10-27T10:30:00Z"
+          },
+          "entries": {
+            "type": "array",
+            "description": "Optional queue listing items",
+            "items": {
+              "$ref": "#/components/schemas/WaitlistEntry"
+            },
+            "example": [
+              {
+                "id": "wait-101",
+                "position": 1
+              }
+            ]
+          }
+        }
+      },
+      "ClaimWaitlistRequest": {
+        "type": "object",
+        "required": [
+          "claimToken"
+        ],
+        "properties": {
+          "claimToken": {
+            "type": "string",
+            "description": "Secure one-time claim token provided in promotion notification",
+            "example": "claim-tok-xyz"
+          }
+        }
+      },
+      "ClaimWaitlistResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Waitlist entry identifier",
+            "example": "wait-101"
+          },
+          "bookingReference": {
+            "type": "string",
+            "description": "Confirmed booking reference code",
+            "example": "BKG-ABCD-1234"
+          },
+          "status": {
+            "type": "string",
+            "description": "Claim outcome status",
+            "example": "CLAIMED"
+          }
+        }
+      },
+      "ValidateVoucherRequest": {
+        "type": "object",
+        "required": [
+          "code",
+          "originalAmount"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Voucher promotional coupon code",
+            "example": "SUMMER10"
+          },
+          "eventId": {
+            "type": "string",
+            "description": "Target event identifier",
+            "example": "evt-101"
+          },
+          "originalAmount": {
+            "type": "number",
+            "description": "Pre-discount total order amount in EUR",
+            "example": 100.0
+          }
+        }
+      },
+      "VoucherValidationResponse": {
+        "type": "object",
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "description": "True if voucher is active and valid for order",
+            "example": true
+          },
+          "code": {
+            "type": "string",
+            "description": "Validated coupon code",
+            "example": "SUMMER10"
+          },
+          "discountPercent": {
+            "type": "number",
+            "description": "Percentage discount applied",
+            "example": 10.0
+          },
+          "discountAmount": {
+            "type": "number",
+            "description": "Deducted discount currency amount in EUR",
+            "example": 10.0
+          },
+          "finalAmount": {
+            "type": "number",
+            "description": "Final net payable amount after discount",
+            "example": 90.0
+          }
+        }
+      },
+      "CurrencyRatesResponse": {
+        "type": "object",
+        "properties": {
+          "base": {
+            "type": "string",
+            "description": "Base reference currency code",
+            "example": "EUR"
+          },
+          "rates": {
+            "type": "object",
+            "description": "Map of currency codes to exchange rates",
+            "example": {
+              "USD": 1.08,
+              "GBP": 0.86
+            }
+          },
+          "symbols": {
+            "type": "object",
+            "description": "Currency symbols map",
+            "example": {
+              "EUR": "€",
+              "USD": "$"
+            }
+          },
+          "taxRates": {
+            "type": "object",
+            "description": "Regional VAT or tax rates",
+            "example": {
+              "EUR": 0.2,
+              "USD": 0.08
+            }
+          },
+          "decimals": {
+            "type": "object",
+            "description": "Standard decimal precision",
+            "example": {
+              "EUR": 2,
+              "USD": 2
+            }
+          },
+          "currencies": {
+            "type": "array",
+            "description": "Supported currency codes",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "EUR",
+              "USD",
+              "GBP",
+              "JPY",
+              "CHF"
+            ]
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Timestamp of ECB rate synchronization",
+            "example": "2026-10-27T08:00:00Z"
+          },
+          "source": {
+            "type": "string",
+            "description": "Upstream FX provider",
+            "example": "Frankfurter ECB API"
+          },
+          "fallbackUsed": {
+            "type": "boolean",
+            "description": "True if offline fallback rates were served",
+            "example": false
+          }
+        }
+      },
+      "ConvertCurrencyRequest": {
+        "type": "object",
+        "required": [
+          "amount",
+          "fromCurrency",
+          "toCurrency"
+        ],
+        "properties": {
+          "amount": {
+            "type": "number",
+            "description": "Source monetary amount to convert",
+            "example": 100.0
+          },
+          "fromCurrency": {
+            "type": "string",
+            "description": "Source ISO-4217 currency code",
+            "example": "EUR"
+          },
+          "toCurrency": {
+            "type": "string",
+            "description": "Target ISO-4217 currency code",
+            "example": "USD"
+          }
+        }
+      },
+      "ConvertCurrencyResponse": {
+        "type": "object",
+        "properties": {
+          "originalAmount": {
+            "type": "number",
+            "description": "Original input amount",
+            "example": 100.0
+          },
+          "fromCurrency": {
+            "type": "string",
+            "description": "Source currency",
+            "example": "EUR"
+          },
+          "convertedAmount": {
+            "type": "number",
+            "description": "Calculated amount in target currency",
+            "example": 108.0
+          },
+          "toCurrency": {
+            "type": "string",
+            "description": "Target currency",
+            "example": "USD"
+          },
+          "rate": {
+            "type": "number",
+            "description": "Applied exchange rate multiplier",
+            "example": 1.08
+          }
+        }
+      },
+      "ConciergeAdviceRequest": {
+        "type": "object",
+        "required": [
+          "eventId"
+        ],
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Event identifier",
+            "example": "evt-101"
+          },
+          "eventTitle": {
+            "type": "string",
+            "description": "Event headline title",
+            "example": "Coldplay Music of the Spheres"
+          },
+          "category": {
+            "type": "string",
+            "description": "Event genre",
+            "example": "Music"
+          },
+          "venueName": {
+            "type": "string",
+            "description": "Venue name",
+            "example": "Wembley Stadium"
+          },
+          "venueLocation": {
+            "type": "string",
+            "description": "Venue city and country",
+            "example": "London, UK"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Preferred attendee currency",
+            "example": "EUR"
+          },
+          "budgetMax": {
+            "type": "number",
+            "description": "Maximum budget ceiling",
+            "example": 200.0
+          },
+          "weatherCondition": {
+            "type": "string",
+            "description": "Current forecast condition",
+            "example": "Clear Sky"
+          },
+          "rainProbability": {
+            "type": "integer",
+            "description": "Rain probability percentage",
+            "example": 5
+          },
+          "preferences": {
+            "type": "string",
+            "description": "User preference keywords",
+            "example": "good acoustic view, covered seating"
+          }
+        }
+      },
+      "ConciergeAdviceResponse": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Target event identifier",
+            "example": "evt-101"
+          },
+          "headline": {
+            "type": "string",
+            "description": "Concierge summary headline",
+            "example": "Optimal Tier: VIP Lounge with covered seating for Coldplay"
+          },
+          "weatherAdvisory": {
+            "type": "string",
+            "description": "Weather preparation note",
+            "example": "Pleasant 21°C evening expected. No rain gear required."
+          },
+          "recommendedTier": {
+            "type": "string",
+            "description": "Recommended tier identifier",
+            "example": "tier-vip"
+          },
+          "recommendedAddonName": {
+            "type": "string",
+            "description": "Recommended merchandise or VIP package",
+            "example": "VIP Fast Track & Acoustic Lounge"
+          },
+          "recommendedAddonId": {
+            "type": "string",
+            "description": "Recommended addon identifier",
+            "example": "addon-vip-pass"
+          },
+          "localizedBudgetNote": {
+            "type": "string",
+            "description": "Budget breakdown note in user currency",
+            "example": "Total estimated cost €165.00 fits comfortably within €200.00 budget."
+          },
+          "insiderTips": {
+            "type": "array",
+            "description": "Curated practical advice for venue navigation and travel",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Arrive 45 minutes early for acoustic check.",
+              "Take the Jubilee line to avoid transit delays."
+            ]
+          },
+          "composedSources": {
+            "type": "array",
+            "description": "Data sources leveraged in generating recommendation",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Catalog Service",
+              "Open-Meteo",
+              "Frankfurter FX",
+              "Gemini 2.5 Flash"
+            ]
+          },
+          "engine": {
+            "type": "string",
+            "description": "AI model engine used",
+            "example": "gemini-2.5-flash"
+          },
+          "fallbackUsed": {
+            "type": "boolean",
+            "description": "True if heuristic rule engine was used",
+            "example": false
+          },
+          "generatedAt": {
+            "type": "string",
+            "description": "Advisory generation timestamp",
+            "example": "2026-10-27T10:05:00Z"
+          }
+        }
+      },
+      "DLQMessage": {
+        "type": "object",
+        "properties": {
+          "messageId": {
+            "type": "string",
+            "description": "Unique RabbitMQ message identifier",
+            "example": "msg-101"
+          },
+          "queueName": {
+            "type": "string",
+            "description": "Source queue name before dead-letter routing",
+            "example": "booking.confirmed.queue"
+          },
+          "routingKey": {
+            "type": "string",
+            "description": "Message AMQP routing key",
+            "example": "booking.confirmed"
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Exception stack trace or failure cause",
+            "example": "Consumer timeout after 3 retries"
+          },
+          "payload": {
+            "type": "object",
+            "description": "Original JSON message payload",
+            "example": {
+              "bookingId": "bkg-101"
+            }
+          },
+          "retryCount": {
+            "type": "integer",
+            "description": "Number of failed processing attempts",
+            "example": 3
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "Message rejection timestamp",
+            "example": "2026-10-27T10:00:00Z"
+          }
+        }
+      },
+      "DLQMessageListResponse": {
+        "type": "object",
+        "properties": {
+          "messages": {
+            "type": "array",
+            "description": "List of dead-letter messages",
+            "items": {
+              "$ref": "#/components/schemas/DLQMessage"
+            },
+            "example": [
+              {
+                "messageId": "msg-101",
+                "queueName": "booking.queue"
+              }
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total messages in dead letter queue",
+            "example": 1
+          }
+        }
+      },
+      "DLQStatsResponse": {
+        "type": "object",
+        "properties": {
+          "queueName": {
+            "type": "string",
+            "description": "Target DLQ name",
+            "example": "dlq.booking.retry"
+          },
+          "messageCount": {
+            "type": "integer",
+            "description": "Current number of dead messages queued",
+            "example": 3
+          },
+          "consumerCount": {
+            "type": "integer",
+            "description": "Active consumer worker threads attached to DLQ",
+            "example": 1
+          }
+        }
+      },
+      "DLQActionResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "DLQ purge outcome state",
+            "example": "PURGED"
+          },
+          "message": {
+            "type": "string",
+            "description": "Operation confirmation note",
+            "example": "All dead letter messages successfully removed."
+          }
+        }
+      },
+      "DLQRetryRequest": {
+        "type": "object",
+        "required": [
+          "messageId"
+        ],
+        "properties": {
+          "messageId": {
+            "type": "string",
+            "description": "Identifier of dead letter message to reprocess",
+            "example": "msg-101"
+          }
+        }
+      },
+      "DLQRetryResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Reprocessing status (REQUEUED, DISCARDED)",
+            "example": "REQUEUED"
+          },
+          "reprocessed": {
+            "type": "integer",
+            "description": "Count of successfully re-injected messages",
+            "example": 1
+          }
+        }
+      },
+      "DLQSimulateRequest": {
+        "type": "object",
+        "required": [
+          "scenario"
+        ],
+        "properties": {
+          "scenario": {
+            "type": "string",
+            "description": "Simulated failure mode (e.g. TIMEOUT, UNEXPECTED_PANIC, DB_DOWN)",
+            "example": "TIMEOUT"
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Simulated error message",
+            "example": "Simulated consumer processing timeout."
+          }
+        }
+      },
+      "DLQSimulateResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Simulation trigger status",
+            "example": "SIMULATED"
+          },
+          "message": {
+            "type": "string",
+            "description": "Confirmation of synthetic dead-letter generation",
+            "example": "Synthetic failure injected into DLQ."
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Machine-readable error tag",
+            "example": "ORDER_CONFLICT"
+          },
+          "message": {
+            "type": "string",
+            "description": "Error description explanation",
+            "example": "Booking conflict: requested hold has expired."
+          },
+          "code": {
+            "type": "string",
+            "description": "Error classification code",
+            "example": "ERR_BOOKING_CONFLICT"
+          },
+          "retryAfter": {
+            "type": "integer",
+            "description": "Optional rate limit retry-after delay in seconds",
+            "example": 1
+          }
         }
       }
     }

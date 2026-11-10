@@ -91,15 +91,25 @@ type InventoryResponse struct {
 
 type ReserveRequest struct {
 	EventID        string   `json:"eventId"`
-	EventIDAlt     string   `json:"event_id"`
-	TierID         string   `json:"tierId"`
-	TierIDAlt      string   `json:"tier_id"`
-	Seats          []string `json:"seats"`
-	SeatIDsAlt     []string `json:"seat_ids"`
-	TicketCount    int      `json:"ticketCount"`
-	QuantityAlt    int      `json:"quantity"`
-	HoldSeconds    int      `json:"holdSeconds"`
-	HoldSecondsAlt int      `json:"hold_seconds"`
+	EventIDAlt     string   `json:"event_id,omitempty"`
+	TierID         string   `json:"tierId,omitempty"`
+	TierIDAlt      string   `json:"tier_id,omitempty"`
+	Seats          []string `json:"seats,omitempty"`
+	SeatIDsAlt     []string `json:"seat_ids,omitempty"`
+	TicketCount    int      `json:"ticketCount,omitempty"`
+	QuantityAlt    int      `json:"quantity,omitempty"`
+	HoldSeconds    int      `json:"holdSeconds,omitempty"`
+	HoldSecondsAlt int      `json:"hold_seconds,omitempty"`
+	UserID         string   `json:"userId,omitempty"`
+	UserIDAlt      string   `json:"user_id,omitempty"`
+}
+
+type CancelReservationRequest = CancelRequest
+
+func decodeStrictJSON(r *http.Request, dst interface{}) error {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	return dec.Decode(dst)
 }
 
 type ReserveResponse struct {
@@ -494,9 +504,9 @@ func (s *Server) handleGetInventory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(tiers) == 0 {
-		// Check if event exists
+		// Check if event exists in inventory
 		var exists bool
-		_ = s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM events WHERE id = $1)", eventID).Scan(&exists)
+		_ = s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM event_inventory WHERE event_id = $1)", eventID).Scan(&exists)
 		if !exists {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusNotFound)
@@ -761,8 +771,13 @@ func (s *Server) handleReserve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Method != http.MethodPost && r.Method != http.MethodPut && r.Method != http.MethodPatch {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
 	var req ReserveRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"Invalid request payload: %v"}`, err), http.StatusBadRequest)
 		return
 	}
@@ -1027,8 +1042,13 @@ func (s *Server) handleCommit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
 	var req CommitRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"Invalid request payload: %v"}`, err), http.StatusBadRequest)
 		return
 	}
@@ -1179,8 +1199,13 @@ func (s *Server) handleRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
 	var req ReleaseRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"Invalid request payload: %v"}`, err), http.StatusBadRequest)
 		return
 	}
@@ -1308,8 +1333,13 @@ func (s *Server) handleCancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
 	var req CancelRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"Invalid request payload: %v"}`, err), http.StatusBadRequest)
 		return
 	}
@@ -1511,7 +1541,7 @@ func (s *Server) handleProvision(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req ProvisionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": "Invalid request body: " + err.Error()})

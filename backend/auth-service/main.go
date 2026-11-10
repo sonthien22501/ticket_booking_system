@@ -58,6 +58,12 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+func decodeStrictJSON(r *http.Request, dst interface{}) error {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	return dec.Decode(dst)
+}
+
 type AuthResponse struct {
 	Token string       `json:"token"`
 	User  UserResponse `json:"user"`
@@ -255,10 +261,10 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req RegisterRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "INVALID_REQUEST", "message": "Invalid JSON payload"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "INVALID_REQUEST", "message": "Invalid JSON payload: " + err.Error()})
 		return
 	}
 
@@ -372,10 +378,10 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "INVALID_REQUEST", "message": "Invalid JSON payload"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "INVALID_REQUEST", "message": "Invalid JSON payload: " + err.Error()})
 		return
 	}
 

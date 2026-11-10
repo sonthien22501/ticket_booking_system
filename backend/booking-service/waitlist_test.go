@@ -274,8 +274,11 @@ func TestWaitlistHTTP(t *testing.T) {
 	delRR := httptest.NewRecorder()
 	srv.handleWaitlistByID(delRR, delReq)
 
-	if delRR.Code != http.StatusOK {
-		t.Fatalf("Expected status 200 on DELETE /waitlist/{id}, got %d: %s", delRR.Code, delRR.Body.String())
+	if delRR.Code != http.StatusNoContent {
+		t.Fatalf("Expected status 204 on DELETE /waitlist/{id}, got %d: %s", delRR.Code, delRR.Body.String())
+	}
+	if delRR.Body.Len() > 0 {
+		t.Fatalf("Expected empty body on DELETE /waitlist/{id}, got %s", delRR.Body.String())
 	}
 }
 
