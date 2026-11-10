@@ -15,50 +15,520 @@
     "/api/inventory/provision": {
       "post": {
         "summary": "Provision inventory and seat records for newly created event",
+        "description": "Initializes seat inventory and tier allocation for a new event.",
+        "requestBody": {
+          "required": true,
+          "description": "Provisioning payload specifying event and tier allocations",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProvisionRequest"
+              }
+            }
+          }
+        },
         "responses": {
-          "201": { "description": "Inventory provisioned successfully" },
-          "400": { "description": "Invalid input" }
+          "201": {
+            "description": "Inventory provisioned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvisionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or tier allocation parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal database error during seat generation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/inventory/reserve": {
       "post": {
-        "summary": "Reserve seats with temporary hold lease",
+        "summary": "Reserve seats with temporary hold lease (POST)",
+        "description": "Acquires distributed lock and creates a temporary hold lease on requested seats.",
+        "requestBody": {
+          "required": true,
+          "description": "Seat reservation request parameters",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReserveSeatsRequest"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": { "description": "Reservation created" },
-          "409": { "description": "Seat conflict" }
+          "200": {
+            "description": "Temporary seat hold confirmed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid reservation parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Seat hold conflict or insufficient seats available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update or extend seat reservation hold (PATCH)",
+        "description": "Modifies quantity or extends lease expiration of an existing reservation hold.",
+        "requestBody": {
+          "required": true,
+          "description": "Updated reservation request parameters",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReserveSeatsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reservation hold updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid reservation parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Seat conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/inventory/commit": {
       "post": {
         "summary": "Commit temporary seat reservation upon confirmed payment",
+        "description": "Second phase of 2PC: transitions seats from HELD to CONFIRMED state.",
+        "requestBody": {
+          "required": true,
+          "description": "Commit verification payload linking reservation to confirmed booking",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommitSeatsRequest"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": { "description": "Seats committed" }
+          "200": {
+            "description": "Seats committed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommitResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid commit payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reservation hold not found or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/inventory/release": {
       "post": {
         "summary": "Release reservation hold back to available pool",
+        "description": "Compensating action for abandoned checkouts: restores HELD seats to AVAILABLE.",
+        "requestBody": {
+          "required": true,
+          "description": "Release payload specifying reservation to cancel",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseSeatsRequest"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": { "description": "Seats released" }
+          "200": {
+            "description": "Seats released successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid release payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reservation not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/inventory/cancel": {
       "post": {
         "summary": "Cancel booking and release confirmed seats",
+        "description": "Releases previously CONFIRMED seats back to available capacity.",
+        "requestBody": {
+          "required": true,
+          "description": "Cancellation payload specifying booking and seats to free",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelSeatsRequest"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": { "description": "Seats cancelled and released" }
+          "200": {
+            "description": "Seats cancelled and released",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelSeatsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid cancellation payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Booking or confirmed seats not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/janitor/sweep": {
+      "post": {
+        "summary": "Janitor sweep for expired reservation holds",
+        "description": "Sweeps expired holds from PostgreSQL and Redis, freeing inventory.",
+        "responses": {
+          "200": {
+            "description": "Janitor sweep completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JanitorSweepResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/reservations/{id}": {
+      "get": {
+        "summary": "Get reservation details by ID",
+        "description": "Retrieves hold lease details and time to expiration.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Reservation hold identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "res-101"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reservation hold details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reservation not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/inventory/{eventId}": {
       "get": {
         "summary": "Get real-time seat inventory summary and tier availability",
+        "description": "Calculates live available, held, and confirmed seat counts.",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "description": "Event identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "evt-101"
+          }
+        ],
         "responses": {
-          "200": { "description": "Inventory status" }
+          "200": {
+            "description": "Inventory status retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Event inventory not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/{eventId}/seats": {
+      "get": {
+        "summary": "Get detailed seat grid items and states",
+        "description": "Lists all granular seat objects and their individual status.",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "description": "Event identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "evt-101"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Granular seat list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeatListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -68,9 +538,495 @@
       "InventorySummary": {
         "type": "object",
         "properties": {
-          "eventId": { "type": "string" },
-          "totalSeats": { "type": "integer" },
-          "availableSeats": { "type": "integer" }
+          "eventId": {
+            "type": "string",
+            "description": "Associated event identifier",
+            "example": "evt-101"
+          },
+          "totalSeats": {
+            "type": "integer",
+            "description": "Total seats provisioned across venue",
+            "example": 50000
+          },
+          "availableSeats": {
+            "type": "integer",
+            "description": "Currently unreserved available seats",
+            "example": 35000
+          },
+          "reservedSeats": {
+            "type": "integer",
+            "description": "Confirmed booked seats",
+            "example": 14000
+          },
+          "heldSeats": {
+            "type": "integer",
+            "description": "Seats locked under active checkout hold lease",
+            "example": 1000
+          }
+        }
+      },
+      "InventoryResponse": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Event identifier",
+            "example": "evt-101"
+          },
+          "totalSeats": {
+            "type": "integer",
+            "description": "Total seat count in venue",
+            "example": 50000
+          },
+          "availableSeats": {
+            "type": "integer",
+            "description": "Available unreserved seats",
+            "example": 35000
+          },
+          "heldSeats": {
+            "type": "integer",
+            "description": "Seats held under temporary reservation lease",
+            "example": 1000
+          },
+          "reservedSeats": {
+            "type": "integer",
+            "description": "Confirmed booked seats",
+            "example": 14000
+          },
+          "tiers": {
+            "type": "array",
+            "description": "Per-tier inventory availability summary",
+            "items": {
+              "$ref": "#/components/schemas/InventoryTierSummary"
+            },
+            "example": [
+              {
+                "tierId": "tier-vip",
+                "available": 50
+              }
+            ]
+          }
+        }
+      },
+      "InventoryTierSummary": {
+        "type": "object",
+        "properties": {
+          "tierId": {
+            "type": "string",
+            "description": "Unique tier identifier",
+            "example": "tier-vip"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name of the seating tier",
+            "example": "VIP Front Row"
+          },
+          "price": {
+            "type": "number",
+            "description": "Ticket base price in EUR",
+            "example": 150.0
+          },
+          "capacity": {
+            "type": "integer",
+            "description": "Total capacity allocated for tier",
+            "example": 200
+          },
+          "available": {
+            "type": "integer",
+            "description": "Remaining available seats in tier",
+            "example": 50
+          }
+        }
+      },
+      "SeatItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique seat identifier",
+            "example": "seat-a1"
+          },
+          "eventId": {
+            "type": "string",
+            "description": "Parent event identifier",
+            "example": "evt-101"
+          },
+          "tierId": {
+            "type": "string",
+            "description": "Seating tier identifier",
+            "example": "tier-vip"
+          },
+          "row": {
+            "type": "string",
+            "description": "Seating row label",
+            "example": "A"
+          },
+          "number": {
+            "type": "integer",
+            "description": "Seat number within the row",
+            "example": 1
+          },
+          "status": {
+            "type": "string",
+            "description": "Current seat occupancy state (AVAILABLE, HELD, BOOKED)",
+            "example": "AVAILABLE"
+          },
+          "version": {
+            "type": "integer",
+            "description": "Optimistic concurrency locking version tag",
+            "example": 1
+          }
+        }
+      },
+      "SeatListResponse": {
+        "type": "object",
+        "properties": {
+          "seats": {
+            "type": "array",
+            "description": "Granular seat records",
+            "items": {
+              "$ref": "#/components/schemas/SeatItem"
+            },
+            "example": [
+              {
+                "id": "seat-a1",
+                "status": "AVAILABLE"
+              }
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total seats returned",
+            "example": 1
+          }
+        }
+      },
+      "ProvisionRequest": {
+        "type": "object",
+        "required": [
+          "eventId",
+          "totalSeats"
+        ],
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Target event to provision",
+            "example": "evt-101"
+          },
+          "totalSeats": {
+            "type": "integer",
+            "description": "Total capacity to generate",
+            "example": 500
+          },
+          "tiers": {
+            "type": "array",
+            "description": "Tier allocation rules",
+            "items": {
+              "$ref": "#/components/schemas/ProvisionTier"
+            },
+            "example": [
+              {
+                "id": "tier-vip",
+                "capacity": 100,
+                "price": 120.0
+              }
+            ]
+          }
+        }
+      },
+      "ProvisionTier": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique tier identifier",
+            "example": "tier-vip"
+          },
+          "name": {
+            "type": "string",
+            "description": "Tier name",
+            "example": "VIP"
+          },
+          "price": {
+            "type": "number",
+            "description": "Tier unit price",
+            "example": 120.0
+          },
+          "capacity": {
+            "type": "integer",
+            "description": "Tier seat count",
+            "example": 100
+          }
+        }
+      },
+      "ProvisionResponse": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Event identifier",
+            "example": "evt-101"
+          },
+          "totalSeats": {
+            "type": "integer",
+            "description": "Total seats configured",
+            "example": 500
+          },
+          "provisionedSeats": {
+            "type": "integer",
+            "description": "Number of seat records inserted into inventory table",
+            "example": 500
+          },
+          "status": {
+            "type": "string",
+            "description": "Provisioning execution state",
+            "example": "READY"
+          }
+        }
+      },
+      "ReserveSeatsRequest": {
+        "type": "object",
+        "required": [
+          "eventId",
+          "tierId",
+          "quantity"
+        ],
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Target event identifier",
+            "example": "evt-101"
+          },
+          "tierId": {
+            "type": "string",
+            "description": "Target ticket tier",
+            "example": "tier-vip"
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Quantity of seats to hold",
+            "example": 2
+          },
+          "holdDurationSeconds": {
+            "type": "integer",
+            "description": "Lease duration in seconds before automatic release",
+            "example": 600
+          },
+          "userId": {
+            "type": "string",
+            "description": "Customer user identifier holding the seats",
+            "example": "usr-101"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "Unique client idempotency key for distributed deduplication",
+            "example": "idem-key-101"
+          }
+        }
+      },
+      "ReservationResponse": {
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "description": "Unique hold reservation identifier",
+            "example": "res-101"
+          },
+          "eventId": {
+            "type": "string",
+            "description": "Event identifier",
+            "example": "evt-101"
+          },
+          "tierId": {
+            "type": "string",
+            "description": "Ticket tier",
+            "example": "tier-vip"
+          },
+          "seatIds": {
+            "type": "array",
+            "description": "Specific allocated seat identifiers held under lease",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "seat-a1",
+              "seat-a2"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "description": "Hold lease status (HELD, COMMITTED, EXPIRED, RELEASED)",
+            "example": "HELD"
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "Timestamp when reservation hold expires",
+            "example": "2026-10-27T10:15:00Z"
+          }
+        }
+      },
+      "CommitSeatsRequest": {
+        "type": "object",
+        "required": [
+          "reservationId"
+        ],
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "description": "Reservation hold identifier to commit",
+            "example": "res-101"
+          },
+          "bookingId": {
+            "type": "string",
+            "description": "Confirmed booking order identifier",
+            "example": "bkg-101"
+          }
+        }
+      },
+      "CommitResponse": {
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "description": "Committed reservation identifier",
+            "example": "res-101"
+          },
+          "bookingId": {
+            "type": "string",
+            "description": "Associated booking identifier",
+            "example": "bkg-101"
+          },
+          "status": {
+            "type": "string",
+            "description": "Final commit state",
+            "example": "COMMITTED"
+          },
+          "committedSeats": {
+            "type": "integer",
+            "description": "Count of permanently booked seats",
+            "example": 2
+          }
+        }
+      },
+      "ReleaseSeatsRequest": {
+        "type": "object",
+        "required": [
+          "reservationId"
+        ],
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "description": "Reservation hold identifier to release",
+            "example": "res-101"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason for cancellation or abandonment",
+            "example": "User cancelled checkout session."
+          }
+        }
+      },
+      "ReleaseResponse": {
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "description": "Released reservation identifier",
+            "example": "res-101"
+          },
+          "status": {
+            "type": "string",
+            "description": "Release outcome status",
+            "example": "RELEASED"
+          },
+          "releasedSeats": {
+            "type": "integer",
+            "description": "Number of seats restored to available capacity",
+            "example": 2
+          }
+        }
+      },
+      "CancelSeatsRequest": {
+        "type": "object",
+        "required": [
+          "bookingId"
+        ],
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "description": "Booking order to cancel",
+            "example": "bkg-101"
+          },
+          "reservationId": {
+            "type": "string",
+            "description": "Original reservation identifier",
+            "example": "res-101"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Cancellation justification note",
+            "example": "Customer requested full refund."
+          }
+        }
+      },
+      "CancelSeatsResponse": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "description": "Cancelled booking identifier",
+            "example": "bkg-101"
+          },
+          "status": {
+            "type": "string",
+            "description": "Seat release state",
+            "example": "CANCELLED"
+          },
+          "releasedSeats": {
+            "type": "integer",
+            "description": "Quantity of seats released back to pool",
+            "example": 2
+          }
+        }
+      },
+      "JanitorSweepResponse": {
+        "type": "object",
+        "properties": {
+          "expiredReservationsCleaned": {
+            "type": "integer",
+            "description": "Number of expired reservation holds swept",
+            "example": 14
+          },
+          "seatsReleased": {
+            "type": "integer",
+            "description": "Total seats restored to available pool",
+            "example": 28
+          },
+          "sweepTimestamp": {
+            "type": "string",
+            "description": "Execution timestamp of janitor background task",
+            "example": "2026-10-27T10:00:00Z"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Machine-readable error tag",
+            "example": "SEAT_CONFLICT"
+          },
+          "message": {
+            "type": "string",
+            "description": "Descriptive error message",
+            "example": "Requested seats are currently locked by another customer."
+          },
+          "code": {
+            "type": "string",
+            "description": "Error classification code",
+            "example": "ERR_INVENTORY_CONFLICT"
+          }
         }
       }
     }

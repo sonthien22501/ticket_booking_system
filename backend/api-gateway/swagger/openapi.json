@@ -5,10 +5,18 @@
         "properties": {
           "token": {
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            "type": "string"
+            "type": "string",
+            "description": "Cryptographically signed JWT bearer token"
           },
           "user": {
-            "$ref": "#/components/schemas/User"
+            "$ref": "#/components/schemas/User",
+            "description": "Authenticated user identity profile",
+            "example": {
+              "id": "usr-101",
+              "email": "customer@example.com",
+              "name": "John Doe",
+              "role": "customer"
+            }
           }
         },
         "required": [
@@ -21,47 +29,59 @@
         "properties": {
           "bookingReference": {
             "example": "BKG-ABCD-1234",
-            "type": "string"
+            "type": "string",
+            "description": "Human-readable booking reference code"
           },
           "createdAt": {
             "format": "date-time",
-            "type": "string"
+            "type": "string",
+            "description": "ISO-8601 booking creation timestamp",
+            "example": "2026-10-18T10:00:00Z"
           },
           "customerEmail": {
             "example": "john@example.com",
-            "type": "string"
+            "type": "string",
+            "description": "Contact email address of purchaser"
           },
           "customerName": {
             "example": "John Doe",
-            "type": "string"
+            "type": "string",
+            "description": "Name of the purchaser"
           },
           "eventId": {
             "example": "evt-101",
-            "type": "string"
+            "type": "string",
+            "description": "Associated event identifier"
           },
           "eventTitle": {
             "example": "Coldplay World Tour",
-            "type": "string"
+            "type": "string",
+            "description": "Title of the booked event"
           },
           "id": {
             "example": "bkg-1718000000",
-            "type": "string"
+            "type": "string",
+            "description": "Unique booking order identifier"
           },
           "idempotencyKey": {
             "example": "idem-key-1718000000",
-            "type": "string"
+            "type": "string",
+            "description": "Unique client idempotency token"
           },
           "paymentStatus": {
             "example": "COMPLETED",
-            "type": "string"
+            "type": "string",
+            "description": "Payment processing state"
           },
           "quantity": {
             "example": 2,
-            "type": "integer"
+            "type": "integer",
+            "description": "Number of tickets included in booking"
           },
           "reservationId": {
             "example": "res-101",
-            "type": "string"
+            "type": "string",
+            "description": "Associated seat hold reservation identifier"
           },
           "seatIds": {
             "example": [
@@ -71,7 +91,8 @@
             "items": {
               "type": "string"
             },
-            "type": "array"
+            "type": "array",
+            "description": "Array of reserved seat identifiers"
           },
           "status": {
             "enum": [
@@ -80,30 +101,43 @@
               "CANCELLED"
             ],
             "example": "CONFIRMED",
-            "type": "string"
+            "type": "string",
+            "description": "Current lifecycle status of booking"
           },
           "tickets": {
             "items": {
               "$ref": "#/components/schemas/BookingTicket"
             },
-            "type": "array"
+            "type": "array",
+            "description": "Collection of individual ticket barcodes",
+            "example": [
+              {
+                "id": "tkt-1",
+                "seatLabel": "Row A, Seat 1"
+              }
+            ]
           },
           "tierId": {
             "example": "tier-vip",
-            "type": "string"
+            "type": "string",
+            "description": "Purchased seating tier identifier"
           },
           "totalAmount": {
             "example": 240,
             "format": "double",
-            "type": "number"
+            "type": "number",
+            "description": "Total price paid in EUR"
           },
           "updatedAt": {
             "format": "date-time",
-            "type": "string"
+            "type": "string",
+            "description": "ISO-8601 timestamp of last status update",
+            "example": "2026-10-18T10:01:00Z"
           },
           "userId": {
             "example": "usr-101",
-            "type": "string"
+            "type": "string",
+            "description": "Authenticated customer account ID"
           }
         },
         "required": [
@@ -121,35 +155,44 @@
         "properties": {
           "bookingId": {
             "example": "bkg-101",
-            "type": "string"
+            "type": "string",
+            "description": "Parent booking order identifier"
           },
           "createdAt": {
             "format": "date-time",
-            "type": "string"
+            "type": "string",
+            "description": "Ticket issuance timestamp",
+            "example": "2026-10-18T10:01:00Z"
           },
           "id": {
             "example": "tkt-001",
-            "type": "string"
+            "type": "string",
+            "description": "Unique ticket identifier"
           },
           "seatId": {
             "example": "seat-a1",
-            "type": "string"
+            "type": "string",
+            "description": "Allocated seat identifier"
           },
           "seatLabel": {
             "example": "Row A, Seat 1",
-            "type": "string"
+            "type": "string",
+            "description": "Physical seating location label"
           },
           "status": {
             "example": "VALID",
-            "type": "string"
+            "type": "string",
+            "description": "Ticket admission status (ACTIVE, USED, TRANSFERRED, CANCELLED)"
           },
           "ticketCode": {
             "example": "CODE-COLDPLAY-VIP-001",
-            "type": "string"
+            "type": "string",
+            "description": "Verification barcode string"
           },
           "ticketId": {
             "example": "tkt-001",
-            "type": "string"
+            "type": "string",
+            "description": "Alternative alias for ticket identifier"
           }
         },
         "type": "object"
@@ -158,15 +201,18 @@
         "properties": {
           "bookingId": {
             "example": "bkg-101",
-            "type": "string"
+            "type": "string",
+            "description": "Identifier of cancelled booking order"
           },
           "message": {
             "example": "Booking cancelled successfully",
-            "type": "string"
+            "type": "string",
+            "description": "Confirmation details of cancellation and refund"
           },
           "status": {
             "example": "CANCELLED",
-            "type": "string"
+            "type": "string",
+            "description": "Final cancellation state"
           }
         },
         "type": "object"
@@ -175,15 +221,18 @@
         "properties": {
           "bookingReference": {
             "example": "BKG-WL-1234",
-            "type": "string"
+            "type": "string",
+            "description": "New booking reference code created from claimed seat"
           },
           "id": {
             "example": "bkg-101",
-            "type": "string"
+            "type": "string",
+            "description": "Waitlist entry identifier"
           },
           "status": {
             "example": "CONFIRMED",
-            "type": "string"
+            "type": "string",
+            "description": "Claim outcome status"
           }
         },
         "type": "object"
@@ -193,23 +242,29 @@
           "customerEmail": {
             "example": "john@example.com",
             "format": "email",
-            "type": "string"
+            "type": "string",
+            "description": "Email address for confirmation receipt"
           },
           "customerName": {
             "example": "John Doe",
-            "type": "string"
+            "type": "string",
+            "description": "Legal full name of purchaser"
           },
           "eventId": {
             "example": "evt-101",
-            "type": "string"
+            "type": "string",
+            "description": "Target event identifier"
           },
           "holdSeconds": {
             "default": 120,
-            "type": "integer"
+            "type": "integer",
+            "description": "Temporary hold lease duration in seconds",
+            "example": 600
           },
           "idempotencyKey": {
             "example": "idem-xyz-987",
-            "type": "string"
+            "type": "string",
+            "description": "Client-provided deduplication key"
           },
           "paymentInfo": {
             "properties": {
@@ -222,7 +277,12 @@
                 "type": "string"
               }
             },
-            "type": "object"
+            "type": "object",
+            "description": "Payment transaction details",
+            "example": {
+              "method": "CREDIT_CARD",
+              "token": "tok_visa"
+            }
           },
           "seats": {
             "example": [
@@ -232,19 +292,23 @@
             "items": {
               "type": "string"
             },
-            "type": "array"
+            "type": "array",
+            "description": "Array of specific seats selected"
           },
           "ticketCount": {
             "example": 2,
-            "type": "integer"
+            "type": "integer",
+            "description": "Number of tickets requested"
           },
           "tierId": {
             "example": "tier-vip",
-            "type": "string"
+            "type": "string",
+            "description": "Target ticket tier identifier"
           },
           "userId": {
             "example": "usr-101",
-            "type": "string"
+            "type": "string",
+            "description": "Authenticated customer user identifier"
           }
         },
         "required": [
@@ -258,30 +322,42 @@
         "properties": {
           "errorMessage": {
             "example": "Connection reset during saga reservation",
-            "type": "string"
+            "type": "string",
+            "description": "Stack trace or error explanation"
           },
           "messageId": {
             "example": "msg-101",
-            "type": "string"
+            "type": "string",
+            "description": "Unique message identifier in broker"
           },
           "payload": {
-            "type": "object"
+            "type": "object",
+            "description": "Original message payload object",
+            "example": {
+              "bookingId": "bkg-101",
+              "eventId": "evt-101"
+            }
           },
           "queueName": {
             "example": "saga.dlq",
-            "type": "string"
+            "type": "string",
+            "description": "Source AMQP queue where failure occurred"
           },
           "retryCount": {
             "example": 3,
-            "type": "integer"
+            "type": "integer",
+            "description": "Total number of consumer retries attempted"
           },
           "routingKey": {
             "example": "inventory.reserve",
-            "type": "string"
+            "type": "string",
+            "description": "Message AMQP routing key"
           },
           "timestamp": {
             "format": "date-time",
-            "type": "string"
+            "type": "string",
+            "description": "Timestamp when message was routed to DLQ",
+            "example": "2026-10-18T10:05:00Z"
           }
         },
         "type": "object"
@@ -290,11 +366,13 @@
         "properties": {
           "reprocessed": {
             "example": 5,
-            "type": "integer"
+            "type": "integer",
+            "description": "Count of successfully reprocessed messages"
           },
           "status": {
             "example": "REPROCESSED",
-            "type": "string"
+            "type": "string",
+            "description": "Outcome status of dead-letter requeue operation"
           }
         },
         "type": "object"
@@ -303,15 +381,18 @@
         "properties": {
           "consumerCount": {
             "example": 1,
-            "type": "integer"
+            "type": "integer",
+            "description": "Number of active consumer worker processes listening"
           },
           "messageCount": {
             "example": 0,
-            "type": "integer"
+            "type": "integer",
+            "description": "Number of dead messages currently waiting in queue"
           },
           "queueName": {
             "example": "saga.dlq",
-            "type": "string"
+            "type": "string",
+            "description": "Name of Dead Letter Queue"
           }
         },
         "type": "object"
@@ -320,15 +401,18 @@
         "properties": {
           "error": {
             "example": "RATE_LIMIT_EXCEEDED",
-            "type": "string"
+            "type": "string",
+            "description": "Machine-readable error tag"
           },
           "message": {
             "example": "Too many requests. Please slow down.",
-            "type": "string"
+            "type": "string",
+            "description": "Human-readable error explanation"
           },
           "retryAfter": {
             "example": 1,
-            "type": "integer"
+            "type": "integer",
+            "description": "Suggested wait time in seconds before retrying"
           }
         },
         "required": [
@@ -340,57 +424,81 @@
         "properties": {
           "category": {
             "example": "Concert",
-            "type": "string"
+            "type": "string",
+            "description": "Event genre classification"
           },
           "createdAt": {
             "format": "date-time",
-            "type": "string"
+            "type": "string",
+            "description": "ISO-8601 event publication timestamp",
+            "example": "2026-10-18T00:00:00Z"
           },
           "description": {
             "example": "Live stadium concert experience",
-            "type": "string"
+            "type": "string",
+            "description": "Event itinerary and details"
           },
           "endTime": {
             "format": "date-time",
-            "type": "string"
+            "type": "string",
+            "description": "ISO-8601 concert end time",
+            "example": "2026-08-15T22:30:00Z"
           },
           "id": {
             "example": "evt-101",
-            "type": "string"
+            "type": "string",
+            "description": "Unique event identifier"
           },
           "imageUrl": {
             "example": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745",
-            "type": "string"
+            "type": "string",
+            "description": "Promotional poster artwork URL"
           },
           "startTime": {
             "format": "date-time",
-            "type": "string"
+            "type": "string",
+            "description": "ISO-8601 concert start time",
+            "example": "2026-08-15T19:00:00Z"
           },
           "status": {
             "example": "ACTIVE",
-            "type": "string"
+            "type": "string",
+            "description": "Event lifecycle state (DRAFT, PUBLISHED, ARCHIVED, CANCELLED)"
           },
           "tiers": {
             "items": {
               "$ref": "#/components/schemas/EventTier"
             },
-            "type": "array"
+            "type": "array",
+            "description": "List of associated seating and ticket tiers",
+            "example": [
+              {
+                "tierId": "tier-vip",
+                "name": "VIP",
+                "price": 150.0
+              }
+            ]
           },
           "title": {
             "example": "Coldplay - Music of the Spheres World Tour",
-            "type": "string"
+            "type": "string",
+            "description": "Public title of the event"
           },
           "updatedAt": {
             "format": "date-time",
-            "type": "string"
+            "type": "string",
+            "description": "ISO-8601 timestamp of last event update",
+            "example": "2026-10-18T01:00:00Z"
           },
           "venueLocation": {
             "example": "London, UK",
-            "type": "string"
+            "type": "string",
+            "description": "City and country location"
           },
           "venueName": {
             "example": "Wembley Stadium",
-            "type": "string"
+            "type": "string",
+            "description": "Auditorium or stadium name"
           }
         },
         "required": [
@@ -414,28 +522,34 @@
         "properties": {
           "availableSeats": {
             "example": 85,
-            "type": "integer"
+            "type": "integer",
+            "description": "Remaining unbooked seats"
           },
           "capacity": {
             "example": 100,
-            "type": "integer"
+            "type": "integer",
+            "description": "Total seat allocation in this tier"
           },
           "eventId": {
             "example": "evt-101",
-            "type": "string"
+            "type": "string",
+            "description": "Parent event identifier"
           },
           "name": {
             "example": "VIP Seating",
-            "type": "string"
+            "type": "string",
+            "description": "Tier display name"
           },
           "price": {
             "example": 120,
             "format": "double",
-            "type": "number"
+            "type": "number",
+            "description": "Ticket unit price in EUR"
           },
           "tierId": {
             "example": "tier-vip",
-            "type": "string"
+            "type": "string",
+            "description": "Unique tier identifier"
           }
         },
         "required": [
@@ -461,27 +575,38 @@
               },
               "type": "object"
             },
-            "type": "object"
+            "type": "object",
+            "description": "Subcomponent health diagnostics (PostgreSQL, Redis, RabbitMQ)",
+            "example": {
+              "db": {
+                "status": "UP"
+              }
+            }
           },
           "service": {
             "example": "catalog-service",
-            "type": "string"
+            "type": "string",
+            "description": "Name of the microservice reporting health"
           },
           "status": {
             "example": "UP",
-            "type": "string"
+            "type": "string",
+            "description": "Service health state (UP, DOWN, DEGRADED)"
           },
           "timestamp": {
             "example": "2026-10-18T00:00:00Z",
-            "type": "string"
+            "type": "string",
+            "description": "ISO-8601 health check probe timestamp"
           },
           "uptime_seconds": {
             "example": 124.5,
-            "type": "number"
+            "type": "number",
+            "description": "System uptime duration in seconds"
           },
           "version": {
             "example": "1.0.0",
-            "type": "string"
+            "type": "string",
+            "description": "Semantic application version"
           }
         },
         "type": "object"
@@ -490,19 +615,23 @@
         "properties": {
           "availableSeats": {
             "example": 150,
-            "type": "integer"
+            "type": "integer",
+            "description": "Unreserved available seats"
           },
           "bookedSeats": {
             "example": 30,
-            "type": "integer"
+            "type": "integer",
+            "description": "Permanently confirmed booked seats"
           },
           "eventId": {
             "example": "evt-101",
-            "type": "string"
+            "type": "string",
+            "description": "Event identifier"
           },
           "reservedSeats": {
             "example": 20,
-            "type": "integer"
+            "type": "integer",
+            "description": "Seats locked under active checkout hold lease"
           },
           "tiers": {
             "items": {
@@ -522,11 +651,20 @@
               },
               "type": "object"
             },
-            "type": "array"
+            "type": "array",
+            "description": "Breakdown of available seats by tier",
+            "example": [
+              {
+                "tierId": "tier-vip",
+                "name": "VIP",
+                "price": 150.0
+              }
+            ]
           },
           "totalSeats": {
             "example": 200,
-            "type": "integer"
+            "type": "integer",
+            "description": "Total venue seating capacity"
           }
         },
         "type": "object"
@@ -536,32 +674,39 @@
           "customerEmail": {
             "example": "jane@example.com",
             "format": "email",
-            "type": "string"
+            "type": "string",
+            "description": "Attendee notification email"
           },
           "customerName": {
             "example": "Jane Doe",
-            "type": "string"
+            "type": "string",
+            "description": "Attendee full name"
           },
           "eventId": {
             "example": "evt-101",
-            "type": "string"
+            "type": "string",
+            "description": "Target event identifier"
           },
           "quantity": {
             "default": 1,
             "example": 1,
-            "type": "integer"
+            "type": "integer",
+            "description": "Desired ticket quantity"
           },
           "seatId": {
             "example": "seat-a1",
-            "type": "string"
+            "type": "string",
+            "description": "Specific seat identifier if waitlisting for single seat"
           },
           "tierId": {
             "example": "tier-vip",
-            "type": "string"
+            "type": "string",
+            "description": "Target ticket tier identifier"
           },
           "userId": {
             "example": "usr-101",
-            "type": "string"
+            "type": "string",
+            "description": "Authenticated customer account ID"
           }
         },
         "required": [
@@ -575,12 +720,14 @@
           "email": {
             "example": "customer@tickets.com",
             "format": "email",
-            "type": "string"
+            "type": "string",
+            "description": "Registered customer email address"
           },
           "password": {
             "example": "securepass123",
             "format": "password",
-            "type": "string"
+            "type": "string",
+            "description": "Customer authentication password"
           }
         },
         "required": [
@@ -610,7 +757,13 @@
                 "type": "integer"
               }
             },
-            "type": "object"
+            "type": "object",
+            "description": "Database connection pool metrics",
+            "example": {
+              "active": 5,
+              "idle": 15,
+              "max": 20
+            }
           },
           "memory": {
             "properties": {
@@ -627,19 +780,27 @@
                 "type": "integer"
               }
             },
-            "type": "object"
+            "type": "object",
+            "description": "Go runtime memory telemetry",
+            "example": {
+              "alloc_bytes": 1048576,
+              "heap_sys_bytes": 4194304
+            }
           },
           "service": {
             "example": "catalog-service",
-            "type": "string"
+            "type": "string",
+            "description": "Service name"
           },
           "timestamp": {
             "example": "2026-10-18T00:00:00Z",
-            "type": "string"
+            "type": "string",
+            "description": "Metrics collection timestamp"
           },
           "uptime_seconds": {
             "example": 124.5,
-            "type": "number"
+            "type": "number",
+            "description": "Service uptime in seconds"
           }
         },
         "type": "object"
@@ -649,16 +810,19 @@
           "email": {
             "example": "newuser@tickets.com",
             "format": "email",
-            "type": "string"
+            "type": "string",
+            "description": "User registration email address"
           },
           "name": {
             "example": "Morgan Reed",
-            "type": "string"
+            "type": "string",
+            "description": "Full legal user name"
           },
           "password": {
             "example": "securepass123",
             "format": "password",
-            "type": "string"
+            "type": "string",
+            "description": "User password (min 6 characters)"
           },
           "role": {
             "default": "customer",
@@ -666,7 +830,9 @@
               "customer",
               "admin"
             ],
-            "type": "string"
+            "type": "string",
+            "description": "RBAC role assignment (customer, organizer, admin)",
+            "example": "customer"
           }
         },
         "required": [
@@ -680,19 +846,24 @@
         "properties": {
           "eventId": {
             "example": "evt-101",
-            "type": "string"
+            "type": "string",
+            "description": "Associated event identifier"
           },
           "expiresAt": {
             "format": "date-time",
-            "type": "string"
+            "type": "string",
+            "description": "ISO-8601 lease expiration timestamp",
+            "example": "2026-10-18T10:10:00Z"
           },
           "quantity": {
             "example": 2,
-            "type": "integer"
+            "type": "integer",
+            "description": "Count of held seats"
           },
           "reservationId": {
             "example": "res-1718000000-xyz",
-            "type": "string"
+            "type": "string",
+            "description": "Unique seat hold lease identifier"
           },
           "seats": {
             "example": [
@@ -702,11 +873,13 @@
             "items": {
               "type": "string"
             },
-            "type": "array"
+            "type": "array",
+            "description": "Array of reserved seat identifiers"
           },
           "status": {
             "example": "HOLD",
-            "type": "string"
+            "type": "string",
+            "description": "Reservation hold status (HELD, COMMITTED, RELEASED, EXPIRED)"
           }
         },
         "required": [
@@ -721,12 +894,14 @@
         "properties": {
           "eventId": {
             "example": "evt-101",
-            "type": "string"
+            "type": "string",
+            "description": "Event identifier"
           },
           "holdSeconds": {
             "default": 120,
             "example": 120,
-            "type": "integer"
+            "type": "integer",
+            "description": "Lease hold duration in seconds"
           },
           "seats": {
             "example": [
@@ -736,15 +911,18 @@
             "items": {
               "type": "string"
             },
-            "type": "array"
+            "type": "array",
+            "description": "Specific seat codes requested"
           },
           "ticketCount": {
             "example": 2,
-            "type": "integer"
+            "type": "integer",
+            "description": "Number of seats to reserve"
           },
           "tierId": {
             "example": "tier-vip",
-            "type": "string"
+            "type": "string",
+            "description": "Ticket tier identifier"
           }
         },
         "required": [
@@ -756,29 +934,36 @@
         "properties": {
           "eventId": {
             "example": "evt-101",
-            "type": "string"
+            "type": "string",
+            "description": "Event identifier"
           },
           "holdExpiresAt": {
             "format": "date-time",
             "nullable": true,
-            "type": "string"
+            "type": "string",
+            "description": "Timestamp when active hold lease expires",
+            "example": "2026-10-18T10:10:00Z"
           },
           "id": {
             "example": "seat-a1",
-            "type": "string"
+            "type": "string",
+            "description": "Unique seat identifier"
           },
           "number": {
             "example": 1,
-            "type": "integer"
+            "type": "integer",
+            "description": "Seat position number within row"
           },
           "reservationId": {
             "example": "res-abc12345",
             "nullable": true,
-            "type": "string"
+            "type": "string",
+            "description": "Active hold reservation lease ID"
           },
           "row": {
             "example": "A",
-            "type": "string"
+            "type": "string",
+            "description": "Seating row label"
           },
           "status": {
             "enum": [
@@ -788,11 +973,13 @@
               "BLOCKED"
             ],
             "example": "AVAILABLE",
-            "type": "string"
+            "type": "string",
+            "description": "Occupancy state (AVAILABLE, HELD, BOOKED)"
           },
           "tierId": {
             "example": "tier-vip",
-            "type": "string"
+            "type": "string",
+            "description": "Tier identifier"
           }
         },
         "required": [
@@ -809,20 +996,25 @@
         "properties": {
           "createdAt": {
             "format": "date-time",
-            "type": "string"
+            "type": "string",
+            "description": "Account registration timestamp",
+            "example": "2026-10-18T00:00:00Z"
           },
           "email": {
             "example": "customer@tickets.com",
             "format": "email",
-            "type": "string"
+            "type": "string",
+            "description": "User email address"
           },
           "id": {
             "example": "usr-1718000000",
-            "type": "string"
+            "type": "string",
+            "description": "Unique user account identifier"
           },
           "name": {
             "example": "Alex Customer",
-            "type": "string"
+            "type": "string",
+            "description": "User full legal name"
           },
           "role": {
             "enum": [
@@ -830,7 +1022,8 @@
               "admin"
             ],
             "example": "customer",
-            "type": "string"
+            "type": "string",
+            "description": "RBAC role (customer, organizer, admin)"
           }
         },
         "required": [
@@ -845,19 +1038,23 @@
         "properties": {
           "email": {
             "example": "customer@tickets.com",
-            "type": "string"
+            "type": "string",
+            "description": "User email address claim"
           },
           "name": {
             "example": "Alex Customer",
-            "type": "string"
+            "type": "string",
+            "description": "User full name claim"
           },
           "role": {
             "example": "customer",
-            "type": "string"
+            "type": "string",
+            "description": "Security role claim"
           },
           "userId": {
             "example": "usr-1718000000",
-            "type": "string"
+            "type": "string",
+            "description": "Subject user account identifier"
           }
         },
         "type": "object"
@@ -866,50 +1063,64 @@
         "properties": {
           "createdAt": {
             "format": "date-time",
-            "type": "string"
+            "type": "string",
+            "description": "Queue enrollment timestamp",
+            "example": "2026-10-18T08:00:00Z"
           },
           "customerEmail": {
             "example": "jane@example.com",
             "format": "email",
-            "type": "string"
+            "type": "string",
+            "description": "Notification email address"
           },
           "customerName": {
             "example": "Jane Doe",
-            "type": "string"
+            "type": "string",
+            "description": "Attendee name"
           },
           "eventId": {
             "example": "evt-101",
-            "type": "string"
+            "type": "string",
+            "description": "Target event identifier"
           },
           "expiresAt": {
             "format": "date-time",
             "nullable": true,
-            "type": "string"
+            "type": "string",
+            "description": "Expiration timestamp for claiming promoted ticket",
+            "example": "2026-10-18T10:30:00Z"
           },
           "id": {
             "example": "wt-1718000000",
-            "type": "string"
+            "type": "string",
+            "description": "Unique waitlist queue identifier"
           },
           "position": {
             "example": 1,
-            "type": "integer"
+            "type": "integer",
+            "description": "Current FIFO queue rank position"
           },
           "promotedAt": {
             "format": "date-time",
             "nullable": true,
-            "type": "string"
+            "type": "string",
+            "description": "Timestamp when entry was promoted to claim offer",
+            "example": "2026-10-18T10:15:00Z"
           },
           "quantity": {
             "example": 1,
-            "type": "integer"
+            "type": "integer",
+            "description": "Number of tickets desired"
           },
           "reservationId": {
             "example": "res-promoted-123",
-            "type": "string"
+            "type": "string",
+            "description": "Associated hold reservation if promoted"
           },
           "seatId": {
             "example": "seat-a1",
-            "type": "string"
+            "type": "string",
+            "description": "Specific seat requested if applicable"
           },
           "status": {
             "enum": [
@@ -920,19 +1131,24 @@
               "CANCELLED"
             ],
             "example": "PENDING",
-            "type": "string"
+            "type": "string",
+            "description": "Waitlist state (WAITING, PROMOTED, CLAIMED, CANCELLED)"
           },
           "tierId": {
             "example": "tier-vip",
-            "type": "string"
+            "type": "string",
+            "description": "Target ticket tier identifier"
           },
           "updatedAt": {
             "format": "date-time",
-            "type": "string"
+            "type": "string",
+            "description": "Last update timestamp",
+            "example": "2026-10-18T10:15:00Z"
           },
           "userId": {
             "example": "usr-101",
-            "type": "string"
+            "type": "string",
+            "description": "Attendee user identifier"
           }
         },
         "required": [
@@ -950,16 +1166,162 @@
         "properties": {
           "count": {
             "example": 1,
-            "type": "integer"
+            "type": "integer",
+            "description": "Total number of active waitlist entries in queue"
           },
           "entries": {
             "items": {
               "$ref": "#/components/schemas/WaitlistEntry"
             },
-            "type": "array"
+            "type": "array",
+            "description": "Collection of active waitlist queue entries",
+            "example": [
+              {
+                "id": "wait-101",
+                "position": 1
+              }
+            ]
           }
         },
         "type": "object"
+      },
+      "EventStatusUpdateRequest": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Target event lifecycle status (DRAFT, PUBLISHED, ARCHIVED, CANCELLED)",
+            "example": "PUBLISHED",
+            "enum": [
+              "DRAFT",
+              "PUBLISHED",
+              "ARCHIVED",
+              "CANCELLED"
+            ]
+          }
+        }
+      },
+      "DLQSimulateRequest": {
+        "type": "object",
+        "required": [
+          "type",
+          "errorMessage"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Failure scenario type",
+            "example": "poison",
+            "enum": [
+              "poison",
+              "retry_fail",
+              "direct_dlq"
+            ]
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "Simulated error diagnostic message",
+            "example": "Simulated consumer processing failure"
+          },
+          "routingKey": {
+            "type": "string",
+            "description": "AMQP routing key target",
+            "example": "booking.confirmed"
+          },
+          "payload": {
+            "type": "object",
+            "description": "Synthetic message payload object",
+            "example": {
+              "bookingId": "bkg-101"
+            }
+          }
+        }
+      },
+      "CancelSeatsRequest": {
+        "type": "object",
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "description": "Booking order identifier",
+            "example": "bkg-101"
+          },
+          "eventId": {
+            "type": "string",
+            "description": "Event identifier",
+            "example": "evt-101"
+          },
+          "reservationId": {
+            "type": "string",
+            "description": "Reservation hold identifier",
+            "example": "res-101"
+          },
+          "tierId": {
+            "type": "string",
+            "description": "Ticket tier identifier",
+            "example": "tier-vip"
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Seat count to release",
+            "example": 2
+          },
+          "seatIds": {
+            "type": "array",
+            "description": "Array of seat identifiers",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "seat-a1",
+              "seat-a2"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "description": "Cancellation justification note",
+            "example": "Customer requested full refund."
+          }
+        }
+      },
+      "CommitSeatsRequest": {
+        "type": "object",
+        "required": [
+          "reservationId",
+          "bookingId"
+        ],
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "description": "Reservation hold lease identifier",
+            "example": "res-101"
+          },
+          "bookingId": {
+            "type": "string",
+            "description": "Associated confirmed booking identifier",
+            "example": "bkg-101"
+          }
+        }
+      },
+      "ReleaseSeatsRequest": {
+        "type": "object",
+        "required": [
+          "reservationId"
+        ],
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "description": "Reservation hold lease identifier",
+            "example": "res-101"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Release reason description",
+            "example": "Checkout session timed out"
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -1342,15 +1704,58 @@
           }
         ],
         "responses": {
+          "204": {
+            "description": "Booking cancelled and deleted / No Content"
+          },
           "200": {
+            "description": "Booking cancellation summary",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CancelBookingResponse"
                 }
               }
-            },
-            "description": "Booking cancelled"
+            }
+          },
+          "400": {
+            "description": "Invalid cancellation request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Booking not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1553,37 +1958,15 @@
       "post": {
         "description": "Diagnostics endpoint to trigger controlled failures and test dead-letter routing.",
         "requestBody": {
+          "required": true,
+          "description": "Simulation payload",
           "content": {
             "application/json": {
               "schema": {
-                "properties": {
-                  "errorMessage": {
-                    "type": "string"
-                  },
-                  "payload": {
-                    "type": "object"
-                  },
-                  "routingKey": {
-                    "type": "string"
-                  },
-                  "type": {
-                    "enum": [
-                      "poison",
-                      "retry_fail",
-                      "direct_dlq"
-                    ],
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "type",
-                  "errorMessage"
-                ],
-                "type": "object"
+                "$ref": "#/components/schemas/DLQSimulateRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -1727,40 +2110,15 @@
           }
         ],
         "requestBody": {
+          "required": true,
+          "description": "Cancellation payload",
           "content": {
             "application/json": {
               "schema": {
-                "properties": {
-                  "bookingId": {
-                    "type": "string"
-                  },
-                  "eventId": {
-                    "type": "string"
-                  },
-                  "quantity": {
-                    "type": "integer"
-                  },
-                  "reason": {
-                    "type": "string"
-                  },
-                  "reservationId": {
-                    "type": "string"
-                  },
-                  "seatIds": {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  "tierId": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
+                "$ref": "#/components/schemas/CancelSeatsRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -1800,26 +2158,15 @@
           }
         ],
         "requestBody": {
+          "required": true,
+          "description": "Commit verification payload",
           "content": {
             "application/json": {
               "schema": {
-                "properties": {
-                  "bookingId": {
-                    "type": "string"
-                  },
-                  "reservationId": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "reservationId",
-                  "bookingId"
-                ],
-                "type": "object"
+                "$ref": "#/components/schemas/CommitSeatsRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -1889,25 +2236,15 @@
           }
         ],
         "requestBody": {
+          "required": true,
+          "description": "Release payload",
           "content": {
             "application/json": {
               "schema": {
-                "properties": {
-                  "reason": {
-                    "type": "string"
-                  },
-                  "reservationId": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "reservationId"
-                ],
-                "type": "object"
+                "$ref": "#/components/schemas/ReleaseSeatsRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -2034,6 +2371,88 @@
         "tags": [
           "Inventory"
         ]
+      },
+      "patch": {
+        "tags": [
+          "Inventory"
+        ],
+        "summary": "Extend or update temporary seat reservation hold (PATCH)",
+        "description": "Updates lease hold expiration or requested seats under distributed lock.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Unique idempotency token",
+            "schema": {
+              "type": "string"
+            },
+            "example": "idem-key-1718000000"
+          },
+          {
+            "name": "X-Correlation-ID",
+            "in": "header",
+            "required": false,
+            "description": "Distributed tracing correlation identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "corr-uuid-101"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Seat reservation parameters",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReserveSeatsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reservation hold updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReservationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid reservation request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Seat conflict or capacity exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/inventory/{eventId}": {
@@ -2377,24 +2796,58 @@
           }
         ],
         "responses": {
+          "204": {
+            "description": "Waitlist entry deleted / No Content"
+          },
           "200": {
+            "description": "Waitlist entry cancellation summary",
             "content": {
               "application/json": {
                 "schema": {
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "example": "CANCELLED",
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
+                  "$ref": "#/components/schemas/WaitlistStatusResponse"
                 }
               }
-            },
-            "description": "Waitlist entry cancelled"
+            }
+          },
+          "400": {
+            "description": "Invalid cancellation request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Waitlist entry not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2716,6 +3169,172 @@
           },
           "404": {
             "description": "Event not found"
+          }
+        }
+      }
+    },
+    "/api/events/{id}/status": {
+      "put": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Update event lifecycle status (PUT)",
+        "description": "Transitions event state between DRAFT, PUBLISHED, ARCHIVED, or CANCELLED.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Unique event identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "evt-101"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Event status update payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventStatusUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event status updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status transition payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized administrator access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Partially update event lifecycle status (PATCH)",
+        "description": "Transitions event state between DRAFT, PUBLISHED, ARCHIVED, or CANCELLED.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Unique event identifier",
+            "schema": {
+              "type": "string"
+            },
+            "example": "evt-101"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Event status update payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventStatusUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event status updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status transition payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized administrator access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Event not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }

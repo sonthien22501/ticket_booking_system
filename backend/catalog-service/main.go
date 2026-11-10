@@ -387,19 +387,31 @@ func (s *Server) handleEventByID(w http.ResponseWriter, r *http.Request) {
 	w.Write(jsonData)
 }
 
+func decodeStrictJSON(r *http.Request, dst interface{}) error {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	return dec.Decode(dst)
+}
+
 func (s *Server) createEvent(w http.ResponseWriter, r *http.Request) {
 	var req CreateEventRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"Invalid request payload: %v"}`, err), http.StatusBadRequest)
 		return
 	}
 
-	if req.ID == "" {
-		req.ID = fmt.Sprintf("evt-%d", time.Now().UnixNano())
+	if strings.TrimSpace(req.Title) == "" {
+		http.Error(w, `{"error":"Title is required"}`, http.StatusBadRequest)
+		return
 	}
+
 	venueName := req.VenueName
 	if venueName == "" {
 		venueName = req.VenueNameAlt
+	}
+	if strings.TrimSpace(venueName) == "" {
+		http.Error(w, `{"error":"Venue name is required"}`, http.StatusBadRequest)
+		return
 	}
 	venueLoc := req.VenueLocation
 	if venueLoc == "" {
@@ -529,34 +541,6 @@ func (s *Server) provisionInventory(eventID string, tiers []ProvisionTierInput) 
 				log.Printf("Warning: Inventory service provision returned status %d for event %s", resp.StatusCode, eventID)
 			} else {
 				log.Printf("Warning: Failed to reach inventory service at %s: %v", invURL, err)
-			}
-		}
-	}
-
-	// Direct DB fallback for standalone unit tests or when inventory service is offline
-	if s.db != nil {
-		for i, tier := range tiers {
-			_, err := s.db.Exec(
-				`INSERT INTO event_inventory (event_id, tier_id, total_seats, available_seats, reserved_seats, booked_seats, version) VALUES ($1, $2, $3, $3, 0, 0, 0) ON CONFLICT DO NOTHING`,
-				eventID, tier.TierID, tier.Capacity,
-			)
-			if err != nil {
-				log.Printf("Fallback inventory insert error: %v", err)
-			}
-
-			seatsToGenerate := tier.Capacity
-			if seatsToGenerate > 100 {
-				seatsToGenerate = 100
-			}
-			rowPrefix := string(rune('A' + (i % 26)))
-			for sIdx := 1; sIdx <= seatsToGenerate; sIdx++ {
-				seatRow := fmt.Sprintf("%s%d", rowPrefix, ((sIdx-1)/10)+1)
-				seatNum := ((sIdx - 1) % 10) + 1
-				seatID := fmt.Sprintf("%s-%d", seatRow, seatNum)
-				_, _ = s.db.Exec(
-					`INSERT INTO seat_items (id, event_id, tier_id, seat_row, seat_number, status) VALUES ($1, $2, $3, $4, $5, 'AVAILABLE') ON CONFLICT DO NOTHING`,
-					seatID, eventID, tier.TierID, seatRow, seatNum,
-				)
 			}
 		}
 	}

@@ -307,8 +307,17 @@ func (s *Server) handleCurrencyConvert(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req ConvertCurrencyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"Invalid payload: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	if req.Amount <= 0 {
+		http.Error(w, `{"error":"Amount must be greater than zero"}`, http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.From) == "" || strings.TrimSpace(req.To) == "" {
+		http.Error(w, `{"error":"Both 'from' and 'to' currencies are required"}`, http.StatusBadRequest)
 		return
 	}
 

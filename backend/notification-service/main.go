@@ -96,6 +96,12 @@ type DispatchTestRequest struct {
 	Channel string `json:"channel,omitempty"`
 }
 
+func decodeStrictJSON(r *http.Request, dst interface{}) error {
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	return dec.Decode(dst)
+}
+
 func (s *Server) handleDispatchTest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -103,7 +109,7 @@ func (s *Server) handleDispatchTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req DispatchTestRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
 		return
 	}

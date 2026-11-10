@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/http"
 	"strings"
@@ -138,21 +139,45 @@ func (s *Server) handleEventPricing(w http.ResponseWriter, r *http.Request) {
 	var available int = 100
 
 	if s.db != nil {
-		// Attempt to query minimum tier price and total capacity
+		// Attempt to query minimum tier price and total capacity from catalog_schema
 		row := s.db.QueryRow(`
 			SELECT COALESCE(MIN(price), 75.0), COALESCE(SUM(capacity), 100)
 			FROM ticket_tiers
 			WHERE event_id = $1
 		`, eventID)
 		_ = row.Scan(&basePrice, &capacity)
+		available = capacity
+	}
 
-		// Query available seats from event_inventory if present
-		invRow := s.db.QueryRow(`
-			SELECT COALESCE(available_seats, $2)
-			FROM event_inventory
-			WHERE event_id = $1
-		`, eventID, capacity)
-		_ = invRow.Scan(&available)
+	// Fetch available seats via HTTP from inventory-service (Pillar 1 database-per-service isolation)
+	invURL := s.inventoryServiceURL
+	if invURL == "" {
+		invURL = "http://inventory-service:8082"
+	}
+	client := s.httpClient
+	if client == nil {
+		client = &http.Client{Timeout: 3 * time.Second}
+	}
+	invReq, invErr := http.NewRequestWithContext(r.Context(), http.MethodGet, fmt.Sprintf("%s/inventory/%s", strings.TrimRight(invURL, "/"), eventID), nil)
+	if invErr == nil {
+		if invResp, doErr := client.Do(invReq); doErr == nil && invResp != nil {
+			defer invResp.Body.Close()
+			if invResp.StatusCode == http.StatusOK {
+				var invData struct {
+					AvailableSeats    int `json:"availableSeats"`
+					AvailableSeatsAlt int `json:"available_seats"`
+				}
+				if decErr := json.NewDecoder(invResp.Body).Decode(&invData); decErr == nil {
+					if invData.AvailableSeats > 0 || invData.AvailableSeatsAlt > 0 {
+						if invData.AvailableSeats > 0 {
+							available = invData.AvailableSeats
+						} else {
+							available = invData.AvailableSeatsAlt
+						}
+					}
+				}
+			}
+		}
 	}
 
 	// If database is unavailable, service isolation guarantees fallback without 500 error (R33)

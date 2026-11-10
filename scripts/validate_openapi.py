@@ -36,53 +36,89 @@ def parse_simple_yaml(text: str) -> Dict[str, Any]:
     Lightweight fallback YAML parser for OpenAPI 3.0 documents
     when PyYAML is not installed.
     """
-    data: Dict[str, Any] = {"paths": {}, "info": {}}
+    data: Dict[str, Any] = {"openapi": "3.0.3", "paths": {}, "info": {}, "components": {"schemas": {}}}
     current_section = None
     current_path = None
     current_method = None
+    in_request_body = False
+    current_schema = None
+    current_prop = None
+    in_properties = False
 
     for line in text.splitlines():
         line_stripped = line.strip()
         if not line_stripped or line_stripped.startswith("#"):
             continue
 
-        # Match top-level keys
-        if not line.startswith(" ") and ":" in line:
-            key = line.split(":", 1)[0].strip()
-            val = line.split(":", 1)[1].strip()
+        indent = len(line) - len(line.lstrip(" "))
+
+        # Top-level keys (indent 0)
+        if indent == 0 and ":" in line:
+            key, val = [x.strip() for x in line.split(":", 1)]
             current_section = key
             if val:
-                data[key] = val
-            elif key not in data:
-                data[key] = {}
+                data[key] = val.strip('"').strip("'")
             current_path = None
             current_method = None
+            in_request_body = False
+            current_schema = None
+            current_prop = None
+            in_properties = False
             continue
-
-        indent = len(line) - len(line.lstrip(" "))
 
         if current_section == "info":
             if ":" in line_stripped:
-                k, v = line_stripped.split(":", 1)
-                data["info"][k.strip()] = v.strip().strip('"').strip("'")
+                k, v = [x.strip() for x in line_stripped.split(":", 1)]
+                data["info"][k] = v.strip('"').strip("'")
 
         elif current_section == "paths":
             if indent == 2 and line_stripped.startswith("/") and ":" in line_stripped:
-                current_path = line_stripped.split(":", 1)[0].strip()
+                current_path = line_stripped.split(":", 1)[0].strip().strip('"').strip("'")
                 if current_path not in data["paths"]:
                     data["paths"][current_path] = {}
                 current_method = None
+                in_request_body = False
             elif indent == 4 and current_path and ":" in line_stripped:
                 m = line_stripped.split(":", 1)[0].strip().lower()
                 if m in ("get", "post", "put", "delete", "patch", "options", "head"):
                     current_method = m
                     data["paths"][current_path][current_method] = {"responses": {}}
+                    in_request_body = False
             elif indent >= 6 and current_path and current_method:
-                if "responses:" in line_stripped:
-                    pass
-                elif line_stripped.startswith("'") or line_stripped.startswith('"') or line_stripped.isdigit():
+                if line_stripped.startswith("requestBody:"):
+                    in_request_body = True
+                    data["paths"][current_path][current_method]["requestBody"] = {}
+                elif in_request_body and "$ref:" in line_stripped:
+                    ref_val = line_stripped.split("$ref:", 1)[1].strip().strip('"').strip("'")
+                    data["paths"][current_path][current_method]["requestBody"] = {
+                        "content": {"application/json": {"schema": {"$ref": ref_val}}}
+                    }
+                elif line_stripped.startswith("responses:"):
+                    in_request_body = False
+                elif not in_request_body and (line_stripped.startswith("'") or line_stripped.startswith('"') or line_stripped[:3].isdigit()):
                     resp_code = line_stripped.split(":", 1)[0].strip().strip("'").strip('"')
                     data["paths"][current_path][current_method]["responses"][resp_code] = {}
+
+        elif current_section == "components":
+            if indent == 2 and line_stripped.startswith("schemas:"):
+                current_schema = None
+                in_properties = False
+            elif indent == 4 and ":" in line_stripped and not line_stripped.startswith("-"):
+                current_schema = line_stripped.split(":", 1)[0].strip().strip('"').strip("'")
+                data["components"]["schemas"][current_schema] = {"properties": {}}
+                in_properties = False
+                current_prop = None
+            elif indent == 6 and current_schema and line_stripped.startswith("properties:"):
+                in_properties = True
+                current_prop = None
+            elif indent == 8 and in_properties and current_schema and ":" in line_stripped and not line_stripped.startswith("-"):
+                current_prop = line_stripped.split(":", 1)[0].strip().strip('"').strip("'")
+                data["components"]["schemas"][current_schema]["properties"][current_prop] = {}
+            elif indent >= 10 and in_properties and current_schema and current_prop:
+                if ":" in line_stripped:
+                    k, v = [x.strip() for x in line_stripped.split(":", 1)]
+                    if k in ("description", "example", "type", "$ref"):
+                        data["components"]["schemas"][current_schema]["properties"][current_prop][k] = v.strip('"').strip("'")
 
     return data
 
@@ -123,7 +159,7 @@ def validate_spec(name: str, spec: Dict[str, Any]) -> List[str]:
         if not info.get("version"):
             errors.append("info object missing required 'version'")
 
-    # 3. Paths object check
+    # 3. Paths object & operation validation
     paths = spec.get("paths")
     if not isinstance(paths, dict):
         errors.append("Missing required 'paths' object")
@@ -143,6 +179,46 @@ def validate_spec(name: str, spec: Dict[str, Any]) -> List[str]:
                 responses = operation.get("responses")
                 if not isinstance(responses, dict) or len(responses) == 0:
                     errors.append(f"Operation {method.upper()} {path_key} missing responses object")
+
+                # Strict requirement: Every requestBody must use $ref schema
+                request_body = operation.get("requestBody")
+                if request_body is not None:
+                    if not isinstance(request_body, dict):
+                        errors.append(f"Operation {method.upper()} {path_key} requestBody must be an object")
+                    else:
+                        has_ref = False
+                        if "$ref" in request_body:
+                            has_ref = True
+                        content = request_body.get("content")
+                        if isinstance(content, dict):
+                            for media_type, media_obj in content.items():
+                                if isinstance(media_obj, dict):
+                                    schema = media_obj.get("schema")
+                                    if isinstance(schema, dict):
+                                        if "$ref" in schema or ("items" in schema and "$ref" in schema.get("items", {})):
+                                            has_ref = True
+                        if not has_ref:
+                            errors.append(f"Operation {method.upper()} {path_key} requestBody must reference a $ref schema")
+
+    # 4. Strict requirement: Every property in components.schemas must have both 'description' and 'example'
+    is_json_spec = "JSON" in name or spec.get("_format") == "json"
+    components = spec.get("components")
+    if isinstance(components, dict):
+        schemas = components.get("schemas")
+        if isinstance(schemas, dict):
+            for schema_name, schema_obj in schemas.items():
+                if isinstance(schema_obj, dict):
+                    properties = schema_obj.get("properties")
+                    if isinstance(properties, dict):
+                        for prop_name, prop_def in properties.items():
+                            if not isinstance(prop_def, dict):
+                                errors.append(f"Schema '{schema_name}' property '{prop_name}' must be an object")
+                                continue
+                            desc = prop_def.get("description")
+                            if not desc or not str(desc).strip():
+                                errors.append(f"Schema '{schema_name}' property '{prop_name}' missing required 'description'")
+                            if "example" not in prop_def or prop_def.get("example") is None:
+                                errors.append(f"Schema '{schema_name}' property '{prop_name}' missing required 'example'")
 
     return errors
 

@@ -41,6 +41,8 @@ type CreateReviewRequest struct {
 	Comment       string `json:"comment"`
 }
 
+type ReviewRequest = CreateReviewRequest
+
 // ReviewSummary holds aggregated rating statistics
 type ReviewSummary struct {
 	AverageRating      float64     `json:"averageRating"`
@@ -273,7 +275,7 @@ func (s *Server) handleEventReviews(w http.ResponseWriter, r *http.Request, even
 
 	if r.Method == http.MethodPost {
 		var req CreateReviewRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := decodeStrictJSON(r, &req); err != nil {
 			http.Error(w, `{"error":"Invalid request payload"}`, http.StatusBadRequest)
 			return
 		}

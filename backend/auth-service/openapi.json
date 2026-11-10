@@ -15,46 +15,292 @@
     "/api/auth/register": {
       "post": {
         "summary": "Register a new user account",
+        "description": "Registers customer with hashed password and returns JWT.",
+        "requestBody": {
+          "required": true,
+          "description": "User registration credentials",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
         "responses": {
-          "201": { "description": "User registered" },
-          "409": { "description": "Email already registered" }
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email address already registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/auth/login": {
       "post": {
         "summary": "Authenticate user credentials and issue JWT bearer token",
+        "description": "Validates email and password, issuing standard HMAC-SHA256 JWT.",
+        "requestBody": {
+          "required": true,
+          "description": "Login credentials",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": { "description": "Login successful" },
-          "401": { "description": "Invalid credentials" }
+          "200": {
+            "description": "Login successful and bearer token issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed login request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid email or password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/auth/verify": {
       "get": {
         "summary": "Fast Gateway auth_request perimeter verification",
+        "description": "Evaluates bearer token for Nginx subrequest, setting upstream identity headers.",
         "responses": {
-          "200": { "description": "Token verified or anonymous access allowed" },
-          "401": { "description": "Invalid or expired token" }
+          "200": {
+            "description": "Token verified or anonymous access allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenVerificationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/auth/verify-admin": {
       "get": {
         "summary": "Admin perimeter guard verification for privileged operations",
+        "description": "Ensures token has admin role or matching internal bypass secret.",
         "responses": {
-          "200": { "description": "Admin privileges verified" },
-          "401": { "description": "Missing token" },
-          "403": { "description": "Forbidden non-admin access" }
+          "200": {
+            "description": "Admin privileges verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminVerificationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden non-admin access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/auth/me": {
       "get": {
         "summary": "Get authenticated user profile",
+        "description": "Returns currently authenticated user profile from token claims.",
         "responses": {
-          "200": { "description": "User profile" },
-          "401": { "description": "Unauthorized" }
+          "200": {
+            "description": "User profile retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/users": {
+      "get": {
+        "summary": "List all system users (Admin only)",
+        "description": "Admin endpoint to paginate user accounts.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Pagination page size",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 50
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Pagination offset",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 0
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of system users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden non-admin access",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -63,11 +309,229 @@
     "schemas": {
       "User": {
         "type": "object",
+        "required": [
+          "id",
+          "email",
+          "name",
+          "role"
+        ],
         "properties": {
-          "id": { "type": "string" },
-          "email": { "type": "string" },
-          "name": { "type": "string" },
-          "role": { "type": "string" }
+          "id": {
+            "type": "string",
+            "description": "Unique user identifier",
+            "example": "usr-101"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "example": "customer@example.com"
+          },
+          "name": {
+            "type": "string",
+            "description": "User full name",
+            "example": "John Doe"
+          },
+          "role": {
+            "type": "string",
+            "description": "RBAC security role (customer, organizer, admin)",
+            "example": "customer"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Account registration timestamp",
+            "example": "2026-10-27T08:00:00Z"
+          }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password",
+          "name"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "example": "alice@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "Plaintext registration password (min 6 chars)",
+            "example": "SecretPass123!"
+          },
+          "name": {
+            "type": "string",
+            "description": "Full legal name",
+            "example": "Alice Smith"
+          },
+          "role": {
+            "type": "string",
+            "description": "Requested role (defaults to customer)",
+            "example": "customer"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Registered email address",
+            "example": "alice@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "Account authentication password",
+            "example": "SecretPass123!"
+          }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "required": [
+          "token",
+          "user"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "JWT Bearer access token",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "user": {
+            "$ref": "#/components/schemas/User",
+            "description": "Authenticated user profile",
+            "example": {
+              "id": "usr-101",
+              "email": "alice@example.com",
+              "name": "Alice Smith",
+              "role": "customer"
+            }
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "Token expiration timestamp",
+            "example": "2026-10-28T08:00:00Z"
+          }
+        }
+      },
+      "TokenVerificationResponse": {
+        "type": "object",
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "description": "True if token is cryptographically valid",
+            "example": true
+          },
+          "status": {
+            "type": "string",
+            "description": "Authentication state (authenticated, anonymous)",
+            "example": "authenticated"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User",
+            "description": "Verified identity claims",
+            "example": {
+              "id": "usr-101",
+              "email": "alice@example.com",
+              "name": "Alice Smith",
+              "role": "customer"
+            }
+          }
+        }
+      },
+      "AdminVerificationResponse": {
+        "type": "object",
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "description": "True if verified user holds admin permissions",
+            "example": true
+          },
+          "status": {
+            "type": "string",
+            "description": "Admin verification state",
+            "example": "authenticated"
+          },
+          "role": {
+            "type": "string",
+            "description": "User security role",
+            "example": "admin"
+          }
+        }
+      },
+      "UserListResponse": {
+        "type": "object",
+        "properties": {
+          "users": {
+            "type": "array",
+            "description": "List of user accounts",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            },
+            "example": [
+              {
+                "id": "usr-101",
+                "email": "user@example.com"
+              }
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total user count",
+            "example": 1
+          }
+        }
+      },
+      "UserClaims": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "User identifier claim",
+            "example": "usr-101"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email claim",
+            "example": "customer@example.com"
+          },
+          "role": {
+            "type": "string",
+            "description": "RBAC role claim",
+            "example": "customer"
+          },
+          "name": {
+            "type": "string",
+            "description": "User full name claim",
+            "example": "John Doe"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Machine-readable error tag",
+            "example": "INVALID_CREDENTIALS"
+          },
+          "message": {
+            "type": "string",
+            "description": "Error description message",
+            "example": "Invalid email or password."
+          },
+          "code": {
+            "type": "string",
+            "description": "Error classification code",
+            "example": "ERR_AUTH_FAILED"
+          }
         }
       }
     }

@@ -31,7 +31,7 @@ func (s *Server) handleEventStatusUpdate(w http.ResponseWriter, r *http.Request)
 	eventID := strings.TrimSpace(path)
 
 	var req UpdateEventStatusRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeStrictJSON(r, &req); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"Invalid request payload: %v"}`, err), http.StatusBadRequest)
 		return
 	}

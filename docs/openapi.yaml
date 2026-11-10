@@ -2,10 +2,10 @@ openapi: 3.0.3
 info:
   title: Ticket Booking System API
   version: 1.0.0
-  description: Unified OpenAPI 3.0 contract for Event Catalog, Venue Floorplan, Mash-Up Hub, Bookings, Currency Rates, and AI Concierge.
+  description: "Unified OpenAPI 3.0 contract for Event Catalog, Venue Floorplan, Mash-Up Hub, Bookings, Currency Rates, and AI Concierge."
   contact:
     name: EnIA System Team
-    email: architecture@ticketbooking.local
+    email: "architecture@ticketbooking.local"
 servers:
   - url: /
     description: Local API Gateway / Nginx Reverse Proxy
@@ -14,31 +14,68 @@ paths:
     get:
       summary: List catalog events
       description: Retrieve list of all active events with ticket tiers and venue info.
+      parameters:
+        - name: category
+          in: query
+          required: false
+          description: Category filter
+          schema:
+            type: string
+          example: Music
       responses:
-        '200':
+        200:
           description: Successful retrieval of events
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Event'
+                  $ref: "#/components/schemas/Event"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       summary: Create new event
       description: Admin endpoint to publish a new event.
       requestBody:
         required: true
+        description: Event creation payload
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateEventRequest'
+              $ref: "#/components/schemas/CreateEventRequest"
       responses:
-        '201':
+        201:
           description: Event created successfully
-  /api/events/{id}/mashup:
-    get:
-      summary: Get event mashup intelligence
-      description: Orchestrates internal catalog data with live Open-Meteo weather forecast and Apple iTunes 30s track audio preview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        400:
+          description: Invalid event parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/events/{id}/status:
+    put:
+      summary: Update event lifecycle status (PUT)
+      description: Updates event lifecycle state.
       parameters:
         - name: id
           in: path
@@ -46,62 +83,334 @@ paths:
           description: Event identifier
           schema:
             type: string
+          example: "evt-101"
+      requestBody:
+        required: true
+        description: Status payload
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventStatusUpdateRequest"
       responses:
-        '200':
+        200:
+          description: Event status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        400:
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        404:
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      summary: Partially update event lifecycle status (PATCH)
+      description: Patches event status.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Event identifier
+          schema:
+            type: string
+          example: "evt-101"
+      requestBody:
+        required: true
+        description: Status payload
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventStatusUpdateRequest"
+      responses:
+        200:
+          description: Event status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        400:
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        404:
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/events/{id}/mashup:
+    get:
+      summary: Get event mashup intelligence
+      description: "Orchestrates internal catalog data with live Open-Meteo weather forecast and Apple iTunes 30s track audio preview."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Event identifier
+          schema:
+            type: string
+          example: "evt-101"
+      responses:
+        200:
           description: Composed external mashup data
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EventMashupResponse'
-        '404':
+                $ref: "#/components/schemas/EventMashupResponse"
+        404:
           description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/inventory/reserve:
+    patch:
+      summary: Update or extend seat reservation hold (PATCH)
+      description: Updates hold duration or quantity.
+      requestBody:
+        required: true
+        description: Hold parameters
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReserveSeatsRequest"
+      responses:
+        200:
+          description: Reservation hold updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReservationResponse"
+        400:
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        409:
+          description: Seat conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/bookings:
     post:
       summary: Create ticket booking
       description: Reserve tickets and initiate payment and ticket issuance.
       requestBody:
         required: true
+        description: Booking request payload
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BookingRequest'
+              $ref: "#/components/schemas/BookingRequest"
       responses:
-        '200':
+        201:
           description: Booking confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        400:
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        409:
+          description: Seat hold expired or unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/bookings/{id}:
+    delete:
+      summary: Cancel booking by ID (DELETE)
+      description: Cancels booking and releases seats.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Booking identifier
+          schema:
+            type: string
+          example: "bkg-101"
+      responses:
+        204:
+          description: Booking deleted / No Content
+        200:
+          description: Booking cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancelBookingResponse"
+        400:
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        404:
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/waitlist/{id}:
+    delete:
+      summary: Cancel waitlist entry (DELETE)
+      description: Cancels waitlist entry.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Waitlist entry identifier
+          schema:
+            type: string
+          example: "wait-101"
+      responses:
+        204:
+          description: Waitlist entry cancelled / No Content
+        200:
+          description: Waitlist entry cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WaitlistStatusResponse"
+        400:
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        404:
+          description: Waitlist entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/currencies/rates:
     get:
-      summary: Get currency exchange rates & regional tax matrix
+      summary: "Get currency exchange rates & regional tax matrix"
       description: Composes live Frankfurter ECB foreign exchange rates with internal tax regulations and deterministic fallback.
       responses:
-        '200':
+        200:
           description: Currency rates and tax rules
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CurrencyRatesResponse'
+                $ref: "#/components/schemas/CurrencyRatesResponse"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/concierge/advise:
     post:
       summary: Generate runtime AI event concierge advice
-      description: Synthesizes event telemetry, venue weather, live FX rates, and attendee preferences into actionable concierge recommendations.
+      description: "Synthesizes event telemetry, venue weather, live FX rates, and attendee preferences into actionable concierge recommendations."
       requestBody:
         required: true
+        description: Advisory input payload
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ConciergeAdviceRequest'
+              $ref: "#/components/schemas/ConciergeAdviceRequest"
       responses:
-        '200':
+        200:
           description: AI concierge recommendation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ConciergeAdviceResponse'
-        '400':
+                $ref: "#/components/schemas/ConciergeAdviceResponse"
+        400:
           description: Validation error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     Event:
@@ -109,26 +418,46 @@ components:
       properties:
         id:
           type: string
+          description: Unique event identifier
+          example: "evt-101"
         title:
           type: string
+          description: Title of the event
+          example: Coldplay Music of the Spheres
         description:
           type: string
+          description: Event detailed itinerary
+          example: Live concert experience featuring global stadium tour.
         category:
           type: string
+          description: Genre category
+          example: Music
         venueName:
           type: string
+          description: Venue name
+          example: Wembley Stadium
         venueLocation:
           type: string
+          description: Venue location city and country
+          example: "London, UK"
         startTime:
           type: string
-          format: date-time
+          format: "date-time"
+          description: "ISO-8601 start time"
+          example: "2026-08-15T19:00:00Z"
         endTime:
           type: string
-          format: date-time
+          format: "date-time"
+          description: "ISO-8601 finish time"
+          example: "2026-08-15T22:30:00Z"
         status:
           type: string
+          description: Lifecycle state
+          example: PUBLISHED
         imageUrl:
           type: string
+          description: Poster banner image URL
+          example: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745"
     CreateEventRequest:
       type: object
       required:
@@ -140,83 +469,185 @@ components:
       properties:
         title:
           type: string
+          description: Headline event title
+          example: Rock Festival 2026
         description:
           type: string
+          description: Event description
+          example: Weekend music festival.
         category:
           type: string
+          description: Event category
+          example: Music
         venueName:
           type: string
+          description: Venue name
+          example: O2 Arena
         venueLocation:
           type: string
+          description: Venue city and country
+          example: "London, UK"
         startTime:
           type: string
+          description: Scheduled start time
+          example: "2026-07-10T18:00:00Z"
         endTime:
           type: string
+          description: Scheduled end time
+          example: "2026-07-10T23:00:00Z"
+    EventStatusUpdateRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          description: Target lifecycle state
+          example: PUBLISHED
     WeatherForecast:
       type: object
       properties:
         temperatureC:
           type: number
+          description: Temperature in Celsius
+          example: 21.5
         temperatureF:
           type: number
+          description: Temperature in Fahrenheit
+          example: 70.7
         condition:
           type: string
+          description: Weather condition
+          example: Partly Cloudy
         weatherCode:
           type: integer
+          description: WMO meteorological code
+          example: 2
         precipitationProb:
           type: integer
+          description: Precipitation probability percentage
+          example: 10
         windSpeedKmh:
           type: number
+          description: Wind speed in km/h
+          example: 14.2
         isOutdoorFriendly:
           type: boolean
+          description: "True if suitable for open-air seating"
+          example: true
         advisory:
           type: string
+          description: Actionable attendee advice
+          example: Pleasant evening expected.
         source:
           type: string
+          description: Weather provider
+          example: "Open-Meteo API"
     MediaTrackPreview:
       type: object
       properties:
         trackName:
           type: string
+          description: Track title
+          example: Yellow
         artistName:
           type: string
+          description: Artist name
+          example: Coldplay
         albumName:
           type: string
+          description: Album title
+          example: Parachutes
         previewUrl:
           type: string
+          description: Audio preview stream URL
+          example: "https://audio-ssl.itunes.apple.com/preview.m4a"
         artworkUrl:
           type: string
+          description: Album sleeve artwork URL
+          example: "https://is1-ssl.mzstatic.com/image.jpg"
         genre:
           type: string
+          description: Music genre
+          example: Alternative Rock
         releaseDate:
           type: string
+          description: Release date
+          example: "2000-06-26"
         source:
           type: string
+          description: Audio provider
+          example: Apple iTunes Search API
     EventMashupResponse:
       type: object
       properties:
         eventId:
           type: string
+          description: Unique event identifier
+          example: "evt-101"
         eventTitle:
           type: string
+          description: Event title
+          example: Coldplay World Tour
         venueName:
           type: string
+          description: Venue name
+          example: Wembley Stadium
         venueCity:
           type: string
+          description: Venue city
+          example: London
         latitude:
           type: number
+          description: Latitude coordinate
+          example: 51.556
         longitude:
           type: number
+          description: Longitude coordinate
+          example: -0.2796
         weather:
-          $ref: '#/components/schemas/WeatherForecast'
+          $ref: "#/components/schemas/WeatherForecast"
+          description: Weather forecast
+          example:
+            temperatureC: 21.5
+            condition: Partly Cloudy
         mediaPreview:
-          $ref: '#/components/schemas/MediaTrackPreview'
+          $ref: "#/components/schemas/MediaTrackPreview"
+          description: Audio preview
+          example:
+            trackName: Yellow
+            artistName: Coldplay
         fallbackUsed:
           type: boolean
+          description: True if offline fallback used
+          example: false
         cached:
           type: boolean
+          description: True if response served from Redis cache
+          example: true
         fetchedAt:
           type: string
+          description: Composition timestamp
+          example: "2026-10-27T10:00:00Z"
+    Booking:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Booking identifier
+          example: "bkg-101"
+        bookingReference:
+          type: string
+          description: Booking reference code
+          example: "BKG-ABCD-1234"
+        totalAmount:
+          type: number
+          description: Total amount in EUR
+          example: 120.0
+        status:
+          type: string
+          description: Order status
+          example: CONFIRMED
     BookingRequest:
       type: object
       required:
@@ -227,35 +658,174 @@ components:
       properties:
         eventId:
           type: string
+          description: Event identifier
+          example: "evt-101"
         tierId:
           type: string
+          description: Ticket tier identifier
+          example: "tier-vip"
         quantity:
           type: integer
+          description: Ticket quantity
+          example: 2
         customerEmail:
           type: string
+          description: Customer email
+          example: "customer@example.com"
+    CancelBookingResponse:
+      type: object
+      properties:
+        bookingId:
+          type: string
+          description: Cancelled booking ID
+          example: "bkg-101"
+        status:
+          type: string
+          description: Cancellation state
+          example: CANCELLED
+        refundAmount:
+          type: number
+          description: Refunded amount
+          example: 120.0
+        message:
+          type: string
+          description: Confirmation message
+          example: Booking cancelled.
+    ReserveSeatsRequest:
+      type: object
+      required:
+        - eventId
+        - tierId
+        - quantity
+      properties:
+        eventId:
+          type: string
+          description: Target event
+          example: "evt-101"
+        tierId:
+          type: string
+          description: Target tier
+          example: "tier-vip"
+        quantity:
+          type: integer
+          description: Seats count
+          example: 2
+        holdDurationSeconds:
+          type: integer
+          description: Hold duration in seconds
+          example: 600
+    ReservationResponse:
+      type: object
+      properties:
+        reservationId:
+          type: string
+          description: Reservation hold identifier
+          example: "res-101"
+        eventId:
+          type: string
+          description: Target event
+          example: "evt-101"
+        tierId:
+          type: string
+          description: Tier identifier
+          example: "tier-vip"
+        seatIds:
+          type: array
+          description: Reserved seat identifiers
+          items:
+            type: string
+          example:
+            - "seat-a1"
+            - "seat-a2"
+        status:
+          type: string
+          description: Hold status
+          example: HELD
+        expiresAt:
+          type: string
+          description: Lease expiration timestamp
+          example: "2026-10-27T10:15:00Z"
+    WaitlistStatusResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Waitlist entry ID
+          example: "wait-101"
+        eventId:
+          type: string
+          description: Event ID
+          example: "evt-101"
+        tierId:
+          type: string
+          description: Tier ID
+          example: "tier-vip"
+        position:
+          type: integer
+          description: Position in queue
+          example: 1
+        status:
+          type: string
+          description: Waitlist status
+          example: WAITING
+        expiresAt:
+          type: string
+          description: Claim expiration timestamp
+          example: "2026-10-27T10:30:00Z"
     CurrencyRatesResponse:
       type: object
       properties:
         base:
           type: string
+          description: Base reference currency
+          example: EUR
         rates:
           type: object
+          description: Exchange rates map
+          example:
+            USD: 1.08
+            GBP: 0.86
         symbols:
           type: object
+          description: Currency symbols map
+          example:
+            EUR: €
+            USD: $
         taxRates:
           type: object
+          description: Tax rate percentages
+          example:
+            EUR: 0.2
+            USD: 0.08
         decimals:
           type: object
+          description: Currency decimals
+          example:
+            EUR: 2
+            USD: 2
         currencies:
           type: array
+          description: Supported currency codes
           items:
             type: string
+          example:
+            - EUR
+            - USD
+            - GBP
+            - JPY
+            - CHF
         updatedAt:
           type: string
+          description: Synchronization timestamp
+          example: "2026-10-27T08:00:00Z"
         source:
           type: string
+          description: FX provider
+          example: Frankfurter ECB API
         fallbackUsed:
           type: boolean
+          description: True if offline fallback used
+          example: false
     ConciergeAdviceRequest:
       type: object
       required:
@@ -263,61 +833,121 @@ components:
       properties:
         eventId:
           type: string
+          description: Event identifier
+          example: "evt-101"
         eventTitle:
           type: string
+          description: Event title
+          example: Coldplay Music of the Spheres
         category:
           type: string
+          description: Genre category
+          example: Music
         venueName:
           type: string
+          description: Venue name
+          example: Wembley Stadium
         venueLocation:
           type: string
+          description: Venue location
+          example: "London, UK"
         currency:
           type: string
+          description: User currency
+          example: EUR
         budgetMax:
           type: number
+          description: Budget limit
+          example: 200.0
         weatherCondition:
           type: string
+          description: Current forecast
+          example: Clear Sky
         rainProbability:
           type: integer
+          description: Rain probability
+          example: 5
         preferences:
           type: string
+          description: Attendee preferences
+          example: covered seating
     ConciergeAdviceResponse:
       type: object
       properties:
         eventId:
           type: string
+          description: Event identifier
+          example: "evt-101"
         headline:
           type: string
+          description: Concierge summary headline
+          example: "Optimal Tier: VIP Lounge with covered seating for Coldplay"
         weatherAdvisory:
           type: string
+          description: Weather advisory note
+          example: Pleasant 21°C evening expected.
         recommendedTier:
           type: string
+          description: Recommended tier
+          example: "tier-vip"
         recommendedAddonName:
           type: string
+          description: Recommended addon
+          example: VIP Fast Track
         recommendedAddonId:
           type: string
+          description: Recommended addon ID
+          example: "addon-vip-pass"
         localizedBudgetNote:
           type: string
+          description: Budget breakdown note
+          example: Total estimated cost €165.00.
         insiderTips:
           type: array
+          description: Helpful venue tips
           items:
             type: string
+          example:
+            - Arrive early.
+            - Take the Jubilee line.
         composedSources:
           type: array
+          description: Composed data sources
           items:
             type: string
+          example:
+            - Catalog Service
+            - "Open-Meteo"
+            - Frankfurter FX
+            - Gemini 2.5 Flash
         engine:
           type: string
+          description: AI engine used
+          example: "gemini-2.5-flash"
         fallbackUsed:
           type: boolean
+          description: True if heuristic rule engine used
+          example: false
         generatedAt:
           type: string
+          description: Timestamp
+          example: "2026-10-27T10:05:00Z"
     ErrorResponse:
       type: object
       properties:
         code:
           type: string
+          description: Error code
+          example: ERR_INTERNAL
         error:
           type: string
+          description: "Machine-readable error tag"
+          example: INTERNAL_ERROR
+        message:
+          type: string
+          description: "Human-readable explanation"
+          example: An unexpected error occurred.
         fallbackUsed:
           type: boolean
+          description: True if fallback handler responded
+          example: false
