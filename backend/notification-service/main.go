@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -16,6 +17,16 @@ import (
 	_ "github.com/lib/pq"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
+
+//go:embed openapi.json
+var openAPISpecBytes []byte
+
+func (s *Server) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(openAPISpecBytes)
+}
 
 type Server struct {
 	db     *sql.DB
@@ -34,6 +45,9 @@ func NewServer(db *sql.DB, worker *NotificationWorker) *Server {
 }
 
 func (s *Server) routes() {
+	s.mux.HandleFunc("/openapi.json", s.handleOpenAPISpec)
+	s.mux.HandleFunc("/api/openapi.json", s.handleOpenAPISpec)
+
 	s.mux.HandleFunc("/health", s.handleHealth)
 	s.mux.HandleFunc("/api/health", s.handleHealth)
 
@@ -146,9 +160,13 @@ func main() {
 	if dbName == "" {
 		dbName = "ticket_db"
 	}
+	dbSchema := os.Getenv("DB_SCHEMA")
 
 	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		dbHost, dbPort, dbUser, dbPassword, dbName)
+	if strings.TrimSpace(dbSchema) != "" {
+		dsn = fmt.Sprintf("%s search_path=%s,public", dsn, strings.TrimSpace(dbSchema))
+	}
 
 	var db *sql.DB
 	var err error

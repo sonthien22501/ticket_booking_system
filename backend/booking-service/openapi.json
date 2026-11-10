@@ -1,0 +1,86 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Booking Service API",
+    "version": "1.0.0",
+    "description": "Order Lifecycle, Waitlist Queue, Multi-Currency Invoicing, Vouchers, and AI Concierge Advice."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "API Gateway Base URL"
+    }
+  ],
+  "paths": {
+    "/api/bookings": {
+      "post": {
+        "summary": "Create and confirm ticket booking order",
+        "responses": {
+          "201": { "description": "Booking confirmed" },
+          "409": { "description": "Seat conflict" }
+        }
+      },
+      "get": {
+        "summary": "List customer booking history",
+        "responses": {
+          "200": { "description": "List of bookings" }
+        }
+      }
+    },
+    "/api/bookings/{id}": {
+      "get": {
+        "summary": "Get booking details by ID",
+        "responses": {
+          "200": { "description": "Booking details" },
+          "404": { "description": "Booking not found" }
+        }
+      }
+    },
+    "/api/waitlist": {
+      "post": {
+        "summary": "Join waitlist queue for sold-out event tier",
+        "responses": {
+          "201": { "description": "Waitlist entry created" }
+        }
+      }
+    },
+    "/api/vouchers/apply": {
+      "post": {
+        "summary": "Validate and calculate discount for promotional voucher code",
+        "responses": {
+          "200": { "description": "Voucher applied" },
+          "400": { "description": "Invalid or expired voucher" }
+        }
+      }
+    },
+    "/api/currencies/rates": {
+      "get": {
+        "summary": "Get multi-currency ECB exchange rates",
+        "responses": {
+          "200": { "description": "Current exchange rates" }
+        }
+      }
+    },
+    "/api/concierge/advise": {
+      "post": {
+        "summary": "Runtime AI event concierge synthesizing live event, weather, and budget advice",
+        "responses": {
+          "200": { "description": "Synthesized concierge advisory" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Booking": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "bookingReference": { "type": "string" },
+          "totalAmount": { "type": "number" },
+          "status": { "type": "string" }
+        }
+      }
+    }
+  }
+}

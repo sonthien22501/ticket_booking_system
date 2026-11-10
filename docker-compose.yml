@@ -71,6 +71,8 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgrespassword
       DB_NAME: ticket_db
+      DB_SCHEMA: catalog_schema
+      INVENTORY_SERVICE_URL: http://inventory-service:8082
     ports:
       - "8081:8081"
     depends_on:
@@ -98,6 +100,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgrespassword
       DB_NAME: ticket_db
+      DB_SCHEMA: inventory_schema
     ports:
       - "8082:8082"
     depends_on:
@@ -125,6 +128,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgrespassword
       DB_NAME: ticket_db
+      DB_SCHEMA: booking_schema
       CATALOG_SERVICE_URL: http://catalog-service:8081
       INVENTORY_SERVICE_URL: http://inventory-service:8082
       AUTH_SERVICE_URL: http://auth-service:8084
@@ -164,6 +168,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgrespassword
       DB_NAME: ticket_db
+      DB_SCHEMA: auth_schema
       JWT_SECRET: ticket-booking-jwt-secret-key-2026
     ports:
       - "8084:8084"
@@ -192,6 +197,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgrespassword
       DB_NAME: ticket_db
+      DB_SCHEMA: notification_schema
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
     ports:
       - "8085:8085"

@@ -60,6 +60,22 @@ func TestHealthDegradationOnPingFailure(t *testing.T) {
 	}
 }
 
+func TestBuildPostgresDSNWithSchema(t *testing.T) {
+	// 1. Without schema
+	dsn := buildPostgresDSN("localhost", "5432", "postgres", "secret", "ticket_db", "")
+	expectedBase := "host=localhost port=5432 user=postgres password=secret dbname=ticket_db sslmode=disable"
+	if dsn != expectedBase {
+		t.Errorf("expected dsn '%s', got '%s'", expectedBase, dsn)
+	}
+
+	// 2. With schema
+	dsnWithSchema := buildPostgresDSN("postgres", "5432", "postgres", "secret", "ticket_db", "catalog_schema")
+	expectedSchema := "host=postgres port=5432 user=postgres password=secret dbname=ticket_db sslmode=disable search_path=catalog_schema,public"
+	if dsnWithSchema != expectedSchema {
+		t.Errorf("expected dsn with schema '%s', got '%s'", expectedSchema, dsnWithSchema)
+	}
+}
+
 func TestCatalogHandleMetrics(t *testing.T) {
 	s := &Server{db: nil}
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
@@ -134,5 +150,22 @@ func TestEventJSONSerialization(t *testing.T) {
 	}
 	if parsed["venueName"] != "Grand Arena" || parsed["venue_name"] != "Grand Arena" {
 		t.Errorf("expected venueName and venue_name to match Grand Arena")
+	}
+}
+
+func TestCatalogOpenAPISpec(t *testing.T) {
+	s := &Server{}
+	req := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
+	rr := httptest.NewRecorder()
+	s.handleOpenAPISpec(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rr.Code)
+	}
+	var spec map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&spec); err != nil {
+		t.Fatalf("failed to decode openapi json: %v", err)
+	}
+	if spec["openapi"] != "3.0.3" {
+		t.Errorf("expected openapi '3.0.3', got '%v'", spec["openapi"])
 	}
 }

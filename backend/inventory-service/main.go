@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -14,6 +15,16 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/lib/pq"
 )
+
+//go:embed openapi.json
+var openAPISpecBytes []byte
+
+func (s *Server) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(openAPISpecBytes)
+}
 
 // DistributedLockManager manages distributed locks via Redis
 type DistributedLockManager struct {
@@ -166,9 +177,13 @@ func initDB() (*sql.DB, error) {
 	dbUser := getEnv("DB_USER", "postgres")
 	dbPassword := getEnv("DB_PASSWORD", "postgrespassword")
 	dbName := getEnv("DB_NAME", "ticket_db")
+	dbSchema := getEnv("DB_SCHEMA", "")
 
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		dbHost, dbPort, dbUser, dbPassword, dbName)
+	if strings.TrimSpace(dbSchema) != "" {
+		connStr = fmt.Sprintf("%s search_path=%s,public", connStr, strings.TrimSpace(dbSchema))
+	}
 
 	var db *sql.DB
 	var err error
@@ -1469,6 +1484,139 @@ func (s *Server) handleCancel(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type ProvisionTierInput struct {
+	TierID        string `json:"tierId"`
+	TierIDAlt     string `json:"tier_id,omitempty"`
+	Capacity      int    `json:"capacity"`
+	TotalSeats    int    `json:"totalSeats,omitempty"`
+	TotalSeatsAlt int    `json:"total_seats,omitempty"`
+}
+
+type ProvisionRequest struct {
+	EventID    string               `json:"eventId"`
+	EventIDAlt string               `json:"event_id,omitempty"`
+	Tiers      []ProvisionTierInput `json:"tiers"`
+}
+
+func (s *Server) handleProvision(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req ProvisionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": "Invalid request body: " + err.Error()})
+		return
+	}
+
+	eventID := strings.TrimSpace(req.EventID)
+	if eventID == "" {
+		eventID = strings.TrimSpace(req.EventIDAlt)
+	}
+
+	if eventID == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": "eventId is required"})
+		return
+	}
+
+	if len(req.Tiers) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": "tiers cannot be empty"})
+		return
+	}
+
+	if s.db == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": "Database unavailable"})
+		return
+	}
+
+	tx, err := s.db.BeginTx(r.Context(), nil)
+	if err != nil {
+		http.Error(w, `{"error":"Failed to start database transaction"}`, http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	for i, tier := range req.Tiers {
+		tierID := strings.TrimSpace(tier.TierID)
+		if tierID == "" {
+			tierID = strings.TrimSpace(tier.TierIDAlt)
+		}
+		if tierID == "" {
+			tierID = fmt.Sprintf("%s-tier-%d", eventID, i+1)
+		}
+
+		cap := tier.Capacity
+		if cap <= 0 && tier.TotalSeats > 0 {
+			cap = tier.TotalSeats
+		}
+		if cap <= 0 && tier.TotalSeatsAlt > 0 {
+			cap = tier.TotalSeatsAlt
+		}
+		if cap <= 0 {
+			cap = 100
+		}
+
+		// Insert or update inventory record
+		_, err = tx.ExecContext(r.Context(),
+			`INSERT INTO event_inventory (event_id, tier_id, total_seats, available_seats, reserved_seats, booked_seats, version)
+			 VALUES ($1, $2, $3, $3, 0, 0, 0)
+			 ON CONFLICT (event_id, tier_id) DO UPDATE SET total_seats = EXCLUDED.total_seats, available_seats = EXCLUDED.available_seats`,
+			eventID, tierID, cap,
+		)
+		if err != nil {
+			log.Printf("Insert event_inventory failed for %s/%s: %v", eventID, tierID, err)
+			http.Error(w, fmt.Sprintf(`{"error":"Failed to insert event_inventory: %v"}`, err), http.StatusInternalServerError)
+			return
+		}
+
+		// Generate seat_items (up to 100 seats per tier for seat map display)
+		seatsToGenerate := cap
+		if seatsToGenerate > 100 {
+			seatsToGenerate = 100
+		}
+		rowPrefix := string(rune('A' + (i % 26)))
+		for sIdx := 1; sIdx <= seatsToGenerate; sIdx++ {
+			seatRow := fmt.Sprintf("%s%d", rowPrefix, ((sIdx-1)/10)+1)
+			seatNum := ((sIdx - 1) % 10) + 1
+			seatID := fmt.Sprintf("%s-%d", seatRow, seatNum)
+			_, _ = tx.ExecContext(r.Context(),
+				`INSERT INTO seat_items (id, event_id, tier_id, seat_row, seat_number, status)
+				 VALUES ($1, $2, $3, $4, $5, 'AVAILABLE')
+				 ON CONFLICT DO NOTHING`,
+				seatID, eventID, tierID, seatRow, seatNum,
+			)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		http.Error(w, `{"error":"Failed to commit provisioning transaction"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":           "PROVISIONED",
+		"eventId":          eventID,
+		"tiersProvisioned": len(req.Tiers),
+	})
+}
+
 func main() {
 	port := getEnv("PORT", "8082")
 
@@ -1498,6 +1646,10 @@ func main() {
 
 	mux := http.NewServeMux()
 
+	// OpenAPI routes
+	mux.HandleFunc("/openapi.json", srv.handleOpenAPISpec)
+	mux.HandleFunc("/api/openapi.json", srv.handleOpenAPISpec)
+
 	// Health routes
 	mux.HandleFunc("/health", srv.handleHealth)
 	mux.HandleFunc("/api/health", srv.handleHealth)
@@ -1509,6 +1661,9 @@ func main() {
 	mux.HandleFunc("/api/inventory/metrics", srv.handleMetrics)
 
 	// Actions
+	mux.HandleFunc("/inventory/provision", srv.handleProvision)
+	mux.HandleFunc("/api/inventory/provision", srv.handleProvision)
+
 	mux.HandleFunc("/inventory/reserve", srv.handleReserve)
 	mux.HandleFunc("/api/inventory/reserve", srv.handleReserve)
 

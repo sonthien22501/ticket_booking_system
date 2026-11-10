@@ -710,3 +710,39 @@ VALUES
 ('del-seed-002', 'SMS', '+15551234567', 'waitlist.promoted', 'Transactional SMS', 'TicketVerse: Waitlist hold available for Cyberpunk Symphony! Claim reservation within 15 mins: ref WL-101-PROMOTE', 'DELIVERED', 1, NOW() - interval '30 minutes'),
 ('del-seed-003', 'EMAIL', 'sarah.connor@cyberdyne.io', 'booking.confirmed', 'Booking Confirmed: Global Tech Summit 2026 (Ref: REF-TECH-2026-004)', '<h2>Order Confirmed!</h2><p>Dear Sarah Connor, your corporate seats are confirmed.</p>', 'DELIVERED', 1, NOW() - interval '1 day'),
 ('del-seed-004', 'EMAIL', 'friend@technova.com', 'ticket.transferred', 'Ticket Transfer Confirmation: Neon Symphony 2026', '<h2>Ticket Transferred</h2><p>Ticket for Neon Symphony 2026 has been transferred successfully.</p>', 'DELIVERED', 1, NOW() - interval '4 hours');
+
+-- ============================================================================
+-- 15. DATABASE-PER-SERVICE BOUNDED CONTEXT SCHEMAS & ISOLATION
+-- ============================================================================
+CREATE SCHEMA IF NOT EXISTS catalog_schema;
+CREATE SCHEMA IF NOT EXISTS inventory_schema;
+CREATE SCHEMA IF NOT EXISTS booking_schema;
+CREATE SCHEMA IF NOT EXISTS auth_schema;
+CREATE SCHEMA IF NOT EXISTS notification_schema;
+
+-- Updatable domain views in each bounded context schema
+CREATE OR REPLACE VIEW catalog_schema.events AS SELECT * FROM public.events;
+CREATE OR REPLACE VIEW catalog_schema.ticket_tiers AS SELECT * FROM public.ticket_tiers;
+CREATE OR REPLACE VIEW catalog_schema.reviews AS SELECT * FROM public.reviews;
+
+CREATE OR REPLACE VIEW inventory_schema.event_inventory AS SELECT * FROM public.event_inventory;
+CREATE OR REPLACE VIEW inventory_schema.seat_items AS SELECT * FROM public.seat_items;
+CREATE OR REPLACE VIEW inventory_schema.reservations AS SELECT * FROM public.reservations;
+CREATE OR REPLACE VIEW inventory_schema.events AS SELECT * FROM public.events;
+CREATE OR REPLACE VIEW inventory_schema.ticket_tiers AS SELECT * FROM public.ticket_tiers;
+
+CREATE OR REPLACE VIEW booking_schema.bookings AS SELECT * FROM public.bookings;
+CREATE OR REPLACE VIEW booking_schema.tickets AS SELECT * FROM public.tickets;
+CREATE OR REPLACE VIEW booking_schema.waitlist AS SELECT * FROM public.waitlist;
+CREATE OR REPLACE VIEW booking_schema.vouchers AS SELECT * FROM public.vouchers;
+CREATE OR REPLACE VIEW booking_schema.ticket_transfers AS SELECT * FROM public.ticket_transfers;
+CREATE OR REPLACE VIEW booking_schema.event_addons AS SELECT * FROM public.event_addons;
+CREATE OR REPLACE VIEW booking_schema.booking_addons AS SELECT * FROM public.booking_addons;
+CREATE OR REPLACE VIEW booking_schema.events AS SELECT * FROM public.events;
+CREATE OR REPLACE VIEW booking_schema.ticket_tiers AS SELECT * FROM public.ticket_tiers;
+
+CREATE OR REPLACE VIEW auth_schema.users AS SELECT * FROM public.users;
+
+CREATE OR REPLACE VIEW notification_schema.notifications AS SELECT * FROM public.notifications;
+CREATE OR REPLACE VIEW notification_schema.notification_deliveries AS SELECT * FROM public.notification_deliveries;
+

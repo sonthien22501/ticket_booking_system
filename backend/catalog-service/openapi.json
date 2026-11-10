@@ -1,0 +1,91 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Catalog Service API",
+    "version": "1.0.0",
+    "description": "Event Catalog, Ticket Tiers, Search, Venue Floorplan, Reviews, and External Mashup API."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "API Gateway Base URL"
+    }
+  ],
+  "paths": {
+    "/api/events": {
+      "get": {
+        "summary": "List catalog events",
+        "responses": {
+          "200": { "description": "List of active events" }
+        }
+      },
+      "post": {
+        "summary": "Create new event",
+        "responses": {
+          "201": { "description": "Event created" }
+        }
+      }
+    },
+    "/api/events/search": {
+      "get": {
+        "summary": "Search events by city or category",
+        "responses": {
+          "200": { "description": "Search results" }
+        }
+      }
+    },
+    "/api/events/{id}": {
+      "get": {
+        "summary": "Get event details by ID",
+        "responses": {
+          "200": { "description": "Event details" },
+          "404": { "description": "Event not found" }
+        }
+      }
+    },
+    "/api/events/{id}/floorplan": {
+      "get": {
+        "summary": "Get venue seating floorplan",
+        "responses": {
+          "200": { "description": "Floorplan layout" }
+        }
+      }
+    },
+    "/api/events/{id}/mashup": {
+      "get": {
+        "summary": "Get event mashup intelligence (weather and audio preview)",
+        "responses": {
+          "200": { "description": "Mashup data" },
+          "404": { "description": "Event not found" }
+        }
+      }
+    },
+    "/api/events/{id}/reviews": {
+      "get": {
+        "summary": "Get verified buyer reviews",
+        "responses": {
+          "200": { "description": "Review list" }
+        }
+      },
+      "post": {
+        "summary": "Submit event review",
+        "responses": {
+          "201": { "description": "Review submitted" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Event": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "category": { "type": "string" },
+          "venueName": { "type": "string" }
+        }
+      }
+    }
+  }
+}

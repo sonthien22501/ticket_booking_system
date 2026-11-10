@@ -87,8 +87,6 @@ func TestHandleHealth(t *testing.T) {
 	}
 }
 
-
-
 func TestReserveRequestMissingEventID(t *testing.T) {
 	s := &Server{
 		db:      nil,
@@ -128,5 +126,79 @@ func TestCommitRequestMissingReservationID(t *testing.T) {
 
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected status %d for missing reservationId, got %d", http.StatusBadRequest, rr.Code)
+	}
+}
+
+func TestHandleProvisionInventory_Validation(t *testing.T) {
+	s := &Server{
+		db:      nil,
+		lockMgr: nil,
+	}
+
+	// 1. Method Not Allowed (GET instead of POST)
+	reqGet := httptest.NewRequest(http.MethodGet, "/inventory/provision", nil)
+	rrGet := httptest.NewRecorder()
+	s.handleProvision(rrGet, reqGet)
+	if rrGet.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405 Method Not Allowed, got %d", rrGet.Code)
+	}
+
+	// 2. Missing eventId
+	missingEvent := map[string]interface{}{
+		"tiers": []map[string]interface{}{
+			{"tierId": "tier-1", "capacity": 100},
+		},
+	}
+	bodyBytes, _ := json.Marshal(missingEvent)
+	reqMissingEvent := httptest.NewRequest(http.MethodPost, "/inventory/provision", bytes.NewReader(bodyBytes))
+	rrMissingEvent := httptest.NewRecorder()
+	s.handleProvision(rrMissingEvent, reqMissingEvent)
+	if rrMissingEvent.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 Bad Request for missing eventId, got %d", rrMissingEvent.Code)
+	}
+
+	// 3. Empty tiers
+	emptyTiers := map[string]interface{}{
+		"eventId": "evt-test-1",
+		"tiers":   []map[string]interface{}{},
+	}
+	bodyBytes, _ = json.Marshal(emptyTiers)
+	reqEmptyTiers := httptest.NewRequest(http.MethodPost, "/inventory/provision", bytes.NewReader(bodyBytes))
+	rrEmptyTiers := httptest.NewRecorder()
+	s.handleProvision(rrEmptyTiers, reqEmptyTiers)
+	if rrEmptyTiers.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 Bad Request for empty tiers, got %d", rrEmptyTiers.Code)
+	}
+
+	// 4. Valid payload with nil DB should return 503
+	validPayload := map[string]interface{}{
+		"eventId": "evt-test-1",
+		"tiers": []map[string]interface{}{
+			{"tierId": "tier-1", "capacity": 50},
+		},
+	}
+	bodyBytes, _ = json.Marshal(validPayload)
+	reqValid := httptest.NewRequest(http.MethodPost, "/inventory/provision", bytes.NewReader(bodyBytes))
+	rrValid := httptest.NewRecorder()
+	s.handleProvision(rrValid, reqValid)
+	if rrValid.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503 Service Unavailable when DB is nil, got %d", rrValid.Code)
+	}
+}
+
+func TestInventoryOpenAPISpec(t *testing.T) {
+	s := &Server{}
+	req := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
+	rr := httptest.NewRecorder()
+	s.handleOpenAPISpec(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rr.Code)
+	}
+	var spec map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&spec); err != nil {
+		t.Fatalf("failed to decode openapi json: %v", err)
+	}
+	if spec["openapi"] != "3.0.3" {
+		t.Errorf("expected openapi '3.0.3', got '%v'", spec["openapi"])
 	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -73,10 +74,21 @@ type CreateEventRequest struct {
 const CacheTTL = 30 * time.Second
 
 type Server struct {
-	db        *sql.DB
-	rdb       *redis.Client
-	startTime time.Time
-	reqCount  int64
+	db                  *sql.DB
+	rdb                 *redis.Client
+	startTime           time.Time
+	reqCount            int64
+	inventoryServiceURL string
+	httpClient          *http.Client
+}
+
+func buildPostgresDSN(dbHost, dbPort, dbUser, dbPassword, dbName, dbSchema string) string {
+	base := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		dbHost, dbPort, dbUser, dbPassword, dbName)
+	if strings.TrimSpace(dbSchema) != "" {
+		return fmt.Sprintf("%s search_path=%s,public", base, strings.TrimSpace(dbSchema))
+	}
+	return base
 }
 
 func initDB() (*sql.DB, error) {
@@ -85,9 +97,9 @@ func initDB() (*sql.DB, error) {
 	dbUser := getEnv("DB_USER", "postgres")
 	dbPassword := getEnv("DB_PASSWORD", "postgrespassword")
 	dbName := getEnv("DB_NAME", "ticket_db")
+	dbSchema := getEnv("DB_SCHEMA", "")
 
-	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		dbHost, dbPort, dbUser, dbPassword, dbName)
+	connStr := buildPostgresDSN(dbHost, dbPort, dbUser, dbPassword, dbName, dbSchema)
 
 	var db *sql.DB
 	var err error
@@ -433,6 +445,7 @@ func (s *Server) createEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var tiersToProvision []ProvisionTierInput
 	for i, tier := range req.Tiers {
 		tierID := tier.ID
 		if tierID == "" {
@@ -447,37 +460,19 @@ func (s *Server) createEvent(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf(`{"error":"Failed to insert tier: %v"}`, err), http.StatusInternalServerError)
 			return
 		}
-
-		// Insert inventory record
-		_, err = tx.Exec(
-			`INSERT INTO event_inventory (event_id, tier_id, total_seats, available_seats, reserved_seats, booked_seats, version) VALUES ($1, $2, $3, $3, 0, 0, 0) ON CONFLICT DO NOTHING`,
-			req.ID, tierID, tier.Capacity,
-		)
-		if err != nil {
-			log.Printf("Insert inventory failed: %v", err)
-		}
-
-		// Generate seat_items so the interactive seat map immediately shows seats
-		seatsToGenerate := tier.Capacity
-		if seatsToGenerate > 100 {
-			seatsToGenerate = 100
-		}
-		rowPrefix := string(rune('A' + (i % 26)))
-		for sIdx := 1; sIdx <= seatsToGenerate; sIdx++ {
-			seatRow := fmt.Sprintf("%s%d", rowPrefix, ((sIdx-1)/10)+1)
-			seatNum := ((sIdx - 1) % 10) + 1
-			seatID := fmt.Sprintf("%s-%d", seatRow, seatNum)
-			_, _ = tx.Exec(
-				`INSERT INTO seat_items (id, event_id, tier_id, seat_row, seat_number, status) VALUES ($1, $2, $3, $4, $5, 'AVAILABLE') ON CONFLICT DO NOTHING`,
-				seatID, req.ID, tierID, seatRow, seatNum,
-			)
-		}
+		tiersToProvision = append(tiersToProvision, ProvisionTierInput{
+			TierID:   tierID,
+			Capacity: tier.Capacity,
+		})
 	}
 
 	if err := tx.Commit(); err != nil {
 		http.Error(w, `{"error":"Failed to commit transaction"}`, http.StatusInternalServerError)
 		return
 	}
+
+	// Database-per-service REST boundary: Provision inventory and seats via Inventory Service HTTP API
+	s.provisionInventory(req.ID, tiersToProvision)
 
 	if s.rdb != nil {
 		ctx := context.Background()
@@ -494,6 +489,77 @@ func (s *Server) createEvent(w http.ResponseWriter, r *http.Request) {
 		"id":      req.ID,
 		"eventId": req.ID,
 	})
+}
+
+type ProvisionTierInput struct {
+	TierID   string `json:"tierId"`
+	Capacity int    `json:"capacity"`
+}
+
+type ProvisionInventoryPayload struct {
+	EventID string               `json:"eventId"`
+	Tiers   []ProvisionTierInput `json:"tiers"`
+}
+
+func (s *Server) provisionInventory(eventID string, tiers []ProvisionTierInput) {
+	if s.httpClient == nil {
+		s.httpClient = &http.Client{Timeout: 5 * time.Second}
+	}
+	invURL := s.inventoryServiceURL
+	if invURL == "" {
+		invURL = "http://inventory-service:8082"
+	}
+
+	payload := ProvisionInventoryPayload{
+		EventID: eventID,
+		Tiers:   tiers,
+	}
+	bodyBytes, err := json.Marshal(payload)
+	if err == nil {
+		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/inventory/provision", strings.TrimRight(invURL, "/")), bytes.NewReader(bodyBytes))
+		if err == nil {
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := s.httpClient.Do(req)
+			if err == nil {
+				defer resp.Body.Close()
+				if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
+					log.Printf("Successfully provisioned inventory via REST for event %s", eventID)
+					return
+				}
+				log.Printf("Warning: Inventory service provision returned status %d for event %s", resp.StatusCode, eventID)
+			} else {
+				log.Printf("Warning: Failed to reach inventory service at %s: %v", invURL, err)
+			}
+		}
+	}
+
+	// Direct DB fallback for standalone unit tests or when inventory service is offline
+	if s.db != nil {
+		for i, tier := range tiers {
+			_, err := s.db.Exec(
+				`INSERT INTO event_inventory (event_id, tier_id, total_seats, available_seats, reserved_seats, booked_seats, version) VALUES ($1, $2, $3, $3, 0, 0, 0) ON CONFLICT DO NOTHING`,
+				eventID, tier.TierID, tier.Capacity,
+			)
+			if err != nil {
+				log.Printf("Fallback inventory insert error: %v", err)
+			}
+
+			seatsToGenerate := tier.Capacity
+			if seatsToGenerate > 100 {
+				seatsToGenerate = 100
+			}
+			rowPrefix := string(rune('A' + (i % 26)))
+			for sIdx := 1; sIdx <= seatsToGenerate; sIdx++ {
+				seatRow := fmt.Sprintf("%s%d", rowPrefix, ((sIdx-1)/10)+1)
+				seatNum := ((sIdx - 1) % 10) + 1
+				seatID := fmt.Sprintf("%s-%d", seatRow, seatNum)
+				_, _ = s.db.Exec(
+					`INSERT INTO seat_items (id, event_id, tier_id, seat_row, seat_number, status) VALUES ($1, $2, $3, $4, $5, 'AVAILABLE') ON CONFLICT DO NOTHING`,
+					seatID, eventID, tier.TierID, seatRow, seatNum,
+				)
+			}
+		}
+	}
 }
 
 func main() {
@@ -513,9 +579,11 @@ func main() {
 	}
 
 	srv := &Server{
-		db:        db,
-		rdb:       rdb,
-		startTime: time.Now(),
+		db:                  db,
+		rdb:                 rdb,
+		startTime:           time.Now(),
+		inventoryServiceURL: getEnv("INVENTORY_SERVICE_URL", "http://inventory-service:8082"),
+		httpClient:          &http.Client{Timeout: 5 * time.Second},
 	}
 
 	mux := http.NewServeMux()

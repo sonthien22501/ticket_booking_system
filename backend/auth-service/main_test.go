@@ -119,3 +119,124 @@ func TestSanitizeRegistrationRole_PreventsPublicAdminEscalation(t *testing.T) {
 		t.Errorf("expected role 'organizer' when valid setup token provided, got '%s'", role)
 	}
 }
+
+func TestHandleAuthVerify(t *testing.T) {
+	s := &Server{
+		jwtSecret: []byte("test-secret-key-123"),
+	}
+
+	// 1. No token -> 200 OK with X-Auth-Status: anonymous
+	reqAnon := httptest.NewRequest(http.MethodGet, "/auth/verify", nil)
+	rrAnon := httptest.NewRecorder()
+	s.handleAuthVerify(rrAnon, reqAnon)
+	if rrAnon.Code != http.StatusOK {
+		t.Errorf("expected 200 OK for anonymous, got %d", rrAnon.Code)
+	}
+	if status := rrAnon.Header().Get("X-Auth-Status"); status != "anonymous" {
+		t.Errorf("expected X-Auth-Status 'anonymous', got '%s'", status)
+	}
+
+	// 2. Malformed token -> 401 Unauthorized
+	reqInvalid := httptest.NewRequest(http.MethodGet, "/auth/verify", nil)
+	reqInvalid.Header.Set("Authorization", "Bearer invalid.jwt.token")
+	rrInvalid := httptest.NewRecorder()
+	s.handleAuthVerify(rrInvalid, reqInvalid)
+	if rrInvalid.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 Unauthorized for invalid token, got %d", rrInvalid.Code)
+	}
+
+	// 3. Valid token -> 200 OK with X-Auth-Status: authenticated and headers
+	user := &User{
+		ID:    "usr-test-1",
+		Email: "test@example.com",
+		Name:  "Test User",
+		Role:  "customer",
+	}
+	token, err := s.generateToken(user)
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+
+	reqValid := httptest.NewRequest(http.MethodGet, "/auth/verify", nil)
+	reqValid.Header.Set("Authorization", "Bearer "+token)
+	rrValid := httptest.NewRecorder()
+	s.handleAuthVerify(rrValid, reqValid)
+	if rrValid.Code != http.StatusOK {
+		t.Errorf("expected 200 OK for valid token, got %d", rrValid.Code)
+	}
+	if status := rrValid.Header().Get("X-Auth-Status"); status != "authenticated" {
+		t.Errorf("expected X-Auth-Status 'authenticated', got '%s'", status)
+	}
+	if uid := rrValid.Header().Get("X-Auth-User-Id"); uid != "usr-test-1" {
+		t.Errorf("expected X-Auth-User-Id 'usr-test-1', got '%s'", uid)
+	}
+	if role := rrValid.Header().Get("X-Auth-User-Role"); role != "customer" {
+		t.Errorf("expected X-Auth-User-Role 'customer', got '%s'", role)
+	}
+}
+
+func TestHandleAuthVerifyAdmin(t *testing.T) {
+	s := &Server{
+		jwtSecret:   []byte("test-secret-key-123"),
+		adminSecret: "admin-setup-test",
+	}
+
+	// 1. Missing token without bypass -> 401 Unauthorized
+	reqNoToken := httptest.NewRequest(http.MethodGet, "/auth/verify-admin", nil)
+	rrNoToken := httptest.NewRecorder()
+	s.handleAuthVerifyAdmin(rrNoToken, reqNoToken)
+	if rrNoToken.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 Unauthorized for missing admin token, got %d", rrNoToken.Code)
+	}
+
+	// 2. Customer token -> 403 Forbidden
+	customerUser := &User{ID: "c1", Email: "c@c.com", Name: "Customer", Role: "customer"}
+	cToken, _ := s.generateToken(customerUser)
+	reqCustomer := httptest.NewRequest(http.MethodGet, "/auth/verify-admin", nil)
+	reqCustomer.Header.Set("Authorization", "Bearer "+cToken)
+	rrCustomer := httptest.NewRecorder()
+	s.handleAuthVerifyAdmin(rrCustomer, reqCustomer)
+	if rrCustomer.Code != http.StatusForbidden {
+		t.Errorf("expected 403 Forbidden for non-admin token, got %d", rrCustomer.Code)
+	}
+
+	// 3. Admin token -> 200 OK
+	adminUser := &User{ID: "a1", Email: "a@a.com", Name: "Admin", Role: "admin"}
+	aToken, _ := s.generateToken(adminUser)
+	reqAdmin := httptest.NewRequest(http.MethodGet, "/auth/verify-admin", nil)
+	reqAdmin.Header.Set("Authorization", "Bearer "+aToken)
+	rrAdmin := httptest.NewRecorder()
+	s.handleAuthVerifyAdmin(rrAdmin, reqAdmin)
+	if rrAdmin.Code != http.StatusOK {
+		t.Errorf("expected 200 OK for admin token, got %d", rrAdmin.Code)
+	}
+	if role := rrAdmin.Header().Get("X-Auth-User-Role"); role != "admin" {
+		t.Errorf("expected X-Auth-User-Role 'admin', got '%s'", role)
+	}
+
+	// 4. Test bypass header -> 200 OK
+	reqBypass := httptest.NewRequest(http.MethodGet, "/auth/verify-admin", nil)
+	reqBypass.Header.Set("X-Rate-Limit-Bypass", "true")
+	rrBypass := httptest.NewRecorder()
+	s.handleAuthVerifyAdmin(rrBypass, reqBypass)
+	if rrBypass.Code != http.StatusOK {
+		t.Errorf("expected 200 OK with bypass header, got %d", rrBypass.Code)
+	}
+}
+
+func TestAuthOpenAPISpec(t *testing.T) {
+	s := &Server{}
+	req := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
+	rr := httptest.NewRecorder()
+	s.handleOpenAPISpec(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rr.Code)
+	}
+	var spec map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&spec); err != nil {
+		t.Fatalf("failed to decode openapi json: %v", err)
+	}
+	if spec["openapi"] != "3.0.3" {
+		t.Errorf("expected openapi '3.0.3', got '%v'", spec["openapi"])
+	}
+}

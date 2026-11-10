@@ -1,39 +1,186 @@
-name: Ticket Booking CI
+name: Ticket Booking CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feature/* ]
   pull_request:
     branches: [ main ]
 
 jobs:
-  test:
+  changes:
+    name: Detect Changed Paths
     runs-on: ubuntu-latest
-
+    outputs:
+      catalog: ${{ steps.filter.outputs.catalog }}
+      inventory: ${{ steps.filter.outputs.inventory }}
+      booking: ${{ steps.filter.outputs.booking }}
+      auth: ${{ steps.filter.outputs.auth }}
+      notification: ${{ steps.filter.outputs.notification }}
+      gateway: ${{ steps.filter.outputs.gateway }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      openapi: ${{ steps.filter.outputs.openapi }}
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Path Filters
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            catalog:
+              - 'backend/catalog-service/**'
+            inventory:
+              - 'backend/inventory-service/**'
+            booking:
+              - 'backend/booking-service/**'
+            auth:
+              - 'backend/auth-service/**'
+            notification:
+              - 'backend/notification-service/**'
+            gateway:
+              - 'backend/api-gateway/**'
+            frontend:
+              - 'frontend/**'
+            openapi:
+              - 'docs/openapi.yaml'
+              - 'backend/api-gateway/swagger/**'
+              - 'backend/**/openapi.json'
+              - 'scripts/validate_openapi.py'
 
-    - name: Install Python (for E2E tests)
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-        
-    - name: Install Python dependencies
-      run: pip install requests
+  catalog-tests:
+    name: Catalog Service Unit Tests
+    needs: changes
+    if: ${{ needs.changes.outputs.catalog == 'true' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Run Unit Tests
+        run: |
+          cd backend/catalog-service
+          go test -v -timeout 30s ./...
 
-    - name: Start services using Docker Compose
-      run: docker compose up -d --build
+  inventory-tests:
+    name: Inventory Service Unit Tests
+    needs: changes
+    if: ${{ needs.changes.outputs.inventory == 'true' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Run Unit Tests
+        run: |
+          cd backend/inventory-service
+          go test -v -timeout 30s ./...
 
-    - name: Wait for services to be healthy
-      run: sleep 15 # Wait for DB and Go services to initialize
+  booking-tests:
+    name: Booking Service Unit Tests
+    needs: changes
+    if: ${{ needs.changes.outputs.booking == 'true' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Run Unit Tests
+        run: |
+          cd backend/booking-service
+          go test -v -timeout 30s ./...
 
-    - name: Run E2E Verification Tests
-      run: python scripts/verify_e2e.py
+  auth-tests:
+    name: Auth Service Unit Tests
+    needs: changes
+    if: ${{ needs.changes.outputs.auth == 'true' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Run Unit Tests
+        run: |
+          cd backend/auth-service
+          go test -v -timeout 30s ./...
 
-    - name: Stop services
-      if: always()
-      run: docker compose down -v
+  notification-tests:
+    name: Notification Service Unit Tests
+    needs: changes
+    if: ${{ needs.changes.outputs.notification == 'true' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Run Unit Tests
+        run: |
+          cd backend/notification-service
+          go test -v -timeout 30s ./...
+
+  frontend-build:
+    name: Frontend Build & Typecheck
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies & Build
+        run: |
+          cd frontend
+          npm ci || npm install
+          npm run build
+
+  openapi-validation:
+    name: OpenAPI 3.0 Contract Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate OpenAPI Specifications
+        run: python3 scripts/validate_openapi.py
+
+  e2e-integration:
+    name: End-to-End System Integration Tests
+    needs: [openapi-validation]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Install Python (for E2E tests)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Start services using Docker Compose
+        run: docker compose up -d --build
+      - name: Run E2E Verification Tests
+        run: python3 scripts/verify_e2e.py
+      - name: Stop services
+        if: always()
+        run: docker compose down -v

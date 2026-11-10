@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -19,6 +20,16 @@ import (
 	_ "github.com/lib/pq"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
+
+//go:embed openapi.json
+var openAPISpecBytes []byte
+
+func (s *Server) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(openAPISpecBytes)
+}
 
 type Claims struct {
 	UserID string `json:"userId"`
@@ -203,9 +214,13 @@ func initDB() (*sql.DB, error) {
 	dbUser := getEnv("DB_USER", "postgres")
 	dbPassword := getEnv("DB_PASSWORD", "postgrespassword")
 	dbName := getEnv("DB_NAME", "ticket_db")
+	dbSchema := getEnv("DB_SCHEMA", "")
 
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		dbHost, dbPort, dbUser, dbPassword, dbName)
+	if strings.TrimSpace(dbSchema) != "" {
+		connStr = fmt.Sprintf("%s search_path=%s,public", connStr, strings.TrimSpace(dbSchema))
+	}
 
 	var db *sql.DB
 	var err error
@@ -858,44 +873,71 @@ func (s *Server) releaseInventory(ctx context.Context, reservationID string) {
 	}
 }
 
-func (s *Server) fetchEventInfo(eventID, tierID string) (string, float64) {
-	// Try database directly first for zero-latency reliability
-	var title string
-	var price float64
+func (s *Server) fetchCatalogEventMetadata(eventID string) (string, map[string]float64, error) {
+	tiers := make(map[string]float64)
+	if s.catalogServiceURL != "" {
+		catalogURL := fmt.Sprintf("%s/events/%s", strings.TrimRight(s.catalogServiceURL, "/"), eventID)
+		client := s.httpClient
+		if client == nil {
+			client = &http.Client{Timeout: 2 * time.Second}
+		}
+		resp, httpErr := client.Get(catalogURL)
+		if httpErr == nil && resp.StatusCode == http.StatusOK {
+			defer resp.Body.Close()
+			var eventData struct {
+				Title string `json:"title"`
+				Tiers []struct {
+					ID    string  `json:"id"`
+					Price float64 `json:"price"`
+				} `json:"tiers"`
+			}
+			if decErr := json.NewDecoder(resp.Body).Decode(&eventData); decErr == nil && eventData.Title != "" {
+				for _, t := range eventData.Tiers {
+					tiers[t.ID] = t.Price
+				}
+				return eventData.Title, tiers, nil
+			}
+		}
+	}
+	return "", tiers, fmt.Errorf("catalog service metadata fetch unavailable")
+}
 
-	err := s.db.QueryRow("SELECT title FROM events WHERE id = $1", eventID).Scan(&title)
-	if err == nil && title != "" {
+func (s *Server) fetchEventInfo(eventID, tierID string) (string, float64) {
+	// Database-per-service pattern: query authoritative Catalog Service HTTP API first
+	if metaTitle, metaTiers, err := s.fetchCatalogEventMetadata(eventID); err == nil && metaTitle != "" {
+		price := 0.0
 		if tierID != "" {
-			_ = s.db.QueryRow("SELECT price FROM ticket_tiers WHERE event_id = $1 AND id = $2", eventID, tierID).Scan(&price)
-		} else {
-			_ = s.db.QueryRow("SELECT price FROM ticket_tiers WHERE event_id = $1 ORDER BY price ASC LIMIT 1", eventID).Scan(&price)
+			price = metaTiers[tierID]
+		}
+		if price <= 0 {
+			for _, p := range metaTiers {
+				if price == 0 || p < price {
+					price = p
+				}
+			}
 		}
 		if price <= 0 {
 			price = 60.00
 		}
-		return title, price
+		return metaTitle, price
 	}
 
-	// Fallback to Catalog Service HTTP endpoint
-	catalogURL := fmt.Sprintf("%s/events/%s", s.catalogServiceURL, eventID)
-	resp, err := s.httpClient.Get(catalogURL)
-	if err == nil && resp.StatusCode == http.StatusOK {
-		defer resp.Body.Close()
-		var eventData struct {
-			Title string `json:"title"`
-			Tiers []struct {
-				ID    string  `json:"id"`
-				Price float64 `json:"price"`
-			} `json:"tiers"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&eventData); err == nil {
-			title = eventData.Title
-			for _, t := range eventData.Tiers {
-				if t.ID == tierID || tierID == "" {
-					price = t.Price
-					break
-				}
+	// Fallback to local database view/cache
+	var title string
+	var price float64
+
+	if s.db != nil {
+		err := s.db.QueryRow("SELECT title FROM events WHERE id = $1", eventID).Scan(&title)
+		if err == nil && title != "" {
+			if tierID != "" {
+				_ = s.db.QueryRow("SELECT price FROM ticket_tiers WHERE event_id = $1 AND id = $2", eventID, tierID).Scan(&price)
+			} else {
+				_ = s.db.QueryRow("SELECT price FROM ticket_tiers WHERE event_id = $1 ORDER BY price ASC LIMIT 1", eventID).Scan(&price)
 			}
+			if price <= 0 {
+				price = 60.00
+			}
+			return title, price
 		}
 	}
 
@@ -1979,6 +2021,10 @@ func main() {
 	mux.HandleFunc("/api/currencies/rates", srv.handleCurrencyRates)
 	mux.HandleFunc("/currencies/convert", srv.handleCurrencyConvert)
 	mux.HandleFunc("/api/currencies/convert", srv.handleCurrencyConvert)
+
+	// OpenAPI routes
+	mux.HandleFunc("/openapi.json", srv.handleOpenAPISpec)
+	mux.HandleFunc("/api/openapi.json", srv.handleOpenAPISpec)
 
 	// Runtime AI Event Concierge (Milestone 33)
 	mux.HandleFunc("/concierge/advise", srv.handleConciergeAdvise)
