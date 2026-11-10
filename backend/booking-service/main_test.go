@@ -197,3 +197,20 @@ func TestResolveAuthorizedBookingFilter_PreventsCrossUserEnumeration(t *testing.
 		t.Errorf("expected email to be 'charlie@test.com', got '%s'", email)
 	}
 }
+
+func TestBookingOpenAPISpec(t *testing.T) {
+	s := &Server{}
+	req := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
+	rr := httptest.NewRecorder()
+	s.handleOpenAPISpec(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rr.Code)
+	}
+	var spec map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&spec); err != nil {
+		t.Fatalf("failed to decode openapi json: %v", err)
+	}
+	if spec["openapi"] != "3.0.3" {
+		t.Errorf("expected openapi '3.0.3', got '%v'", spec["openapi"])
+	}
+}

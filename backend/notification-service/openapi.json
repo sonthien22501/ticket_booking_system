@@ -1,0 +1,46 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Notification Service API",
+    "version": "1.0.0",
+    "description": "Multi-Channel Async Notifications (Email/SMS/Wallet), RabbitMQ Consumer, and Audit Log."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "API Gateway Base URL"
+    }
+  ],
+  "paths": {
+    "/api/notifications/deliveries": {
+      "get": {
+        "summary": "Audit log of sent transactional email, SMS, and wallet notifications",
+        "responses": {
+          "200": { "description": "List of notification deliveries" }
+        }
+      }
+    },
+    "/api/notifications/dispatch-test": {
+      "post": {
+        "summary": "Direct dispatch test endpoint for transactional notifications",
+        "responses": {
+          "200": { "description": "Notification dispatched successfully" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "NotificationDelivery": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "channel": { "type": "string" },
+          "recipient": { "type": "string" },
+          "eventType": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      }
+    }
+  }
+}

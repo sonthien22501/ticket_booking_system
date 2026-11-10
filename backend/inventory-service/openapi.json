@@ -1,0 +1,78 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Inventory Service API",
+    "version": "1.0.0",
+    "description": "Real-time Seat Inventory Management, Reservation Holds, Two-Phase Commits, and SSE Stream."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "API Gateway Base URL"
+    }
+  ],
+  "paths": {
+    "/api/inventory/provision": {
+      "post": {
+        "summary": "Provision inventory and seat records for newly created event",
+        "responses": {
+          "201": { "description": "Inventory provisioned successfully" },
+          "400": { "description": "Invalid input" }
+        }
+      }
+    },
+    "/api/inventory/reserve": {
+      "post": {
+        "summary": "Reserve seats with temporary hold lease",
+        "responses": {
+          "200": { "description": "Reservation created" },
+          "409": { "description": "Seat conflict" }
+        }
+      }
+    },
+    "/api/inventory/commit": {
+      "post": {
+        "summary": "Commit temporary seat reservation upon confirmed payment",
+        "responses": {
+          "200": { "description": "Seats committed" }
+        }
+      }
+    },
+    "/api/inventory/release": {
+      "post": {
+        "summary": "Release reservation hold back to available pool",
+        "responses": {
+          "200": { "description": "Seats released" }
+        }
+      }
+    },
+    "/api/inventory/cancel": {
+      "post": {
+        "summary": "Cancel booking and release confirmed seats",
+        "responses": {
+          "200": { "description": "Seats cancelled and released" }
+        }
+      }
+    },
+    "/api/inventory/{eventId}": {
+      "get": {
+        "summary": "Get real-time seat inventory summary and tier availability",
+        "responses": {
+          "200": { "description": "Inventory status" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "InventorySummary": {
+        "type": "object",
+        "properties": {
+          "eventId": { "type": "string" },
+          "totalSeats": { "type": "integer" },
+          "availableSeats": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

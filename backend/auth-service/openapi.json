@@ -1,0 +1,75 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Auth Service API",
+    "version": "1.0.0",
+    "description": "User Authentication, RBAC Role Provisioning, JWT Issuance, and Gateway Perimeter Verification."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "API Gateway Base URL"
+    }
+  ],
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "summary": "Register a new user account",
+        "responses": {
+          "201": { "description": "User registered" },
+          "409": { "description": "Email already registered" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "Authenticate user credentials and issue JWT bearer token",
+        "responses": {
+          "200": { "description": "Login successful" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/api/auth/verify": {
+      "get": {
+        "summary": "Fast Gateway auth_request perimeter verification",
+        "responses": {
+          "200": { "description": "Token verified or anonymous access allowed" },
+          "401": { "description": "Invalid or expired token" }
+        }
+      }
+    },
+    "/api/auth/verify-admin": {
+      "get": {
+        "summary": "Admin perimeter guard verification for privileged operations",
+        "responses": {
+          "200": { "description": "Admin privileges verified" },
+          "401": { "description": "Missing token" },
+          "403": { "description": "Forbidden non-admin access" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "summary": "Get authenticated user profile",
+        "responses": {
+          "200": { "description": "User profile" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "email": { "type": "string" },
+          "name": { "type": "string" },
+          "role": { "type": "string" }
+        }
+      }
+    }
+  }
+}

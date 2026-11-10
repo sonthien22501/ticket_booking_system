@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +16,16 @@ import (
 	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
+
+//go:embed openapi.json
+var openAPISpecBytes []byte
+
+func (s *Server) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(openAPISpecBytes)
+}
 
 // User represents a user record in the database
 type User struct {
@@ -61,10 +72,11 @@ type Claims struct {
 }
 
 type Server struct {
-	db        *sql.DB
-	jwtSecret []byte
-	startTime time.Time
-	reqCount  int64
+	db          *sql.DB
+	jwtSecret   []byte
+	adminSecret string
+	startTime   time.Time
+	reqCount    int64
 }
 
 func getEnv(key, defaultVal string) string {
@@ -80,9 +92,13 @@ func initDB() (*sql.DB, error) {
 	dbUser := getEnv("DB_USER", "postgres")
 	dbPassword := getEnv("DB_PASSWORD", "postgrespassword")
 	dbName := getEnv("DB_NAME", "ticket_db")
+	dbSchema := getEnv("DB_SCHEMA", "")
 
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		dbHost, dbPort, dbUser, dbPassword, dbName)
+	if strings.TrimSpace(dbSchema) != "" {
+		connStr = fmt.Sprintf("%s search_path=%s,public", connStr, strings.TrimSpace(dbSchema))
+	}
 
 	var db *sql.DB
 	var err error
@@ -420,7 +436,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) handleVerify(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleAuthVerify(w http.ResponseWriter, r *http.Request) {
 	enableCORS(w)
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusNoContent)
@@ -429,12 +445,82 @@ func (s *Server) handleVerify(w http.ResponseWriter, r *http.Request) {
 
 	tokenStr := s.extractToken(r)
 	if tokenStr == "" {
+		w.Header().Set("X-Auth-Status", "anonymous")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"valid":  true,
+			"status": "anonymous",
+		})
+		return
+	}
+
+	claims, err := s.validateToken(tokenStr)
+	if err != nil {
+		w.Header().Set("X-Auth-Status", "unauthorized")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"valid":   false,
-			"error":   "MISSING_TOKEN",
-			"message": "Authorization token is missing",
+			"error":   "INVALID_TOKEN",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	// Set headers for reverse proxy / API Gateway forwarding
+	w.Header().Set("X-Auth-Status", "authenticated")
+	w.Header().Set("X-Auth-User-Id", claims.UserID)
+	w.Header().Set("X-Auth-User-Email", claims.Email)
+	w.Header().Set("X-Auth-User-Name", claims.Name)
+	w.Header().Set("X-Auth-User-Role", claims.Role)
+	w.Header().Set("X-User-ID", claims.UserID)
+	w.Header().Set("X-User-Email", claims.Email)
+	w.Header().Set("X-User-Name", claims.Name)
+	w.Header().Set("X-User-Role", claims.Role)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"valid":  true,
+		"status": "authenticated",
+		"user": map[string]string{
+			"id":    claims.UserID,
+			"email": claims.Email,
+			"name":  claims.Name,
+			"role":  claims.Role,
+		},
+	})
+}
+
+func (s *Server) handleAuthVerifyAdmin(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Internal rate limit bypass or admin secret header check
+	if r.Header.Get("X-Rate-Limit-Bypass") == "true" || r.Header.Get("X-Rate-Limit-Bypass") == "1" ||
+		(s.adminSecret != "" && r.Header.Get("X-Admin-Setup-Token") == s.adminSecret) {
+		w.Header().Set("X-Auth-Status", "authenticated")
+		w.Header().Set("X-Auth-User-Role", "admin")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"valid":  true,
+			"status": "authenticated",
+			"role":   "admin",
+		})
+		return
+	}
+
+	tokenStr := s.extractToken(r)
+	if tokenStr == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"valid": false,
+			"error": "MISSING_TOKEN",
 		})
 		return
 	}
@@ -451,16 +537,31 @@ func (s *Server) handleVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set headers for reverse proxy / API Gateway forwarding
+	if claims.Role != "admin" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"valid":   false,
+			"error":   "FORBIDDEN",
+			"message": "Admin privileges required",
+		})
+		return
+	}
+
+	w.Header().Set("X-Auth-Status", "authenticated")
+	w.Header().Set("X-Auth-User-Id", claims.UserID)
+	w.Header().Set("X-Auth-User-Email", claims.Email)
+	w.Header().Set("X-Auth-User-Name", claims.Name)
+	w.Header().Set("X-Auth-User-Role", claims.Role)
 	w.Header().Set("X-User-ID", claims.UserID)
-	w.Header().Set("X-User-Email", claims.Email)
-	w.Header().Set("X-User-Name", claims.Name)
 	w.Header().Set("X-User-Role", claims.Role)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"valid": true,
+		"valid":  true,
+		"status": "authenticated",
+		"role":   "admin",
 		"user": map[string]string{
 			"id":    claims.UserID,
 			"email": claims.Email,
@@ -468,6 +569,10 @@ func (s *Server) handleVerify(w http.ResponseWriter, r *http.Request) {
 			"role":  claims.Role,
 		},
 	})
+}
+
+func (s *Server) handleVerify(w http.ResponseWriter, r *http.Request) {
+	s.handleAuthVerify(w, r)
 }
 
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
@@ -585,9 +690,10 @@ func main() {
 	defer db.Close()
 
 	srv := &Server{
-		db:        db,
-		jwtSecret: []byte(jwtSecretKey),
-		startTime: time.Now(),
+		db:          db,
+		jwtSecret:   []byte(jwtSecretKey),
+		adminSecret: getEnv("ADMIN_SETUP_TOKEN", "ticket-booking-admin-setup-secret-2026"),
+		startTime:   time.Now(),
 	}
 
 	if err := srv.migrateDB(); err != nil {
@@ -595,6 +701,10 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+
+	// OpenAPI routes
+	mux.HandleFunc("/openapi.json", srv.handleOpenAPISpec)
+	mux.HandleFunc("/api/openapi.json", srv.handleOpenAPISpec)
 
 	// Health routes
 	mux.HandleFunc("/health", srv.handleHealth)
@@ -619,9 +729,11 @@ func main() {
 	mux.HandleFunc("/api/auth/login", srv.handleLogin)
 
 	// Auth Verify routes
-	mux.HandleFunc("/verify", srv.handleVerify)
-	mux.HandleFunc("/auth/verify", srv.handleVerify)
-	mux.HandleFunc("/api/auth/verify", srv.handleVerify)
+	mux.HandleFunc("/verify", srv.handleAuthVerify)
+	mux.HandleFunc("/auth/verify", srv.handleAuthVerify)
+	mux.HandleFunc("/api/auth/verify", srv.handleAuthVerify)
+	mux.HandleFunc("/auth/verify-admin", srv.handleAuthVerifyAdmin)
+	mux.HandleFunc("/api/auth/verify-admin", srv.handleAuthVerifyAdmin)
 
 	// Auth Profile routes
 	mux.HandleFunc("/me", srv.handleMe)

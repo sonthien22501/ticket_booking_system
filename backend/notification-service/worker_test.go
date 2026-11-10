@@ -153,3 +153,20 @@ func TestNotificationHTTPHandlers(t *testing.T) {
 		t.Errorf("expected deliveries list to have records, got 0")
 	}
 }
+
+func TestNotificationOpenAPISpec(t *testing.T) {
+	srv := &Server{}
+	req := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
+	rr := httptest.NewRecorder()
+	srv.handleOpenAPISpec(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", rr.Code)
+	}
+	var spec map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&spec); err != nil {
+		t.Fatalf("failed to decode openapi json: %v", err)
+	}
+	if spec["openapi"] != "3.0.3" {
+		t.Errorf("expected openapi '3.0.3', got '%v'", spec["openapi"])
+	}
+}
